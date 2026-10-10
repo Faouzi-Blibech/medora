@@ -16,6 +16,7 @@ import { LIVE_JITTER, useLiveTick } from "@/components/shared/useLiveTick";
 import { Toast, useToast } from "@/components/Toast";
 import { addNote, getDoses, getNotes, getPatient, getPrescriptions, getVitals } from "@/lib/api";
 import { useDemoFlags } from "@/lib/demo";
+import { useLiveRefresh } from "@/lib/live";
 import { now, pausedAt, tunisTime, USE_MOCKS } from "@/lib/time";
 import type { Dose, Note, Patient, Prescription, Vital } from "@/lib/types";
 import { useMe } from "@/lib/useMe";
@@ -61,14 +62,26 @@ export function PatientDetail({ id }: { id: string }) {
 
   useEffect(load, [load]);
 
-  const refreshRx = useCallback(async () => {
-    try {
-      const [prescriptions, doses] = await Promise.all([getPrescriptions(id), dosesOrEmpty(id)]);
-      setData((d) => (d ? { ...d, prescriptions, doses } : d));
-    } catch {
-      showNoteError(t("doctor.rxRefreshError"));
-    }
-  }, [id, showNoteError, t]);
+  const refreshRx = useCallback(
+    async (quiet = false) => {
+      try {
+        const [prescriptions, doses] = await Promise.all([getPrescriptions(id), dosesOrEmpty(id)]);
+        setData((d) => (d ? { ...d, prescriptions, doses } : d));
+      } catch {
+        if (!quiet) showNoteError(t("doctor.rxRefreshError"));
+      }
+    },
+    [id, showNoteError, t],
+  );
+
+  // The pharmacist's decisions arrive as prescription_status frames (or every 15 s without a socket).
+  useLiveRefresh(
+    (frame) => {
+      if (!frame || (frame.type === "prescription_status" && frame.data.patient_id === id)) void refreshRx(true);
+    },
+    ["prescription_status"],
+    { enabled: !!data },
+  );
 
   const onAddNote = useCallback(
     async (text: string) => {
