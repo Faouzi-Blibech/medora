@@ -81,14 +81,14 @@ class RegisterIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     email: str = Field(min_length=3, max_length=254, pattern=r"^\s*[^@\s]+@[^@\s]+\.[^@\s]+\s*$")
     password: str = Field(min_length=1, max_length=200)
-    role: Literal["patient", "nurse", "doctor"]  # a request: the approver may change it
+    role: Literal["patient", "nurse", "doctor", "pharmacist"]  # a request: the approver may change it
     note: str | None = Field(default=None, max_length=300)
     requested_doctor_id: str | None = Field(default=None, max_length=20)
 
     @model_validator(mode="after")
-    def _doctors_pick_no_doctor(self) -> "RegisterIn":
-        if self.role == "doctor" and self.requested_doctor_id:
-            raise ValueError("requested_doctor_id: doctors do not pick a doctor")
+    def _staff_pick_no_doctor(self) -> "RegisterIn":
+        if self.role in ("doctor", "pharmacist") and self.requested_doctor_id:
+            raise ValueError("requested_doctor_id: doctors and pharmacists do not pick a doctor")
         return self
 
 
