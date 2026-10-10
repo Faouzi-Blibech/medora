@@ -139,3 +139,31 @@
 .textarea { width: 100%; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: 8px; font: 400 16px/1.4 var(--sans); color: var(--ink); background: var(--paper); resize: vertical; }
 .count { align-self: flex-end; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .dialogActions { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* ── Catalogue (Task 4) ─────────────────────────────────────────────────── */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.search { flex: 1 1 280px; width: auto; }
+.checkRow { display: inline-flex; align-items: center; gap: 10px; font-size: 15px; color: var(--ink); cursor: pointer; }
+.checkRow input { width: 20px; height: 20px; }
+.table { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; }
+.drugGrid { display: grid; grid-template-columns: minmax(180px, 2fr) minmax(140px, 1.2fr) 100px 110px minmax(200px, 2fr) 150px 80px; gap: 12px; min-width: 1000px; }
+.cellMain { font-size: 15px; font-weight: 600; color: var(--ink); }
+.cellSub { display: block; font-size: 13px; color: var(--muted); }
+.mono { font-family: var(--mono); font-size: 14px; }
+.tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; background: var(--chip); color: var(--text); font-size: 12px; }
+.tagGroup { background: var(--doctor-bg); color: var(--doctor-fg); }
+.flag { padding: 3px 8px; border-radius: 999px; font: 600 12px/1.2 var(--sans); background: var(--warn-bg); color: var(--warn-ink); }
+.flagOk { background: var(--news-normal-bg); color: var(--news-normal-fg); }
+.flagOff { background: var(--chip); color: var(--muted); }
+.flagDanger { background: var(--danger-bg); color: var(--danger-ink); }
+.linkBtn { padding: 6px 0; border: none; background: none; color: var(--teal); font: 600 14px/1 var(--sans); cursor: pointer; }
+.drawer { position: fixed; inset-block: 0; inset-inline-end: 0; z-index: 40; width: min(460px, 100%); overflow-y: auto; background: var(--paper); box-shadow: var(--drawer-shadow); }
+.drawerForm { display: flex; flex-direction: column; gap: 14px; padding: 28px; }
+.drawerHead { display: flex; align-items: center; gap: 12px; }
+.drawerTitle { flex: 1; margin: 0; font: 600 24px/1.2 var(--serif); color: var(--ink); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tagBox { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--paper); }
+.tagBox:focus-within { border-color: var(--teal); box-shadow: 0 0 0 3px #cbeaee; }
+.tagX { padding: 0 2px; border: none; background: none; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; }
+.tagEntry { flex: 1 1 120px; min-width: 80px; padding: 4px 2px; border: none; outline: none; background: transparent; color: var(--ink); font: 400 16px/1.4 var(--sans); }

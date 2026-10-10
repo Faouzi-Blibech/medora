@@ -63,10 +63,12 @@ export const NAV: Record<StaffRole, NavItem[]> = {
     { key: "staff", label: "shared.navStaff", href: "/admin/staff", count: NAV_COUNTS.admin.staff },
     { key: "pending", label: "accounts.navPending", href: "/admin/pending" },
     { key: "patients", label: "accounts.navPatientAccess", href: "/admin/patients" },
+    { key: "catalogue", label: "pharmacy.navCatalogue", href: "/admin/catalogue" },
     { key: "password", label: "auth.navPassword", href: "/admin/password" },
   ],
   pharmacist: [
     { key: "worklist", label: "pharmacy.navWorklist", href: "/pharmacist" },
+    { key: "catalogue", label: "pharmacy.navCatalogue", href: "/pharmacist/catalogue" },
     { key: "password", label: "auth.navPassword", href: "/pharmacist/password" },
   ],
 };

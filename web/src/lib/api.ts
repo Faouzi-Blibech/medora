@@ -742,14 +742,23 @@ export function listDrugs(opts: { q?: string; active?: boolean } = {}): Promise<
 
 const sortDrugs = (s: MockStore) => s.drugs.sort((a, b) => a.dci.localeCompare(b.dci) || a.strength.localeCompare(b.strength));
 
+/** 409 `conflict`: same DCI (case-insensitive) + strength + form as another drug (Contract decision 5). */
+function assertNotDuplicate(s: MockStore, d: Pick<Drug, "dci" | "strength" | "form">, selfId?: string): void {
+  const key = (x: Pick<Drug, "dci" | "strength" | "form">) => `${x.dci.trim().toLowerCase()}|${x.strength.trim().toLowerCase()}|${x.form}`;
+  if (s.drugs.some((x) => x.id !== selfId && key(x) === key(d))) throw new ApiError(409, "conflict", "this drug already exists");
+}
+
 /** POST /drugs (pharmacist, admin). */
 export function createDrug(req: DrugInput): Promise<Drug> {
   if (USE_MOCKS)
     return mock((s) => {
-      if (!req.dci.trim() || !req.strength.trim() || !req.atc_code.trim()) throw new ApiError(422, "validation_error", "dci, strength and atc_code are required");
+      if (!req.dci.trim() || !req.strength.trim()) throw new ApiError(422, "validation_error", "dci and strength are required");
+      const atc = req.atc_code.trim().toUpperCase();
+      if (atc && atc.length !== 7) throw new ApiError(422, "validation_error", "atc_code must be empty or 7 characters");
+      assertNotDuplicate(s, req);
       s.seq.drug += 1;
       const t = iso(now());
-      const drug: Drug = { ...req, id: `d-${String(s.seq.drug).padStart(4, "0")}`, created_at: t, updated_at: t };
+      const drug: Drug = { ...req, atc_code: atc, id: `d-${String(s.seq.drug).padStart(4, "0")}`, created_at: t, updated_at: t };
       s.drugs.push(drug);
       sortDrugs(s);
       return drug;
@@ -762,8 +771,13 @@ export function updateDrug(id: string, patch: DrugPatch): Promise<Drug> {
   if (USE_MOCKS)
     return mock((s) => {
       const drug = s.drugs.find((d) => d.id === id) ?? notFound(`Drug ${id}`);
-      for (const k of ["dci", "strength", "atc_code"] as const)
+      for (const k of ["dci", "strength"] as const)
         if (patch[k] !== undefined && !patch[k]?.trim()) throw new ApiError(422, "validation_error", `${k} is required`);
+      if (patch.atc_code !== undefined) {
+        patch.atc_code = patch.atc_code.trim().toUpperCase();
+        if (patch.atc_code && patch.atc_code.length !== 7) throw new ApiError(422, "validation_error", "atc_code must be empty or 7 characters");
+      }
+      assertNotDuplicate(s, { ...drug, ...patch }, drug.id);
       Object.assign(drug, patch, { updated_at: iso(now()) });
       sortDrugs(s);
       return drug;

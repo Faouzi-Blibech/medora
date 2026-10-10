@@ -6,6 +6,7 @@ import type {
   CheckCode,
   CheckSeverity,
   Drug,
+  DrugForm,
   Prescription,
   PrescriptionStatus,
   ReviewDecision,
@@ -163,3 +164,16 @@ export function decisionProblem(
   if (length === 0) return "comment_required";
   return length > COMMENT_MAX ? "comment_too_long" : null;
 }
+
+export const DRUG_FORMS: DrugForm[] = ["tablet", "capsule", "syrup", "injection", "inhaler", "patch", "drops", "other"];
+
+export const FORM_KEY: Record<DrugForm, Key> = {
+  tablet: "pharmacy.formTablet",
+  capsule: "pharmacy.formCapsule",
+  syrup: "pharmacy.formSyrup",
+  injection: "pharmacy.formInjection",
+  inhaler: "pharmacy.formInhaler",
+  patch: "pharmacy.formPatch",
+  drops: "pharmacy.formDrops",
+  other: "pharmacy.formOther",
+};
