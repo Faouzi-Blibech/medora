@@ -69,6 +69,7 @@ export const NAV: Record<StaffRole, NavItem[]> = {
   pharmacist: [
     { key: "worklist", label: "pharmacy.navWorklist", href: "/pharmacist" },
     { key: "catalogue", label: "pharmacy.navCatalogue", href: "/pharmacist/catalogue" },
+    { key: "dispensing", label: "pharmacy.navDispensing", href: "/pharmacist/dispensing" },
     { key: "password", label: "auth.navPassword", href: "/pharmacist/password" },
   ],
 };

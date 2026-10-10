@@ -14,6 +14,13 @@ let sent = 0;
 let scheduled: ReturnType<typeof setTimeout> | null = null;
 const subscribers = new Set<() => void>();
 
+const reloaders = new Set<() => void>();
+
+/** Re-fetch every mounted summary (sidebar badge, tiles) after a stock or dispensing change: no frame carries those. */
+export function refreshPharmacySummary(): void {
+  for (const fn of [...reloaders]) fn();
+}
+
 function refreshSummary(): void {
   if (scheduled) return; // coalesce refreshes requested in the same tick
   scheduled = setTimeout(() => {
@@ -48,5 +55,12 @@ export function usePharmacySummary(enabled: boolean): PharmacySummary | null {
     if (enabled) load();
   }, [enabled, load]);
   useLiveRefresh(load, ["prescription_status"], { enabled });
+  useEffect(() => {
+    if (!enabled) return;
+    reloaders.add(load);
+    return () => {
+      reloaders.delete(load);
+    };
+  }, [enabled, load]);
   return enabled ? summary : null;
 }
