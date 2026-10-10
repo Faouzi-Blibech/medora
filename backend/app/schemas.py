@@ -129,21 +129,14 @@ class NoteOut(BaseModel):
 
 
 # --- prescriptions ---
-class PrescriptionOut(Orm):
-    id: str
-    patient_id: str
-    doctor_id: str
-    items: list
-    care_plan: str
-    active: bool
-    created_at: Ts
-
-
 HHMM = r"^([01]\d|2[0-3]):[0-5]\d$"
 
 
 class RxItemIn(BaseModel):
-    med: str = Field(min_length=1, max_length=80)
+    med: str = Field(min_length=1, max_length=80)  # display string; checks use drug_id
+    drug_id: str | None = Field(default=None, max_length=20)  # null = non-formulary ("hors livret")
+    dose_mg: float | None = Field(default=None, gt=0, le=100000)  # mg per intake; overrides units × unit_mg
+    units_per_intake: int = Field(default=1, ge=1, le=10)
     times: list[Annotated[str, Field(pattern=HHMM)]] = Field(min_length=1, max_length=8)
     slot: int | None = Field(default=None, ge=1, le=4)
     days: int = Field(default=1, ge=1, le=60)
@@ -153,15 +146,19 @@ class PrescriptionIn(BaseModel):
     patient_id: str
     items: list[RxItemIn] = Field(min_length=1, max_length=8)
     care_plan: str = ""
+    urgent: bool = False
+    override_reason: str | None = Field(default=None, max_length=500)
+    replaces_id: str | None = Field(default=None, max_length=20)
+
+
+class PrescriptionCheckIn(BaseModel):
+    patient_id: str
+    items: list[RxItemIn] = Field(min_length=1, max_length=8)
+    replaces_id: str | None = Field(default=None, max_length=20)
 
 
 class PrescriptionPatch(BaseModel):
-    active: bool
-
-
-class PrescriptionPublished(PrescriptionOut):
-    schedule_version: int | None
-    published_to_device: bool
+    active: Literal[False]  # stop only; edits are a new version through replaces_id
 
 
 class AssignIn(BaseModel):

@@ -14,7 +14,7 @@ from app.errors import ApiError
 from app.ids import new_id, reserve_upto
 from app.models import Drug
 from app.schemas import iso
-from app.services.pharmacy.checks import norm
+from app.services.pharmacy.checks import DrugInfo, norm
 
 FORMULARY = Path(__file__).resolve().parents[2] / "data" / "pharmacy" / "formulary.v1.json"
 DRUG_FIELDS = ("dci", "brand_names", "form", "strength", "unit_mg", "max_daily_mg", "atc_code", "allergy_classes",
@@ -126,3 +126,17 @@ def update_drug(db: Session, d: Drug, changes: dict) -> Drug:
     db.flush()
     db.refresh(d)
     return d
+
+
+def to_info(d: Drug) -> DrugInfo:
+    return DrugInfo(id=d.id, dci=d.dci, brand_names=tuple(d.brand_names or ()), atc_code=d.atc_code or "",
+                    unit_mg=_num(d.unit_mg), max_daily_mg=_num(d.max_daily_mg),
+                    allergy_classes=tuple(d.allergy_classes or ()),
+                    interaction_groups=tuple(d.interaction_groups or ()), high_alert=bool(d.high_alert))
+
+
+def drug_infos(db: Session, ids: set[str]) -> dict[str, DrugInfo]:
+    """Formulary facts for these ids, inactive drugs included (a running prescription may still use one)."""
+    if not ids:
+        return {}
+    return {d.id: to_info(d) for d in db.scalars(select(Drug).where(Drug.id.in_(ids)))}
