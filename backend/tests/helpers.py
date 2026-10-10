@@ -31,3 +31,9 @@ def make_patient(db, *, attending: str | None = None, ward: str = "Cardiology", 
     db.add(p)
     db.flush()
     return p
+
+
+def pharmacist(client, db, email: str = "ph.t@ward.tn", name: str = "Pharm Test") -> dict:
+    """An active pharmacist account (no staff row) and its auth headers."""
+    make_user(db, email, role="pharmacist", name=name)
+    return login(client, email)

@@ -5,9 +5,9 @@ A few additive fields from the api.md 1.5 proposals are included where they cost
 """
 
 from datetime import UTC, date, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, StringConstraints, model_validator
 
 
 def iso(dt: datetime | None) -> str | None:
@@ -186,3 +186,47 @@ class DoseOut(Orm):
     status: str
     taken_method: str | None
     updated_at: Ts
+
+
+# --- pharmacy (api 1.12) ---
+Comment = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+DrugForm = Literal["tablet", "capsule", "syrup", "injection", "inhaler", "patch", "drops", "other"]
+Tag = Annotated[str, StringConstraints(strip_whitespace=True, to_lower=True, pattern=r"(?i)^[a-z][a-z0-9_]{0,39}$")]
+Brand = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+Dci = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+Strength = Annotated[str, StringConstraints(strip_whitespace=True, max_length=40)]
+Atc = Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"(?i)^$|^[A-Z]\d{2}[A-Z]{2}\d{2}$")]
+
+
+class DrugIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    dci: Dci
+    brand_names: list[Brand] = Field(default_factory=list, max_length=20)
+    form: DrugForm
+    strength: Strength = ""
+    unit_mg: float | None = Field(default=None, gt=0, le=100000)
+    max_daily_mg: float | None = Field(default=None, gt=0, le=1000000)
+    atc_code: Atc = ""
+    allergy_classes: list[Tag] = Field(default_factory=list, max_length=20)
+    interaction_groups: list[Tag] = Field(default_factory=list, max_length=20)
+    high_alert: bool = False
+    min_stock: int = Field(default=0, ge=0, le=1000000)
+    active: bool = True
+
+
+class DrugPatch(BaseModel):
+    """Only the fields sent change. `unit_mg` and `max_daily_mg` may be set to null; the others may not."""
+
+    model_config = ConfigDict(extra="forbid")
+    dci: Dci | None = None
+    brand_names: list[Brand] | None = Field(default=None, max_length=20)
+    form: DrugForm | None = None
+    strength: Strength | None = None
+    unit_mg: float | None = Field(default=None, gt=0, le=100000)
+    max_daily_mg: float | None = Field(default=None, gt=0, le=1000000)
+    atc_code: Atc | None = None
+    allergy_classes: list[Tag] | None = Field(default=None, max_length=20)
+    interaction_groups: list[Tag] | None = Field(default=None, max_length=20)
+    high_alert: bool | None = None
+    min_stock: int | None = Field(default=None, ge=0, le=1000000)
+    active: bool | None = None
