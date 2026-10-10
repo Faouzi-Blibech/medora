@@ -7,10 +7,11 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 import { LogoutButton } from "./LogoutButton";
 import { USE_MOCKS } from "@/lib/time";
 import { initialsOf, useMe } from "@/lib/useMe";
+import { usePharmacySummary } from "./pharmacist/usePharmacySummary";
 import { NAV_COUNTS } from "@/mocks";
 import styles from "./Sidebar.module.css";
 
-export type StaffRole = "doctor" | "nurse" | "admin";
+export type StaffRole = "doctor" | "nurse" | "admin" | "pharmacist";
 
 export interface NavItem {
   key: string;
@@ -26,6 +27,7 @@ const USERS: Record<StaffRole, { name: string; sub: Key; ini: string }> = {
   doctor: { name: "Dr Trabelsi", sub: "shared.userDoctorSub", ini: "DT" },
   nurse: { name: "Nurse Ines", sub: "shared.userNurseSub", ini: "NI" },
   admin: { name: "Mme Gharbi", sub: "shared.subAdmin", ini: "MG" },
+  pharmacist: { name: "Pharm. Salma", sub: "pharmacy.userSub", ini: "PS" },
 };
 
 /** Real-mode subtitle: /me has no ward, so the role word is enough. */
@@ -34,6 +36,7 @@ const ROLE_SUB: Record<string, Key> = {
   nurse: "shared.roleNurse",
   admin: "shared.subAdmin",
   patient: "shared.rolePatient",
+  pharmacist: "pharmacy.rolePharmacist",
 };
 
 export const NAV: Record<StaffRole, NavItem[]> = {
@@ -61,6 +64,10 @@ export const NAV: Record<StaffRole, NavItem[]> = {
     { key: "pending", label: "accounts.navPending", href: "/admin/pending" },
     { key: "patients", label: "accounts.navPatientAccess", href: "/admin/patients" },
     { key: "password", label: "auth.navPassword", href: "/admin/password" },
+  ],
+  pharmacist: [
+    { key: "worklist", label: "pharmacy.navWorklist", href: "/pharmacist" },
+    { key: "password", label: "auth.navPassword", href: "/pharmacist/password" },
   ],
 };
 
@@ -91,6 +98,10 @@ export function Sidebar({ role, active, live = true, counts }: SidebarProps) {
   const items = NAV[role];
   const current = active ?? items[0].key;
   const me = useMe(role);
+  // Pharmacist: the worklist badge comes from GET /pharmacy/summary in both modes; red when a critical item waits.
+  const summary = usePharmacySummary(role === "pharmacist");
+  const merged: Partial<Record<string, string | number>> = { ...(summary ? { worklist: summary.pending } : {}), ...counts };
+  const critical = new Set<string>(summary && summary.critical_pending > 0 ? ["worklist"] : []);
   const u = USE_MOCKS
     ? { ...USERS[role], sub: t(USERS[role].sub) }
     : {
@@ -111,7 +122,8 @@ export function Sidebar({ role, active, live = true, counts }: SidebarProps) {
         {items.map((n) => {
           const on = n.key === current;
           // Real mode: no stats endpoint yet (proposed in api.md), so no count pills.
-          const count = USE_MOCKS ? String(counts?.[n.key] ?? n.count ?? "") : String(counts?.[n.key] ?? "");
+          const count = USE_MOCKS ? String(merged[n.key] ?? n.count ?? "") : String(merged[n.key] ?? "");
+          const crit = critical.has(n.key);
           return (
             <Link
               key={n.key}
@@ -122,7 +134,12 @@ export function Sidebar({ role, active, live = true, counts }: SidebarProps) {
               <span className={styles.dot} />
               <span className={styles.label}>{t(n.label)}</span>
               {count && count !== "0" ? (
-                <span className={`${styles.count} ${n.hot ? styles.countHot : ""}`}>{count}</span>
+                <span
+                  className={`${styles.count} ${crit ? styles.countCritical : n.hot ? styles.countHot : ""}`}
+                  title={crit && summary ? t("pharmacy.criticalWaiting", { n: summary.critical_pending }) : undefined}
+                >
+                  {count}
+                </span>
               ) : null}
             </Link>
           );

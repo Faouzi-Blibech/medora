@@ -1,0 +1,40 @@
+/* Pharmacist space. Logical properties only (the app runs RTL in Arabic). */
+
+/* ── Summary tiles (Task 2) ─────────────────────────────────────────────── */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 4px;
+  padding: 16px 18px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.tileDanger {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.tileLabel {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.tileNum {
+  margin: 0;
+  font: 600 32px/1 var(--serif);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.tileDanger .tileNum {
+  color: var(--danger);
+}
