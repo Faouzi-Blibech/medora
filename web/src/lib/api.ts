@@ -610,6 +610,16 @@ function rxChecks(s: MockStore, rx: Prescription): Check[] {
   return checksFor(s.patients, s.prescriptions, s.drugs, { patient_id: rx.patient_id, items: rx.items, ...(rx.replaces_id ? { replaces_id: rx.replaces_id } : {}) }, rx.id);
 }
 
+/** Statuses a prescription can be replaced from, and the ones that count as a live successor (Contract decision 7). */
+const REPLACEABLE: ReadonlySet<string> = new Set(["pending_pharmacy", "changes_requested", "validated"]);
+
+/** 422 `unknown_drug`: a set `drug_id` that is missing or inactive in the catalogue. */
+function assertKnownDrugs(s: MockStore, items: { drug_id?: string | null }[]): void {
+  for (const it of items)
+    if (it.drug_id && !s.drugs.some((d) => d.id === it.drug_id && d.active))
+      throw new ApiError(422, "unknown_drug", `drug ${it.drug_id} is unknown or inactive`);
+}
+
 const statusFrame = (rx: Prescription) =>
   publishFrame({ type: "prescription_status", data: { prescription_id: rx.id, patient_id: rx.patient_id, status: rx.status, urgent: rx.urgent } });
 
@@ -622,11 +632,17 @@ export function createPrescription(req: CreatePrescriptionRequest, opts: ActorOp
   if (USE_MOCKS)
     return mock((s) => {
       const patient = s.patients.find((p) => p.id === req.patient_id) ?? notFound(`Patient ${req.patient_id}`);
+      assertKnownDrugs(s, req.items);
       const replaced = req.replaces_id
-        ? (s.prescriptions.find((r) => r.id === req.replaces_id && r.patient_id === patient.id) ?? notFound(`Prescription ${req.replaces_id}`))
+        ? (s.prescriptions.find((r) => r.id === req.replaces_id) ?? notFound(`Prescription ${req.replaces_id}`))
         : null;
-      if (replaced && s.prescriptions.some((r) => r.replaces_id === replaced.id && r.status !== "rejected"))
-        throw new ApiError(409, "conflict", "A newer version already replaces this prescription.");
+      // Contract decision 7: another patient's prescription, a status that can't be replaced, or a live newer version.
+      if (replaced) {
+        if (replaced.patient_id !== patient.id || !REPLACEABLE.has(replaced.status))
+          throw new ApiError(409, "conflict", "This prescription can't be replaced.");
+        if (s.prescriptions.some((r) => r.replaces_id === replaced.id && REPLACEABLE.has(r.status)))
+          throw new ApiError(409, "conflict", "A newer version already replaces this prescription.");
+      }
       const checks = checksFor(s.patients, s.prescriptions, s.drugs, { patient_id: patient.id, items: req.items, ...(replaced ? { replaces_id: replaced.id } : {}) });
       const reason = req.override_reason?.trim() || null;
       if (hasCritical(checks) && !reason) throw new ApiError(422, "override_required", "A critical check needs an override_reason.");
@@ -657,6 +673,16 @@ export function createPrescription(req: CreatePrescriptionRequest, opts: ActorOp
       };
       s.prescriptions.push(rx);
       if (urgent) scheduleDoses(s, rx, created);
+      // Contract decision 8: a replaced version that never ran is superseded now; a running one keeps running
+      // until the new one is validated, unless the new one is urgent (no double dosing).
+      if (replaced) {
+        const wasRunning = isRunning(replaced);
+        if (!wasRunning || urgent) {
+          Object.assign(replaced, { status: "superseded", active: false });
+          if (wasRunning) dropFutureDoses(s, replaced.id);
+          statusFrame(replaced);
+        }
+      }
       statusFrame(rx);
       return rx;
     });
@@ -750,6 +776,7 @@ export function checkPrescription(req: CheckRequest): Promise<CheckResponse> {
   if (USE_MOCKS)
     return mock((s) => {
       s.patients.find((p) => p.id === req.patient_id) ?? notFound(`Patient ${req.patient_id}`);
+      assertKnownDrugs(s, req.items);
       return { checks: checksFor(s.patients, s.prescriptions, s.drugs, req) };
     });
   return http<CheckResponse>("POST", "/prescriptions/check", req);
@@ -779,7 +806,7 @@ export async function getWorklist(status: WorklistStatus = "pending_pharmacy"): 
   const list = USE_MOCKS
     ? await mock((s) =>
         s.prescriptions
-          .filter((r) => (status === "all" ? r.status !== "stopped" && r.status !== "superseded" : r.status === status))
+          .filter((r) => status === "all" || r.status === status)
           .map((rx) => worklistItem(s, rx)),
       )
     : await http<WorklistItem[]>("GET", `/pharmacy/worklist?status=${status}`);
@@ -793,13 +820,14 @@ export function getReview(id: string): Promise<ReviewDetail> {
       const rx = s.prescriptions.find((r) => r.id === id) ?? notFound(`Prescription ${id}`);
       const p = s.patients.find((x) => x.id === rx.patient_id) ?? notFound(`Patient ${rx.patient_id}`);
       const chain = chainOf(s.prescriptions, rx.replaces_id);
+      const chainIds = chainOf(s.prescriptions, rx.id); // the whole replaced chain (Contract decision 19)
       return {
         prescription: rx,
         patient: pharmacyPatient(p),
         doctor_name: userName(rx.doctor_id) ?? rx.doctor_id,
         running: s.prescriptions.filter((r) => r.patient_id === p.id && r.id !== rx.id && !chain.has(r.id) && isRunning(r)),
         checks: rxChecks(s, rx),
-        history: s.reviews.filter((r) => r.prescription_id === rx.id),
+        history: s.reviews.filter((r) => chainIds.has(r.prescription_id)),
         replaces: rx.replaces_id ? (s.prescriptions.find((r) => r.id === rx.replaces_id) ?? null) : null,
       };
     });

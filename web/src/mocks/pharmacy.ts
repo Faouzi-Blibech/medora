@@ -79,6 +79,7 @@ const ALLERGY_SYNONYMS: Record<string, string> = {
   penicillin: "penicillin", "pénicilline": "penicillin", "بنسلين": "penicillin", amoxicillin: "penicillin",
   ibuprofen: "nsaid", "ibuprofène": "nsaid", aspirin: "nsaid", aspirine: "nsaid", nsaid: "nsaid", ains: "nsaid",
   macrolide: "macrolide",
+  "beta-lactam": "beta_lactam", "bêta-lactamine": "beta_lactam", beta_lactam: "beta_lactam",
 };
 const ELDERLY_CAUTION = new Set(["diazepam", "ibuprofen"]);
 
@@ -87,7 +88,7 @@ const allergyClass = (a: string) => ALLERGY_SYNONYMS[norm(a)] ?? norm(a);
 
 /** Spec §4, simplified. Pairs are reported only when at least one side is a candidate item. */
 export function mockChecks(
-  patient: { age: number; allergies: string[] },
+  patient: { age: number | null; allergies: string[] },
   items: PrescriptionItem[],
   running: Prescription[],
   drugs: Drug[],
@@ -107,32 +108,38 @@ export function mockChecks(
     }
     for (const cls of d.allergy_classes) {
       const hit = classes.get(cls);
-      if (hit) add({ code: "allergy", severity: "critical", item_index: i, drug_id: d.id, params: { allergy: hit, class: cls } }, `Allergy: ${hit} (${cls})`);
+      if (hit) add({ code: "allergy", severity: "critical", item_index: i, drug_id: d.id, params: { med: it.med, allergy: hit, class: cls } }, `Allergy: ${hit} (${cls})`);
     }
     const perIntake = it.dose_mg ?? (d.unit_mg != null ? (it.units_per_intake ?? 1) * d.unit_mg : null);
     if (perIntake != null && d.max_daily_mg != null) {
       const daily = perIntake * it.times.length;
       if (daily > d.max_daily_mg)
         add(
-          { code: "max_daily_dose", severity: daily > 2 * d.max_daily_mg ? "critical" : "major", item_index: i, drug_id: d.id, params: { daily_mg: daily, max_mg: d.max_daily_mg } },
+          { code: "max_daily_dose", severity: daily > 2 * d.max_daily_mg ? "critical" : "major", item_index: i, drug_id: d.id, params: { med: it.med, daily_mg: daily, max_daily_mg: d.max_daily_mg } },
           `Daily dose ${daily} mg > max ${d.max_daily_mg} mg`,
         );
     }
     const others = [...runningItems, ...items.slice(i + 1).map((x) => ({ it: x, drug: drugOf(x) }))];
     for (const o of others) {
       if (!o.drug) continue;
-      if (o.drug.dci === d.dci || o.drug.atc_code.slice(0, 5) === d.atc_code.slice(0, 5))
-        add({ code: "duplicate_therapy", severity: "major", item_index: i, drug_id: d.id, params: { other: o.it.med } }, `Duplicate therapy with ${o.it.med}`);
+      const sameDci = o.drug.dci === d.dci;
+      // An empty (or short) ATC code never matches: the catalogue allows drugs without one.
+      const sameClass = d.atc_code.length >= 5 && o.drug.atc_code.slice(0, 5) === d.atc_code.slice(0, 5);
+      if (sameDci || sameClass)
+        add(
+          { code: "duplicate_therapy", severity: "major", item_index: i, drug_id: d.id, params: { med: it.med, reason: sameDci ? "same_dci" : "same_atc_class", with_med: o.it.med } },
+          `Duplicate therapy with ${o.it.med}`,
+        );
       for (const [a, b, severity] of INTERACTIONS) {
         const hit =
           (d.interaction_groups.includes(a) && o.drug.interaction_groups.includes(b)) ||
           (d.interaction_groups.includes(b) && o.drug.interaction_groups.includes(a));
-        if (hit) add({ code: "interaction", severity, item_index: i, drug_id: d.id, params: { other: o.it.med, group_a: a, group_b: b } }, `Interaction with ${o.it.med} (${a} + ${b})`);
+        if (hit) add({ code: "interaction", severity, item_index: i, drug_id: d.id, params: { med: it.med, groups: [a, b], with_med: o.it.med } }, `Interaction with ${o.it.med} (${a} + ${b})`);
       }
     }
-    if (d.high_alert) add({ code: "high_alert", severity: "info", item_index: i, drug_id: d.id, params: {} }, `${d.dci} is a high-alert drug`);
-    if (patient.age >= 75 && ELDERLY_CAUTION.has(norm(d.dci)))
-      add({ code: "elderly", severity: "moderate", item_index: i, drug_id: d.id, params: { age: patient.age } }, `Elderly caution (${patient.age})`);
+    if (d.high_alert) add({ code: "high_alert", severity: "info", item_index: i, drug_id: d.id, params: { med: it.med } }, `${d.dci} is a high-alert drug`);
+    if (patient.age != null && patient.age >= 75 && ELDERLY_CAUTION.has(norm(d.dci)))
+      add({ code: "elderly", severity: "moderate", item_index: i, drug_id: d.id, params: { med: it.med, age: patient.age } }, `Elderly caution (${patient.age})`);
   });
   return out.sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]);
 }

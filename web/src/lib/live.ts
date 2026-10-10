@@ -17,6 +17,8 @@ let open = false;
 let users = 0;
 let attempt = 0;
 let retry: ReturnType<typeof setTimeout> | null = null;
+/** Every mounted `useLiveRefresh` reruns its load when a socket opens: frames sent while it was down are lost. */
+const reopenListeners = new Set<() => void>();
 
 function isFrame(v: unknown): v is WsFrame {
   return typeof v === "object" && v !== null && typeof (v as { type?: unknown }).type === "string" && "data" in v;
@@ -37,6 +39,7 @@ function connect(): void {
     if (socket !== ws) return;
     attempt = 0;
     open = true;
+    reopenListeners.forEach((fn) => fn());
   };
   ws.onmessage = (e: MessageEvent) => {
     if (socket !== ws) return;
@@ -112,12 +115,15 @@ export function useLiveRefresh(
     const off = subscribeFrames((f) => {
       if (wanted.has(f.type)) latest.current(f);
     });
+    const onReopen = () => latest.current();
+    reopenListeners.add(onReopen);
     const timer = setInterval(() => {
       if (document.visibilityState !== "visible") return;
       if (poll === "always" || !isSocketOpen()) latest.current();
     }, pollMs);
     return () => {
       off();
+      reopenListeners.delete(onReopen);
       clearInterval(timer);
       release();
     };

@@ -471,7 +471,7 @@ export interface Check {
   /** Index in the prescription's `items`; null when the finding is not tied to one item. */
   item_index: number | null;
   drug_id: string | null;
-  params: Record<string, string | number | null>;
+  params: Record<string, string | number | null | string[]>;
   message: string;
 }
 
@@ -512,7 +512,7 @@ export interface CheckResponse {
 export interface PharmacyPatient {
   id: string;
   name: string;
-  age: number;
+  age: number | null;
   sex: "F" | "M";
   ward: string | null;
   bed: string | null;

@@ -99,7 +99,9 @@ export function ReviewPanel({ id, onDecided, onStale }: ReviewPanelProps) {
   const blocked = decisionProblem({ decision: "validate", acknowledged: ack, comment: "" }, hasChecks) !== null;
   const where = patient.ward && patient.bed ? t("pharmacy.bedWard", { ward: patient.ward, bed: patient.bed }) : (patient.ward ?? patient.bed);
   const meta = [
-    t("pharmacy.patientLine", { age: patient.age, sex: t(patient.sex === "F" ? "pharmacy.sexF" : "pharmacy.sexM") }),
+    patient.age != null
+      ? t("pharmacy.patientLine", { age: patient.age, sex: t(patient.sex === "F" ? "pharmacy.sexF" : "pharmacy.sexM") })
+      : t(patient.sex === "F" ? "pharmacy.sexF" : "pharmacy.sexM"), // age is null without a date of birth
     patient.weight_kg != null ? t("pharmacy.weight", { kg: patient.weight_kg }) : null,
     where,
     t("pharmacy.byDoctor", { name: detail.doctor_name }),

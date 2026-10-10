@@ -119,9 +119,9 @@ export const drugLabel = (d: Pick<Drug, "dci" | "strength">): string => `${d.dci
 
 const CHECK_TEXT: Record<CheckCode, { key: Key; params: readonly string[] }> = {
   allergy: { key: "pharmacy.chkAllergy", params: ["allergy", "class"] },
-  interaction: { key: "pharmacy.chkInteraction", params: ["other", "group_a", "group_b"] },
-  max_daily_dose: { key: "pharmacy.chkMaxDailyDose", params: ["daily_mg", "max_mg"] },
-  duplicate_therapy: { key: "pharmacy.chkDuplicate", params: ["other"] },
+  interaction: { key: "pharmacy.chkInteraction", params: ["with_med", "group_a", "group_b"] },
+  max_daily_dose: { key: "pharmacy.chkMaxDailyDose", params: ["daily_mg", "max_daily_mg"] },
+  duplicate_therapy: { key: "pharmacy.chkDuplicate", params: ["with_med"] },
   non_formulary: { key: "pharmacy.chkNonFormulary", params: [] },
   high_alert: { key: "pharmacy.chkHighAlert", params: [] },
   elderly: { key: "pharmacy.chkElderly", params: ["age"] },
@@ -131,9 +131,13 @@ const CHECK_TEXT: Record<CheckCode, { key: Key; params: readonly string[] }> = {
 export function checkText(c: Check, t: TFn): string {
   const spec = (CHECK_TEXT as Partial<Record<string, { key: Key; params: readonly string[] }>>)[c.code];
   if (!spec) return c.message;
+  const raw = c.params ?? {};
+  // The backend sends the interaction's two groups as `groups: [a, b]`; the sentence reads them as group_a/group_b.
+  const groups = Array.isArray(raw.groups) ? raw.groups : [];
+  const src: Record<string, string | number | null | undefined> = { ...(raw as Record<string, never>), group_a: groups[0], group_b: groups[1] };
   const vars: Record<string, string | number> = {};
   for (const p of spec.params) {
-    const v = c.params?.[p];
+    const v = src[p];
     if (v === undefined || v === null || v === "") return c.message;
     vars[p] = v;
   }
