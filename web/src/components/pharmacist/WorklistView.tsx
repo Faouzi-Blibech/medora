@@ -3,7 +3,7 @@
 // Pharmacist / Worklist (/pharmacist): the list (urgent, then severity, then oldest) and the review panel
 // of the selected row (?rx=). Refreshes on every prescription_status frame, or every 15 s without a socket.
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useT } from "@/i18n/I18nProvider";
 import type { Key } from "@/i18n/messages";
 import { SeverityChip } from "@/components/shared/CheckList";
@@ -43,13 +43,18 @@ export function WorklistView() {
   const [failed, setFailed] = useState(false);
   const [toast, showToast] = useToast<string>(4500);
 
+  const sent = useRef(0);
   const load = useCallback(() => {
+    const id = ++sent.current; // only the latest request may update the list: a slow reply of a former filter is dropped
     getWorklist(filter).then(
       (list) => {
+        if (id !== sent.current) return;
         setItems(list);
         setFailed(false);
       },
-      () => setFailed(true), // a failed refresh keeps the rows on screen
+      () => {
+        if (id === sent.current) setFailed(true); // a failed refresh keeps the rows on screen
+      },
     );
   }, [filter]);
   useEffect(() => {
@@ -96,7 +101,7 @@ export function WorklistView() {
         {failed && !items ? (
           <ErrorCard title={t("pharmacy.worklistLoadError")} onRetry={load} secondaryLabel={null} />
         ) : !items ? (
-          <div className="ward-skeleton" style={{ height: 180 }} aria-busy="true" />
+          <div className="ward-skeleton" style={{ height: 180 }} role="status" aria-busy="true" aria-label={t("pharmacy.loading")} />
         ) : items.length === 0 ? (
           <p className={styles.empty}>{t("pharmacy.worklistEmpty")}</p>
         ) : (

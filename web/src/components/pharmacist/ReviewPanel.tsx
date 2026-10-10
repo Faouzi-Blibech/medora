@@ -5,7 +5,7 @@
 // reason, the patient's other running prescriptions, and the history.
 // Validate is 1 click with no checks, or tick + click with checks. Request changes and Reject go through
 // CommentDialog (open, type, Send).
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useT } from "@/i18n/I18nProvider";
 import page from "@/components/admin/AdminPage.module.css";
 import { CheckList } from "@/components/shared/CheckList";
@@ -31,19 +31,29 @@ export interface ReviewPanelProps {
 function ItemLine({ item }: { item: PrescriptionItem }) {
   const { t } = useT();
   const units = item.units_per_intake ?? 1;
+  // Doses and times are LTR so they never reorder inside Arabic text.
   const parts = [
-    item.dose_mg != null ? t("pharmacy.itemDoseMg", { mg: item.dose_mg }) : null,
+    item.dose_mg != null ? <span dir="ltr">{t("pharmacy.itemDoseMg", { mg: item.dose_mg })}</span> : null,
     units !== 1 ? t("pharmacy.itemUnits", { n: units }) : null,
-    item.times.join(" · "),
+    <span dir="ltr" key="times">
+      {item.times.join(" · ")}
+    </span>,
     t("pharmacy.itemDays", { n: item.days }),
-  ].filter((x): x is string => !!x);
+  ].filter((x) => !!x);
   return (
     <div className={styles.item}>
       <span dir="auto" className={styles.itemMed}>
         {item.med}
         {item.drug_id ? null : <span className={styles.nf}> · {t("pharmacy.nonFormularyTag")}</span>}
       </span>
-      <span className={styles.itemMeta}>{parts.join(" · ")}</span>
+      <span className={styles.itemMeta}>
+        {parts.map((p, i) => (
+          <span key={i}>
+            {i > 0 ? " · " : null}
+            {p}
+          </span>
+        ))}
+      </span>
     </div>
   );
 }
@@ -55,11 +65,17 @@ export function ReviewPanel({ id, onDecided, onStale }: ReviewPanelProps) {
   const [ack, setAck] = useState(false);
   const [dialog, setDialog] = useState<CommentKind | null>(null);
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false); // the double-click guard must not wait for a re-render
+  const checksSig = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     getReview(id).then(
       (d) => {
+        // Checks that changed since the tick was given must be looked at again: never validate a warning unseen.
+        const sig = d.checks.map((c) => `${c.code}:${c.item_index}:${c.severity}`).join("|");
+        if (sig !== checksSig.current) setAck(false);
+        checksSig.current = sig;
         setDetail(d);
         setFailed(false);
       },
@@ -70,7 +86,8 @@ export function ReviewPanel({ id, onDecided, onStale }: ReviewPanelProps) {
   useLiveRefresh(load, ["prescription_status"]);
 
   async function run(decision: ReviewDecision, call: () => Promise<Prescription>) {
-    if (busy) return; // a double click sends one request
+    if (busyRef.current) return; // a double click sends one request
+    busyRef.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -86,12 +103,13 @@ export function ReviewPanel({ id, onDecided, onStale }: ReviewPanelProps) {
         if (err.code === "bad_status") onStale();
       }
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }
 
   if (failed && !detail) return <ErrorCard title={t("pharmacy.reviewLoadError")} onRetry={load} secondaryLabel={null} />;
-  if (!detail) return <div className="ward-skeleton" style={{ height: 360 }} aria-busy="true" />;
+  if (!detail) return <div className="ward-skeleton" style={{ height: 360 }} role="status" aria-busy="true" aria-label={t("pharmacy.loading")} />;
 
   const { prescription: rx, patient, checks } = detail;
   const hasChecks = checks.length > 0;
@@ -175,7 +193,7 @@ export function ReviewPanel({ id, onDecided, onStale }: ReviewPanelProps) {
                 <span>
                   {t("pharmacy.historyLine", {
                     decision: t(DECISION_KEY[h.decision]),
-                    name: h.pharmacist_name ?? h.pharmacist_id,
+                    name: h.pharmacist_name ?? t("pharmacy.rolePharmacist"),
                     when: fmtWhen(h.created_at, lang),
                   })}
                 </span>
@@ -198,11 +216,6 @@ export function ReviewPanel({ id, onDecided, onStale }: ReviewPanelProps) {
               {t("pharmacy.ackLabel")}
             </label>
           ) : null}
-          {error && !dialog ? (
-            <span role="alert" className={styles.error}>
-              {error}
-            </span>
-          ) : null}
           <div className={styles.actionRow}>
             <button
               type="button"
@@ -224,6 +237,12 @@ export function ReviewPanel({ id, onDecided, onStale }: ReviewPanelProps) {
         <p dir="auto" className={styles.muted}>
           {t("pharmacy.reviewComment", { comment: rx.review_comment })}
         </p>
+      ) : null}
+      {/* Outside the pending-only footer: after a 409 `bad_status` the reload makes the prescription read-only. */}
+      {error && !dialog ? (
+        <span role="alert" className={styles.error}>
+          {error}
+        </span>
       ) : null}
 
       {dialog ? (

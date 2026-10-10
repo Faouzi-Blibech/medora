@@ -3,7 +3,7 @@
 // Comment dialog for "Request changes" and "Reject": the comment is required (1–500 characters).
 // It opens with the text box focused; Escape or Cancel closes it; Send stays disabled until the comment is valid.
 // Steps: open (1), type, Send (2): within the spec's 3-step limit.
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useT } from "@/i18n/I18nProvider";
 import page from "@/components/admin/AdminPage.module.css";
 import { COMMENT_MAX, decisionProblem } from "@/lib/pharmacy";
@@ -25,21 +25,46 @@ export function CommentDialog({ kind, busy, error, onSubmit, onClose }: CommentD
   const [comment, setComment] = useState("");
   const box = useRef<HTMLTextAreaElement>(null);
   const close = useRef(onClose);
+  const busyRef = useRef(busy);
+  const form = useRef<HTMLFormElement>(null);
   const id = useId();
   const problem = decisionProblem({ decision: kind, acknowledged: false, comment }, false);
   const length = [...comment.trim()].length;
 
   useEffect(() => {
     close.current = onClose;
+    busyRef.current = busy;
   });
   useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     box.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close.current();
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape" && !busyRef.current) close.current(); // not while a send is in flight
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      if (opener?.isConnected) opener.focus(); // back to the button that opened the dialog
+    };
   }, []);
+
+  /** Tab stays inside the dialog: it wraps from the last control to the first and back. */
+  function trap(e: KeyboardEvent<HTMLFormElement>) {
+    if (e.key !== "Tab") return;
+    const els = [...(form.current?.querySelectorAll<HTMLElement>("textarea, button") ?? [])].filter((x) => !(x as HTMLButtonElement).disabled);
+    if (!els.length) return;
+    const first = els[0];
+    const last = els[els.length - 1];
+    const here = document.activeElement;
+    const inside = !!form.current?.contains(here);
+    if (e.shiftKey && (here === first || !inside)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && (here === last || !inside)) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -49,7 +74,7 @@ export function CommentDialog({ kind, busy, error, onSubmit, onClose }: CommentD
 
   return (
     <div className={styles.overlay}>
-      <form role="dialog" aria-modal="true" aria-labelledby={`${id}-title`} className={styles.dialog} onSubmit={submit}>
+      <form ref={form} role="dialog" aria-modal="true" aria-labelledby={`${id}-title`} className={styles.dialog} onSubmit={submit} onKeyDown={trap}>
         <h2 id={`${id}-title`} className={styles.dialogTitle}>
           {t(kind === "reject" ? "pharmacy.reject" : "pharmacy.requestChanges")}
         </h2>
