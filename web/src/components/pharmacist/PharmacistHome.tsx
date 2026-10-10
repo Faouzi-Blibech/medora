@@ -1,9 +1,10 @@
 "use client";
 
-// Pharmacist home (/pharmacist): the title, the summary tiles and (Task 3) the worklist.
+// Pharmacist home (/pharmacist): the title, the summary tiles and the worklist.
 import { useT } from "@/i18n/I18nProvider";
 import page from "@/components/admin/AdminPage.module.css";
 import { SummaryStrip } from "./SummaryStrip";
+import { WorklistView } from "./WorklistView";
 
 export function PharmacistHome() {
   const { t } = useT();
@@ -16,6 +17,7 @@ export function PharmacistHome() {
         </div>
       </div>
       <SummaryStrip />
+      <WorklistView />
     </div>
   );
 }
