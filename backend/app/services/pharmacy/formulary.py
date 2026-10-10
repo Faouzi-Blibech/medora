@@ -40,26 +40,47 @@ def load_formulary(db: Session, path: Path = FORMULARY) -> int:
     return added
 
 
+_UNIT = r"(mg|mcg|[µμ]g|ug|iu|ml|g)"
+_STRENGTH = re.compile(rf"(?<![\w.,])(\d+(?:[.,]\d+)?)\s*{_UNIT}(?!\w)")
+
+
 def _name(s: str) -> str:
-    """Lower-case, no accents, and "500 mg" == "500mg": a digit followed by a unit is glued together."""
-    return re.sub(r"(\d)\s+(mg|g|µg|mcg|ug|iu|ml)\b", r"\1\2", norm(s))
+    """Lower-case, no accents, "/" and "+" as spaces, and "500 mg" == "500mg": a digit followed by a unit is glued."""
+    return re.sub(rf"(\d)\s+{_UNIT}(?!\w)", r"\1\2", norm(s))
+
+
+def strengths(s: str) -> frozenset[tuple[float, str]]:
+    """The (amount, unit) pairs a strength text carries, masses in mg: "1 g/125 mg" -> {(1000, mg), (125, mg)}."""
+    out = set()
+    for num, unit in _STRENGTH.findall(_name(s)):
+        v = float(num.replace(",", "."))
+        if unit == "g":
+            out.add((v * 1000, "mg"))
+        elif unit in ("µg", "μg", "mcg", "ug"):
+            out.add((v / 1000, "mg"))
+        else:
+            out.add((v, unit))
+    return frozenset((round(v, 6), u) for v, u in out)
 
 
 def match_drug(med: str, drugs: Iterable) -> object | None:
     """The formulary drug a free-text medication ("Paracetamol 500mg") means, or None. `drugs` need `dci`,
-    `brand_names` and `strength`. A name that starts with the DCI or a brand matches; when several strengths of
-    the same DCI qualify, the one whose strength appears in the text wins (the longest DCI/brand name first)."""
+    `brand_names` and `strength`. A name that starts with the DCI or a brand matches (the longest name wins). When
+    the text carries a strength (1 g == 1000 mg), only a drug with that strength qualifies, so "Paracetamol 650mg" is
+    None rather than the 500 mg tablet; with no strength in the text, the first of the drugs is the tie-break."""
     text = _name(med)
-    best, best_key = None, (0, 0)
+    wanted = strengths(text)
+    best, best_hit = None, 0
     for d in drugs:
         names = [_name(d.dci), *(_name(b) for b in d.brand_names)]
         hit = max((len(n) for n in names if n and re.match(rf"{re.escape(n)}(?!\w)", text)), default=0)
         if not hit:
             continue
-        strength = _name(d.strength)
-        key = (hit, 1 if strength and re.search(rf"(?<!\w){re.escape(strength)}(?!\w)", text) else 0)
-        if key > best_key:
-            best, best_key = d, key
+        have = strengths(getattr(d, "strength", "") or "")
+        if wanted and have and not wanted <= have:
+            continue
+        if hit > best_hit:
+            best, best_hit = d, hit
     return best
 
 

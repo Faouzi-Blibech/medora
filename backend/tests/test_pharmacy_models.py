@@ -83,3 +83,34 @@ def test_formulary_file_shape_and_covers_the_seed():
     seed = open("app/seed.py", encoding="utf-8").read()
     meds = re.findall(r'"med": "([^"]+)"', seed)
     assert meds and all(match_drug(m, drugs) for m in meds), meds
+
+
+def test_name_matcher_respects_the_strength_in_the_text():
+    from types import SimpleNamespace as D
+
+    from app.services.pharmacy.formulary import match_drug
+
+    drugs = [D(**{k: e[k] for k in ("id", "dci", "brand_names", "strength")}) for e in formulary_entries()]
+    assert match_drug("Paracetamol 1000mg", drugs).id == "d-0002"
+    assert match_drug("Paracetamol 1000 mg", drugs).id == "d-0002"
+    assert match_drug("Paracetamol 0.5 g", drugs).id == "d-0001"
+    assert match_drug("Paracetamol 650mg", drugs) is None  # no such strength: not the 500 mg tablet
+    assert match_drug("Paracetamol 650 mg", drugs) is None
+    assert match_drug("Doliprane 500mg", drugs).id == "d-0001"
+    assert match_drug("Amoxicillin 750mg", drugs) is None
+    assert match_drug("Levothyroxine 100 mcg", drugs).id == "d-0051"
+    assert match_drug("Levothyroxine 0.1 mg", drugs).id == "d-0051"
+    assert match_drug("Levothyroxine 50 µg", drugs) is None
+    assert match_drug("Paracetamol", drugs) is not None  # no strength in the text: any strength will do
+
+
+def test_name_matcher_treats_slash_and_plus_alike():
+    from types import SimpleNamespace as D
+
+    from app.services.pharmacy.formulary import match_drug
+
+    drugs = [D(**{k: e[k] for k in ("id", "dci", "brand_names", "strength")}) for e in formulary_entries()]
+    for med in ("Amoxicillin/clavulanic acid", "amoxicillin + clavulanic acid 1 g/125 mg",
+                "Amoxicillin/Clavulanic acid 1g/125mg", "Augmentin"):
+        assert match_drug(med, drugs).id == "d-0005", med
+    assert match_drug("Amoxicillin 500mg", drugs).id == "d-0004"
