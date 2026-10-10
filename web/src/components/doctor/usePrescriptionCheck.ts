@@ -14,13 +14,18 @@ export interface CheckState {
   checks: Check[] | null;
   checking: boolean;
   failed: boolean;
+  /** The draft key (JSON of the request) that `checks` was computed for; "" before any result. */
+  checkedKey: string;
 }
 
-const IDLE: CheckState = { checks: null, checking: false, failed: false };
+const IDLE: CheckState = { checks: null, checking: false, failed: false, checkedKey: "" };
+
+/** The content key of a check request: compare it with `CheckState.checkedKey` to know a result is current. */
+export const checkKeyOf = (req: CheckRequest | null): string => (req ? JSON.stringify(req) : "");
 
 export function usePrescriptionCheck(req: CheckRequest | null, delayMs = CHECK_DEBOUNCE_MS): CheckState {
   // A content key: a new object with the same content must not restart the timer.
-  const key = req ? JSON.stringify(req) : "";
+  const key = checkKeyOf(req);
   const [state, setState] = useState<CheckState>(IDLE);
 
   useEffect(() => {
@@ -33,10 +38,10 @@ export function usePrescriptionCheck(req: CheckRequest | null, delayMs = CHECK_D
     const timer = setTimeout(() => {
       checkPrescription(JSON.parse(key) as CheckRequest).then(
         (r) => {
-          if (alive) setState({ checks: r.checks, checking: false, failed: false });
+          if (alive) setState({ checks: r.checks, checking: false, failed: false, checkedKey: key });
         },
         () => {
-          if (alive) setState({ checks: null, checking: false, failed: true });
+          if (alive) setState({ checks: null, checking: false, failed: true, checkedKey: key });
         },
       );
     }, delayMs);

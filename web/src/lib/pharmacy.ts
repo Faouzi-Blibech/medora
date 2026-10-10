@@ -1,5 +1,6 @@
 // Pure pharmacy rules shared by the screens and the mocks (no React, no I/O): severity order, the
 // worklist order, what "running" means, the doctor's list, check texts and decision validation.
+import type { Lang } from "@/i18n/config";
 import type { Key, TFn } from "@/i18n/messages";
 import type {
   Check,
@@ -177,3 +178,8 @@ export const FORM_KEY: Record<DrugForm, Key> = {
   drops: "pharmacy.formDrops",
   other: "pharmacy.formOther",
 };
+
+/** Joins a list of names with the language's comma: "،" in Arabic, "," elsewhere. */
+export function joinList(items: readonly string[], lang: Lang): string {
+  return items.join(lang === "ar" ? "، " : ", ");
+}

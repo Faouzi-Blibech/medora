@@ -3,7 +3,7 @@
 // Doctor / Patient detail (/doctor/patients/[id]).
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useT } from "@/i18n/I18nProvider";
 import { LiveBanner } from "@/components/LiveBanner";
 import { DosesTimeline } from "@/components/shared/DosesTimeline";
@@ -62,13 +62,15 @@ export function PatientDetail({ id }: { id: string }) {
 
   useEffect(load, [load]);
 
+  const rxReq = useRef(0);
   const refreshRx = useCallback(
     async (quiet = false) => {
+      const mine = ++rxReq.current; // only the newest request may write: frame, poll and onSaved can overlap
       try {
         const [prescriptions, doses] = await Promise.all([getPrescriptions(id), dosesOrEmpty(id)]);
-        setData((d) => (d ? { ...d, prescriptions, doses } : d));
+        if (mine === rxReq.current) setData((d) => (d ? { ...d, prescriptions, doses } : d));
       } catch {
-        if (!quiet) showNoteError(t("doctor.rxRefreshError"));
+        if (!quiet && mine === rxReq.current) showNoteError(t("doctor.rxRefreshError"));
       }
     },
     [id, showNoteError, t],

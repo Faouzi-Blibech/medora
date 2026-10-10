@@ -8,14 +8,14 @@ import page from "@/components/admin/AdminPage.module.css";
 import { ErrorCard } from "@/components/shared/ErrorCard";
 import { Toast, useToast } from "@/components/Toast";
 import { listDrugs } from "@/lib/api";
-import { drugLabel, FORM_KEY } from "@/lib/pharmacy";
+import { drugLabel, FORM_KEY, joinList } from "@/lib/pharmacy";
 import type { Drug } from "@/lib/types";
 import { useDebounced } from "@/lib/useDebounced";
 import { DrugForm } from "./DrugForm";
 import styles from "./Pharmacist.module.css";
 
 export function CatalogueView() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [q, setQ] = useState("");
   const query = useDebounced(q.trim(), 250);
   const [showInactive, setShowInactive] = useState(false);
@@ -93,7 +93,7 @@ export function CatalogueView() {
                 </span>
                 {d.brand_names.length ? (
                   <span dir="auto" className={styles.cellSub}>
-                    {d.brand_names.join(", ")}
+                    {joinList(d.brand_names, lang)}
                   </span>
                 ) : null}
               </span>

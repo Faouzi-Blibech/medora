@@ -6,7 +6,7 @@
 import { useEffect, useId, useState, type KeyboardEvent } from "react";
 import { useT } from "@/i18n/I18nProvider";
 import { listDrugs } from "@/lib/api";
-import { drugLabel, FORM_KEY } from "@/lib/pharmacy";
+import { drugLabel, FORM_KEY, joinList } from "@/lib/pharmacy";
 import type { Drug } from "@/lib/types";
 import { useDebounced } from "@/lib/useDebounced";
 import styles from "./Prescriptions.module.css";
@@ -30,7 +30,7 @@ export interface DrugPickerProps {
 }
 
 export function DrugPicker({ value, onChange, labelId, invalid = false }: DrugPickerProps) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const id = useId();
   const [text, setText] = useState(value?.med ?? "");
   const [open, setOpen] = useState(false);
@@ -130,7 +130,7 @@ export function DrugPicker({ value, onChange, labelId, invalid = false }: DrugPi
                     {drugLabel(o.drug)}
                   </span>
                   <span dir="auto" className={styles.optSub}>
-                    {[t(FORM_KEY[o.drug.form] ?? "pharmacy.formOther"), o.drug.brand_names.join(", "), o.drug.high_alert ? t("pharmacy.highAlert") : ""]
+                    {[t(FORM_KEY[o.drug.form] ?? "pharmacy.formOther"), joinList(o.drug.brand_names, lang), o.drug.high_alert ? t("pharmacy.highAlert") : ""]
                       .filter(Boolean)
                       .join(" · ")}
                   </span>

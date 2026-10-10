@@ -4,7 +4,7 @@
 // then the form: formulary picker (or a non-formulary name), dose and units, times, pill slot, the live
 // check panel (the warnings the pharmacist will see, 400 ms after the last change), the override reason a
 // critical warning requires, and "Urgent: start now". Saving sends the prescription to the pharmacist.
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useT } from "@/i18n/I18nProvider";
 import { Toast, useToast } from "@/components/Toast";
 import { CheckList } from "@/components/shared/CheckList";
@@ -15,7 +15,7 @@ import { pharmacyErrorKey } from "@/lib/pharmacyUi";
 import { daysSince, now, tunisTime } from "@/lib/time";
 import type { CheckRequest, Patient, Prescription, PrescriptionItem } from "@/lib/types";
 import { DrugPicker, type DrugChoice } from "./DrugPicker";
-import { usePrescriptionCheck } from "./usePrescriptionCheck";
+import { checkKeyOf, usePrescriptionCheck } from "./usePrescriptionCheck";
 import styles from "./Prescriptions.module.css";
 
 const TIME_CHIPS = ["06:00", "08:00", "12:00", "14:00", "18:00", "20:00", "22:00"];
@@ -23,6 +23,9 @@ const SLOTS = ["1", "2", "3", "4", "r"] as const;
 type SlotKey = (typeof SLOTS)[number];
 const MAX_UNITS = 10;
 const MAX_DAYS = 60;
+
+const clampDays = (n: number) => Math.min(MAX_DAYS, Math.max(1, n));
+const clampUnits = (n: number) => Math.min(MAX_UNITS, Math.max(1, n));
 
 const drugName = (med: string) => med.split(" ")[0];
 
@@ -90,7 +93,9 @@ export function Prescriptions({ patient, prescriptions, actorId, onSaved, readOn
   const [formKey, setFormKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
-  const [serverCritical, setServerCritical] = useState(false);
+  // The draft key the server answered 422 override_required for (the client preview had missed the critical check).
+  const [serverCritical, setServerCritical] = useState<string | null>(null);
+  const inflight = useRef(false); // set synchronously in save(): a double click can't send two requests
   const [toast, showToast] = useToast<{ tone: "ok" | "warn"; body: ReactNode }>(4500);
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
@@ -123,18 +128,27 @@ export function Prescriptions({ patient, prescriptions, actorId, onSaved, readOn
         }
       : null;
   const ed = editing;
-  const items: PrescriptionItem[] | null = item ? (ed ? ed.rx.items.map((it, i) => (i === ed.index ? item : it)) : [item]) : null;
+  const items: PrescriptionItem[] | null = item ? (ed ? ed.rx.items.map((it, i) =>
+          i === ed.index ? item : { ...it, days: clampDays(it.days), units_per_intake: clampUnits(it.units_per_intake ?? 1) },
+        ) : [item]) : null;
   const checkReq: CheckRequest | null = items ? { patient_id: patient.id, items, ...(ed ? { replaces_id: ed.rx.id } : {}) } : null;
   const check = usePrescriptionCheck(readOnly ? null : checkReq);
   const itemIndex = ed?.index ?? 0;
   const criticalHere = !!check.checks?.some((c) => c.severity === "critical" && (c.item_index === null || c.item_index === itemIndex));
-  const needsOverride = hasCritical(check.checks) || serverCritical;
+  // The preview is current only when it was computed for this very draft; Save waits for it.
+  const checkKey = checkKeyOf(checkReq);
+  const checkCurrent = !!checkReq && !check.checking && !check.failed && check.checkedKey === checkKey;
+  const checkBlocks = !readOnly && !!checkReq && !checkCurrent;
+  // The 422 flag only holds for the draft it was raised on: once the draft changes, the fresh check decides.
+  // save() runs only when checkCurrent, so there `check.checks` is the check of this very draft; between
+  // edits the previous result keeps the box on screen (no flicker) but Save is disabled.
+  const needsOverride = hasCritical(check.checks) || (serverCritical !== null && serverCritical === checkKey);
 
   function reset() {
     setDraft(blank());
     setEditing(null);
     setErrors({});
-    setServerCritical(false);
+    setServerCritical(null);
     setFormKey((k) => k + 1);
   }
 
@@ -146,8 +160,8 @@ export function Prescriptions({ patient, prescriptions, actorId, onSaved, readOn
     setDraft({
       choice: { med: it.med, drug_id: it.drug_id ?? null },
       doseMg: it.dose_mg != null ? String(it.dose_mg) : "",
-      units: Math.min(MAX_UNITS, Math.max(1, it.units_per_intake ?? 1)),
-      days: Math.min(MAX_DAYS, Math.max(1, it.days)),
+      units: clampUnits(it.units_per_intake ?? 1),
+      days: clampDays(it.days),
       times: [...it.times],
       slot: it.slot != null ? (String(it.slot) as SlotKey) : "r",
       plan: rx.care_plan,
@@ -155,7 +169,7 @@ export function Prescriptions({ patient, prescriptions, actorId, onSaved, readOn
       override: "",
     });
     setErrors({});
-    setServerCritical(false);
+    setServerCritical(null);
     setFormKey((k) => k + 1);
     document.getElementById(formId)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -168,7 +182,8 @@ export function Prescriptions({ patient, prescriptions, actorId, onSaved, readOn
   }
 
   async function save() {
-    if (saving) return;
+    if (inflight.current || saving) return;
+    if (checkBlocks) return; // the preview is stale, running or failed: the override gate can't be trusted
     const errs: FieldErrors = {
       med: !med,
       times: !draft.times.length,
@@ -179,6 +194,7 @@ export function Prescriptions({ patient, prescriptions, actorId, onSaved, readOn
       setErrors(errs);
       return;
     }
+    inflight.current = true;
     setSaving(true);
     setErrors({});
     const slotText = pickedSlot === "r" ? t("doctor.reminderOnlyLower") : t("doctor.slotLower", { n: pickedSlot });
@@ -221,7 +237,7 @@ export function Prescriptions({ patient, prescriptions, actorId, onSaved, readOn
       onSaved?.(rx);
     } catch (err) {
       if (err instanceof ApiError && err.code === "override_required") {
-        setServerCritical(true);
+        setServerCritical(checkKey);
         setErrors({ override: true });
       }
       showToast({
@@ -233,6 +249,7 @@ export function Prescriptions({ patient, prescriptions, actorId, onSaved, readOn
         ),
       });
     } finally {
+      inflight.current = false;
       setSaving(false);
     }
   }
@@ -307,11 +324,11 @@ export function Prescriptions({ patient, prescriptions, actorId, onSaved, readOn
             {readOnly ? (
               <span />
             ) : rx.status === "changes_requested" ? (
-              <button type="button" className={`${styles.edit} ${styles.resubmit}`} onClick={() => startEdit(rx, index)}>
+              <button type="button" className={`${styles.edit} ${styles.resubmit}`} disabled={saving} onClick={() => startEdit(rx, index)}>
                 {t("pharmacy.editAndResubmit")}
               </button>
             ) : rx.status === "validated" && !successor ? (
-              <button type="button" className={styles.edit} onClick={() => startEdit(rx, index)}>
+              <button type="button" className={styles.edit} disabled={saving} onClick={() => startEdit(rx, index)}>
                 {t("doctor.edit")}
               </button>
             ) : (
@@ -491,10 +508,10 @@ export function Prescriptions({ patient, prescriptions, actorId, onSaved, readOn
           </label>
           <div className={styles.formBar}>
             <span className={styles.formHint}>{patient.device_id ? t("doctor.hintWithDevice", { id: patient.device_id }) : t("doctor.hintNoDevice")}</span>
-            <button type="button" onClick={reset} className={styles.secondary}>
+            <button type="button" onClick={reset} disabled={saving} className={styles.secondary}>
               {t("doctor.cancel")}
             </button>
-            <button type="button" onClick={() => void save()} disabled={saving} className={styles.primary}>
+            <button type="button" onClick={() => void save()} disabled={saving || checkBlocks} className={styles.primary}>
               {t("doctor.saveRx")}
             </button>
           </div>
