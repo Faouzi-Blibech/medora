@@ -1,5 +1,6 @@
 """Synthetic demo dataset (data-model.md → "Seed data"). Idempotent: exits early if doctor@ward.tn exists.
 
+The seed also holds the pharmacist and the pharmacy demo (a pending critical prescription).
 Run inside the stack: `docker compose -f infra/docker-compose.yml exec api python -m app.seed`.
 Every name, phone and history below is invented. Never put real patients here.
 """
@@ -22,13 +23,16 @@ from app.models import (
     ExamOrder,
     Patient,
     Prescription,
+    PrescriptionReview,
     Staff,
     User,
     Vital,
 )
 from app.services import exams as E
 from app.services.appointments import new_appointment_fields
-from app.services.pharmacy.formulary import load_formulary
+from app.services.pharmacy import formulary as F
+from app.services.pharmacy import workflow as W
+from app.services.pharmacy.backfill import backfill_drug_ids
 from app.services.schedule import local_to_utc, rebuild_doses, today_local
 
 # (id, email, name, role, ward, rfid)
@@ -39,7 +43,10 @@ STAFF = [
     ("u-0004", "admin@ward.tn", "Hela Mejri", "admin", None, None),
     ("u-0006", "imaging@ward.tn", "Nurse Rania", "nurse", "Imaging", None),
     ("u-0007", "lab@ward.tn", "Nurse Karim", "nurse", "Laboratory", None),
+    ("u-0008", "pharmacist@ward.tn", "Pharm. Salma", "pharmacist", None, None),
 ]
+PHARMACIST_ID = "u-0008"
+STAFF_ROW_ROLES = ("doctor", "nurse")  # only these have a ward or supervisor
 
 # (first, last, dob, sex, allergies, history)
 PATIENTS = [
@@ -82,10 +89,10 @@ def _upsert_missing_staff(db: Session, pw: str) -> None:
         if db.get(User, uid) is None and db.scalar(select(User).where(User.email == email)) is None:
             db.add(User(id=uid, email=email, name=name, role=role, password_hash=pw))
             db.flush()
-        if role != "admin" and db.get(Staff, uid) is None and db.get(User, uid) is not None:
+        if role in STAFF_ROW_ROLES and db.get(Staff, uid) is None and db.get(User, uid) is not None:
             db.add(Staff(user_id=uid, ward=ward, rfid_uid=rfid))
     db.flush()
-    reserve_upto(db, "u", 7)
+    reserve_upto(db, "u", 8)
 
 
 def seed(db: Session) -> bool:
@@ -93,14 +100,13 @@ def seed(db: Session) -> bool:
     pw = hash_password(get_settings().seed_password)
     if db.scalar(select(User).where(User.email == "doctor@ward.tn")):
         _upsert_missing_staff(db, pw)
-        load_formulary(db)
+        _pharmacy(db, datetime.now(UTC).replace(second=0, microsecond=0))
         return False
     now = datetime.now(UTC).replace(second=0, microsecond=0)
 
     for uid, email, name, role, _, _ in STAFF:
         db.add(User(id=uid, email=email, name=name, role=role, password_hash=pw))
     db.flush()  # users <-> patients is an FK cycle, so the unit of work can't order these inserts itself
-    load_formulary(db)  # reserves the d-0001..d-0051 ids before any dose id is drawn
     for i, (first, last, dob, sex, allergies, history) in enumerate(PATIENTS):
         cardio = i < 6
         db.add(Patient(id=_patient_id(i), first_name=first, last_name=last, date_of_birth=dob, sex=sex,
@@ -110,7 +116,7 @@ def seed(db: Session) -> bool:
                        phone=f"+216 20 000 {i + 1:03d}", email=f"patient{i + 1}@example.tn"))
     db.flush()
     for uid, _, _, role, ward, rfid in STAFF:
-        if role != "admin":
+        if role in STAFF_ROW_ROLES:
             db.add(Staff(user_id=uid, ward=ward, rfid_uid=rfid))
     db.add(User(id="u-0005", email="patient@ward.tn", name="Amira Ben Salah", role="patient",
                 patient_id="p-0001", password_hash=pw))
@@ -152,9 +158,35 @@ def seed(db: Session) -> bool:
             db.add(ExamOrder(id=new_id(db, "ex"), **ex))
     db.flush()
 
-    for prefix, n in [("u", 7), ("p", len(PATIENTS)), ("adm", 1), ("rx", 1), ("a", len(REQUESTS))]:
+    for prefix, n in [("u", 8), ("p", len(PATIENTS)), ("adm", 1), ("rx", 1), ("a", len(REQUESTS))]:
         reserve_upto(db, prefix, n)
+    _pharmacy(db, now)
     return True
+
+
+DEMO_CARE_PLAN = "Demo: penicillin allergy, sent with a doctor override (pharmacy spec §7)"
+DEMO_ITEMS = [{"med": "Amoxicillin 1 g", "drug_id": "d-0003", "dose_mg": 1000, "units_per_intake": 1,
+               "times": ["08:00", "14:00", "20:00"], "slot": None, "days": 7}]
+
+
+def _pharmacy(db: Session, now: datetime) -> None:
+    """Formulary, drug ids on existing items, rx-0001 validated by the seed pharmacist, and the pending critical demo
+    prescription. Idempotent, so it also upgrades a database seeded before the pharmacy existed."""
+    F.load_formulary(db)
+    backfill_drug_ids(db)
+    rx = db.get(Prescription, "rx-0001")
+    if rx is not None and rx.status == "validated" and rx.reviewed_by is None and db.get(User, PHARMACIST_ID):
+        rx.reviewed_by, rx.reviewed_at = PHARMACIST_ID, rx.created_at
+        db.add(PrescriptionReview(id=new_id(db, "pr"), prescription_id=rx.id, pharmacist_id=PHARMACIST_ID,
+                                  decision="validated", comment=None, checks_snapshot=[]))
+    if db.scalar(select(Prescription.id).where(Prescription.care_plan == DEMO_CARE_PLAN)) is None:
+        checks = W.checks_for(db, db.get(Patient, "p-0001"), DEMO_ITEMS, set())
+        db.add(Prescription(id=new_id(db, "rx"), patient_id="p-0001", doctor_id="u-0001", items=DEMO_ITEMS,
+                            care_plan=DEMO_CARE_PLAN, status="pending_pharmacy", urgent=False, active=False,
+                            version=1, checks=[c.as_dict() for c in checks],
+                            override_reason="Suspected pneumonia; the patient only remembers a mild rash as a child",
+                            created_at=min(now - timedelta(minutes=25), local_to_utc(today_local(), "00:00") - timedelta(minutes=1))))
+    db.flush()
 
 
 if __name__ == "__main__":
