@@ -5,12 +5,21 @@
 // store, so a later read reflects them (until a full page reload).
 // Real mode: calls NEXT_PUBLIC_API_URL with the paths of docs/contracts/api.md.
 // Paths marked NOT IN CONTRACT have no api.md 1.4 endpoint yet (see the Task 1 report).
-import { chainOf, checksFor, createStore, drugMatches, generateCode, MOCK_CODES, EXAM_CATALOGUE, mockAssistant, USERS, userName, type AssistantContext, type MockStore } from "@/mocks";
+import { chainOf, checksFor, createStore, drugMatches, generateCode, MOCK_CODES, EXAM_CATALOGUE, mockAssistant, USERS, userName, type AssistantContext, type MockLot, type MockStore } from "@/mocks";
 import { publishFrame } from "./frames";
-import { COMMENT_MAX, hasCritical, isRunning, maxSeverity, sortWorklist } from "./pharmacy";
+import { COMMENT_MAX, expiryState, fefoLots, hasCritical, isRunning, maxSeverity, reorderQuantity, sortWorklist, stockFlags } from "./pharmacy";
 import { now, tunisDate, USE_MOCKS } from "./time";
 import type {
   AccountStatus,
+  CreateDispensationRequest,
+  Dispensation,
+  DispensingWard,
+  PrescriptionItem,
+  ReorderItem,
+  StockAdjustmentRequest,
+  StockItem,
+  StockLot,
+  StockReceiptRequest,
   Alert,
   AiSummary,
   Appointment,
@@ -82,6 +91,8 @@ export class ApiError extends Error {
     public status: number,
     public code: string,
     message: string,
+    /** The error body's other keys (api 1.12: 409 `insufficient_stock` adds `drug_id`). */
+    public extra: Record<string, unknown> = {},
   ) {
     super(message);
     this.name = "ApiError";
@@ -141,9 +152,10 @@ async function http<T>(method: string, path: string, body?: unknown): Promise<T>
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as { detail?: string; code?: string };
+    const err = (await res.json().catch(() => ({}))) as { detail?: string; code?: string; [key: string]: unknown };
     if (res.status === 401) handleUnauthorized(path, !!token, err.code);
-    throw new ApiError(res.status, err.code ?? "http_error", err.detail ?? res.statusText);
+    const { detail, code, ...extra } = err;
+    throw new ApiError(res.status, code ?? "http_error", detail ?? res.statusText, extra);
   }
   // Some endpoints (assign, discharge) have no response body in api.md.
   const text = await res.text();
@@ -593,6 +605,7 @@ function scheduleDoses(s: MockStore, rx: Prescription, from: Date): void {
           given_by: null,
           given_by_name: null,
           instructions: item.slot == null ? "Give by hand" : null,
+          pharmacy: "none",
         });
       }
     }
@@ -603,7 +616,12 @@ function scheduleDoses(s: MockStore, rx: Prescription, from: Date): void {
 /** Deletes the future, not-yet-given doses of a prescription (reject, supersede). Mock only. */
 function dropFutureDoses(s: MockStore, rxId: string): void {
   const t = now().getTime();
-  s.doses = s.doses.filter((d) => !(d.prescription_id === rxId && d.status === "scheduled" && Date.parse(d.scheduled_at) > t));
+  const gone = new Set(
+    s.doses.filter((d) => d.prescription_id === rxId && d.status === "scheduled" && Date.parse(d.scheduled_at) > t).map((d) => d.id),
+  );
+  s.doses = s.doses.filter((d) => !gone.has(d.id));
+  // A dispensed dose that is cancelled leaves its line with dose_id null (backend Contract decision 30).
+  for (const disp of s.dispensations) for (const line of disp.lines) if (line.dose_id && gone.has(line.dose_id)) line.dose_id = null;
 }
 
 /** The check engine on a saved prescription, as it stands now (the server's recompute). */
@@ -941,9 +959,267 @@ export function getPharmacySummary(): Promise<PharmacySummary> {
         urgent_pending: pending.filter((r) => r.urgent).length,
         critical_pending: pending.filter((r) => hasCritical(r.checks)).length,
         changes_requested: s.prescriptions.filter((r) => r.status === "changes_requested").length,
+        ...stockSummary(s),
       };
     });
   return http<PharmacySummary>("GET", "/pharmacy/summary");
+}
+
+// ── Pharmacy Phase B: dispensing and stock (api 1.12 "Dispensing and stock") ─
+
+const tunisToday = (): string => tunisDate(iso(now()));
+
+function withFlags(l: MockLot, today: string): StockLot {
+  const state = expiryState(l.expiry_date, today);
+  return { ...l, expired: state === "expired", expiring: state === "expiring" };
+}
+
+/** GET /pharmacy/stock as the server computes it: active drugs, lots with stock only, on_hand without expired lots. */
+function stockItems(s: MockStore): StockItem[] {
+  const today = tunisToday();
+  return s.drugs
+    .filter((d) => d.active)
+    .map((d) => {
+      const lots = s.lots.filter((l) => l.drug_id === d.id && l.quantity > 0).sort((a, b) => a.expiry_date.localeCompare(b.expiry_date));
+      return { drug_id: d.id, dci: d.dci, strength: d.strength, form: d.form, min_stock: d.min_stock, lots: lots.map((l) => withFlags(l, today)), ...stockFlags(lots, d.min_stock, today) };
+    });
+}
+
+/** The summary's Phase B counts: drugs under min_stock, and lots with stock expiring within 30 days. */
+function stockSummary(s: MockStore): { low_stock: number; expiring: number } {
+  const items = stockItems(s);
+  return { low_stock: items.filter((i) => i.low).length, expiring: items.flatMap((i) => i.lots).filter((l) => l.expiring).length };
+}
+
+/** The prescription item a dose came from (matched on its med string). */
+function itemOfDose(s: MockStore, dose: Dose): { rx: Prescription | undefined; item: PrescriptionItem | undefined } {
+  const rx = s.prescriptions.find((r) => r.id === dose.prescription_id);
+  return { rx, item: rx?.items.find((i) => i.med === dose.meds[0]) ?? rx?.items[0] };
+}
+
+const dispensedDoseIds = (s: MockStore): Set<string> =>
+  new Set(s.dispensations.flatMap((d) => d.lines.map((l) => l.dose_id)).filter((x): x is string => !!x));
+
+/** GET /pharmacy/dispensing?date=&round=&ward=: per ward, per patient, the round's doses of active prescriptions. */
+export function getDispensing(q: { date: string; round: string; ward?: string }): Promise<DispensingWard[]> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const sent = dispensedDoseIds(s);
+      const wards = new Map<string, DispensingWard>();
+      for (const dose of s.doses) {
+        if (tunisDate(dose.scheduled_at) !== q.date || dose.time_of_day !== q.round) continue;
+        const { rx, item } = itemOfDose(s, dose);
+        if (!rx || !isRunning(rx)) continue;
+        const p = s.patients.find((x) => x.id === dose.patient_id);
+        if (!p?.ward || (q.ward && p.ward !== q.ward)) continue;
+        const drugId = item?.drug_id ?? null;
+        const quantity = item?.units_per_intake ?? 1;
+        const usable = drugId ? fefoLots(s.lots.filter((l) => l.drug_id === drugId), q.date) : [];
+        const lot = usable.find((l) => l.quantity >= quantity) ?? null;
+        const w = wards.get(p.ward) ?? { ward: p.ward, patients: [] };
+        wards.set(p.ward, w);
+        let row = w.patients.find((x) => x.id === p.id);
+        if (!row) {
+          row = { id: p.id, name: `${p.first_name} ${p.last_name}`, bed: p.bed, doses: [] };
+          w.patients.push(row);
+        }
+        row.doses.push({
+          dose_id: dose.id,
+          prescription_id: rx.id,
+          med: dose.meds.join(" + "),
+          drug_id: drugId,
+          quantity,
+          suggested_lot: lot ? { id: lot.id, lot_number: lot.lot_number, expiry_date: lot.expiry_date } : null,
+          on_hand: drugId ? usable.reduce((n, l) => n + l.quantity, 0) : null,
+          dispensed: sent.has(dose.id),
+        });
+      }
+      const byBed = (a: { bed: string | null }, b: { bed: string | null }) => (a.bed ?? "").localeCompare(b.bed ?? "", undefined, { numeric: true });
+      return [...wards.values()].map((w) => ({ ...w, patients: w.patients.sort(byBed) })).sort((a, b) => a.ward.localeCompare(b.ward));
+    });
+  const p = new URLSearchParams({ date: q.date, round: q.round });
+  if (q.ward) p.set("ward", q.ward);
+  return http<DispensingWard[]>("GET", `/pharmacy/dispensing?${p.toString()}`);
+}
+
+/**
+ * POST /pharmacy/dispensations → Dispensation (`sent`). One transaction on the server: every line is checked
+ * and planned first; a refused request writes nothing. One line takes ONE lot (FEFO when `lot_id` is missing).
+ * 404 unknown dose; 422 `invalid`; 409 `bad_status`, `already_dispensed`, `insufficient_stock` (+ `drug_id`).
+ */
+export function createDispensation(req: CreateDispensationRequest, opts: ActorOpts = {}): Promise<Dispensation> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      if (req.lines.length < 1 || req.lines.length > 200) throw new ApiError(422, "invalid", "1-200 lines");
+      const sent = dispensedDoseIds(s);
+      const seen = new Set<string>();
+      const left = new Map<string, number>(); // lot id → units left after the lines planned so far
+      const room = (l: MockLot) => left.get(l.id) ?? l.quantity;
+      const planned = req.lines.map((line) => {
+        const dose = s.doses.find((d) => d.id === line.dose_id) ?? notFound(`Dose ${line.dose_id}`);
+        const patient = s.patients.find((p) => p.id === dose.patient_id);
+        if (seen.has(dose.id) || patient?.ward !== req.ward || tunisDate(dose.scheduled_at) !== req.date || dose.time_of_day !== req.round_time)
+          throw new ApiError(422, "invalid", `dose ${dose.id} is not in this round, or is listed twice`);
+        seen.add(dose.id);
+        const { rx, item } = itemOfDose(s, dose);
+        if (!rx || !isRunning(rx)) throw new ApiError(409, "bad_status", `prescription ${dose.prescription_id} is not active`);
+        if (sent.has(dose.id)) throw new ApiError(409, "already_dispensed", `dose ${dose.id} is already dispensed`);
+        const drugId = item?.drug_id ?? null;
+        const quantity = item?.units_per_intake ?? 1;
+        if (!drugId) {
+          if (line.lot_id) throw new ApiError(422, "invalid", "a non-formulary dose takes no lot");
+          return { dose, patient, drugId, quantity, lot: null as MockLot | null };
+        }
+        let lot: MockLot | undefined;
+        if (line.lot_id) {
+          lot = s.lots.find((l) => l.id === line.lot_id);
+          if (!lot || lot.drug_id !== drugId || expiryState(lot.expiry_date, req.date) === "expired")
+            throw new ApiError(422, "invalid", `lot ${line.lot_id} can't serve dose ${dose.id}`);
+          if (room(lot) < quantity) lot = undefined;
+        } else {
+          lot = fefoLots(s.lots.filter((l) => l.drug_id === drugId), req.date).find((l) => room(l) >= quantity);
+        }
+        if (!lot) throw new ApiError(409, "insufficient_stock", `Not enough stock for ${drugId}`, { drug_id: drugId });
+        left.set(lot.id, room(lot) - quantity);
+        return { dose, patient, drugId, quantity, lot: lot as MockLot | null };
+      });
+      // Everything fits: write the lots, the dispensation and the dose flags.
+      for (const [lotId, quantity] of left) {
+        const l = s.lots.find((x) => x.id === lotId);
+        if (l) l.quantity = quantity;
+      }
+      s.seq.disp += 1;
+      const id = `disp-${String(s.seq.disp).padStart(4, "0")}`;
+      const by = opts.by ?? USERS.pharmacist.id;
+      const disp: Dispensation = {
+        id,
+        ward: req.ward,
+        round_date: req.date,
+        round_time: req.round_time,
+        status: "sent",
+        prepared_by: by,
+        prepared_by_name: userName(by) ?? by,
+        prepared_at: iso(now()),
+        received_by: null,
+        received_by_name: null,
+        received_at: null,
+        lines: planned.map((p) => {
+          s.seq.line += 1;
+          p.dose.pharmacy = "sent";
+          return {
+            id: `dl-${String(s.seq.line).padStart(6, "0")}`,
+            dose_id: p.dose.id,
+            patient_id: p.dose.patient_id,
+            patient_name: p.patient ? `${p.patient.first_name} ${p.patient.last_name}` : null,
+            bed: p.patient?.bed ?? null,
+            drug_id: p.drugId,
+            lot_id: p.lot?.id ?? null,
+            lot_number: p.lot?.lot_number ?? null,
+            quantity: p.quantity,
+            med: p.dose.meds.join(" + "),
+          };
+        }),
+      };
+      s.dispensations.push(disp);
+      return disp;
+    });
+  return http<Dispensation>("POST", "/pharmacy/dispensations", req);
+}
+
+/** GET /dispensations?ward=&date= (nurse: own ward only, another ward is 403; pharmacist). `date` defaults to today. */
+export function listDispensations(q: { ward?: string; date?: string } = {}): Promise<Dispensation[]> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const date = q.date ?? tunisToday();
+      return s.dispensations
+        .filter((d) => (!q.ward || d.ward === q.ward) && d.round_date === date)
+        .sort((a, b) => a.round_time.localeCompare(b.round_time));
+    });
+  const p = new URLSearchParams();
+  if (q.ward) p.set("ward", q.ward);
+  if (q.date) p.set("date", q.date);
+  const qs = p.toString();
+  return http<Dispensation[]>("GET", `/dispensations${qs ? `?${qs}` : ""}`);
+}
+
+/** POST /dispensations/{id}/receive (a nurse of that ward) → `received`. Idempotent: a second call returns it unchanged. */
+export function receiveDispensation(id: string, opts: ActorOpts = {}): Promise<Dispensation> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const d = s.dispensations.find((x) => x.id === id) ?? notFound(`Dispensation ${id}`);
+      if (d.status === "received") return d;
+      const by = opts.by ?? USERS.nurse.id;
+      Object.assign(d, { status: "received", received_by: by, received_by_name: userName(by) ?? by, received_at: iso(now()) });
+      for (const line of d.lines) {
+        const dose = line.dose_id ? s.doses.find((x) => x.id === line.dose_id) : undefined;
+        if (dose) dose.pharmacy = "received";
+      }
+      return d;
+    });
+  return http<Dispensation>("POST", `/dispensations/${enc(id)}/receive`, {});
+}
+
+/** GET /pharmacy/stock (pharmacist, admin) → one StockItem per active drug. */
+export function getStock(): Promise<StockItem[]> {
+  if (USE_MOCKS) return mock((s) => stockItems(s));
+  return http<StockItem[]>("GET", "/pharmacy/stock");
+}
+
+/**
+ * POST /pharmacy/stock/receipts → Lot. Tops up the lot when (drug_id, lot_number) exists; 409 `conflict` when
+ * it exists with another expiry; 422 when already expired or out of range; 404 unknown drug.
+ */
+export function receiveStock(req: StockReceiptRequest): Promise<StockLot> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      s.drugs.find((d) => d.id === req.drug_id) ?? notFound(`Drug ${req.drug_id}`);
+      const lotNumber = req.lot_number.trim();
+      if (!lotNumber || lotNumber.length > 40 || !Number.isInteger(req.quantity) || req.quantity < 1 || req.quantity > 100_000 || !/^\d{4}-\d{2}-\d{2}$/.test(req.expiry_date))
+        throw new ApiError(422, "validation_error", "lot_number 1-40, expiry_date YYYY-MM-DD, quantity 1-100000");
+      const today = tunisToday();
+      if (expiryState(req.expiry_date, today) === "expired") throw new ApiError(422, "validation_error", "this lot is already expired");
+      const existing = s.lots.find((l) => l.drug_id === req.drug_id && l.lot_number === lotNumber);
+      if (existing && existing.expiry_date !== req.expiry_date) throw new ApiError(409, "conflict", "this lot number exists with another expiry date");
+      if (existing) {
+        existing.quantity += req.quantity;
+        return withFlags(existing, today);
+      }
+      s.seq.lot += 1;
+      const lot: MockLot = { id: `lot-${String(s.seq.lot).padStart(4, "0")}`, drug_id: req.drug_id, lot_number: lotNumber, expiry_date: req.expiry_date, quantity: req.quantity, received_at: iso(now()) };
+      s.lots.push(lot);
+      return withFlags(lot, today);
+    });
+  return http<StockLot>("POST", "/pharmacy/stock/receipts", req);
+}
+
+/**
+ * POST /pharmacy/stock/adjustments → Lot. delta ≠ 0 (±100000), comment 1–500, `expired` needs a negative delta
+ * (422). Below zero: 409 `insufficient_stock` with `drug_id`.
+ */
+export function adjustStock(req: StockAdjustmentRequest): Promise<StockLot> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const lot = s.lots.find((l) => l.id === req.lot_id) ?? notFound(`Lot ${req.lot_id}`);
+      const comment = req.comment.trim();
+      if (!Number.isInteger(req.delta) || req.delta === 0 || Math.abs(req.delta) > 100_000 || !comment || [...comment].length > COMMENT_MAX)
+        throw new ApiError(422, "validation_error", "delta must be a non-zero integer (±100000) and the comment 1-500 characters");
+      if (req.reason === "expired" && req.delta > 0) throw new ApiError(422, "validation_error", "reason expired needs a negative delta");
+      if (lot.quantity + req.delta < 0) throw new ApiError(409, "insufficient_stock", "Stock can't go below zero", { drug_id: lot.drug_id });
+      lot.quantity += req.delta;
+      return withFlags(lot, tunisToday());
+    });
+  return http<StockLot>("POST", "/pharmacy/stock/adjustments", req);
+}
+
+/** GET /pharmacy/stock/reorder: drugs with on_hand < min_stock, suggested 2 × min_stock − on_hand. */
+export function getReorderList(): Promise<ReorderItem[]> {
+  if (USE_MOCKS)
+    return mock((s) =>
+      stockItems(s)
+        .filter((i) => i.low)
+        .map((i) => ({ drug_id: i.drug_id, dci: i.dci, strength: i.strength, form: i.form, on_hand: i.on_hand, min_stock: i.min_stock, suggested_quantity: reorderQuantity(i.min_stock, i.on_hand) })),
+    );
+  return http<ReorderItem[]>("GET", "/pharmacy/stock/reorder");
 }
 
 // ── AI summary and assistant ────────────────────────────────────────────────

@@ -11,6 +11,8 @@ import type {
   Prescription,
   PrescriptionStatus,
   ReviewDecision,
+  RoundDose,
+  StockLot,
   WorklistItem,
 } from "./types";
 
@@ -127,12 +129,15 @@ const CHECK_TEXT: Record<CheckCode, { key: Key; params: readonly string[] }> = {
   non_formulary: { key: "pharmacy.chkNonFormulary", params: [] },
   high_alert: { key: "pharmacy.chkHighAlert", params: [] },
   elderly: { key: "pharmacy.chkElderly", params: ["age"] },
+  dose_unverified: { key: "pharmacy.chkDoseUnverified", params: [] },
 };
 
 /** Plain-language text in the UI language; the server's English `message` when the code or a param is unknown. */
 export function checkText(c: Check, t: TFn): string {
-  const spec = (CHECK_TEXT as Partial<Record<string, { key: Key; params: readonly string[] }>>)[c.code];
-  if (!spec) return c.message;
+  const base = (CHECK_TEXT as Partial<Record<string, { key: Key; params: readonly string[] }>>)[c.code];
+  if (!base) return c.message;
+  // A moderate allergy is a cross-reactivity (e.g. penicillin and cephalosporins), not a declared allergy.
+  const spec = c.code === "allergy" && c.severity === "moderate" ? { ...base, key: "pharmacy.chkAllergyCross" as Key } : base;
   const raw = c.params ?? {};
   // The backend sends the interaction's two groups as `groups: [a, b]`; the sentence reads them as group_a/group_b.
   const groups = Array.isArray(raw.groups) ? raw.groups : [];
@@ -182,4 +187,87 @@ export const FORM_KEY: Record<DrugForm, Key> = {
 /** Joins a list of names with the language's comma: "،" in Arabic, "," elsewhere. */
 export function joinList(items: readonly string[], lang: Lang): string {
   return items.join(lang === "ar" ? "، " : ", ");
+}
+
+// ── Phase B: stock, FEFO and rounds (backend plan Contract decisions 25, 26) ──
+
+export const EXPIRING_DAYS = 30;
+export type ExpiryState = "expired" | "expiring" | "ok";
+/** The lot fields the rules need (server lots and mock lots alike). */
+export type LotLike = Pick<StockLot, "id" | "expiry_date" | "quantity" | "received_at">;
+
+/** Whole days from `from` to `to` (both YYYY-MM-DD). */
+export function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+}
+
+/** Expired before `today`; expiring within 30 days, today included; else ok. Dates are Tunis YYYY-MM-DD. */
+export function expiryState(expiry: string, today: string): ExpiryState {
+  const left = daysBetween(today, expiry);
+  return left < 0 ? "expired" : left <= EXPIRING_DAYS ? "expiring" : "ok";
+}
+
+/** Lots usable on `date` (stock left, not expired that day), first-expiring first; ties: oldest receipt, then id. */
+export function fefoLots<L extends LotLike>(lots: readonly L[], date: string): L[] {
+  return lots
+    .filter((l) => l.quantity > 0 && expiryState(l.expiry_date, date) !== "expired")
+    .sort(
+      (a, b) =>
+        a.expiry_date.localeCompare(b.expiry_date) ||
+        Date.parse(a.received_at) - Date.parse(b.received_at) ||
+        a.id.localeCompare(b.id),
+    );
+}
+
+/** A StockItem's numbers for one drug's lots: on_hand leaves out expired lots (used by the mocks). */
+export function stockFlags(
+  lots: readonly LotLike[],
+  minStock: number,
+  today: string,
+): { on_hand: number; low: boolean; expiring: boolean; expired: boolean } {
+  const withStock = lots.filter((l) => l.quantity > 0);
+  const usable = withStock.filter((l) => expiryState(l.expiry_date, today) !== "expired");
+  const on_hand = usable.reduce((n, l) => n + l.quantity, 0);
+  return {
+    on_hand,
+    low: on_hand < minStock,
+    expiring: usable.some((l) => expiryState(l.expiry_date, today) === "expiring"),
+    expired: withStock.some((l) => expiryState(l.expiry_date, today) === "expired"),
+  };
+}
+
+/** Spec §5: 2 × min_stock − on_hand. */
+export const reorderQuantity = (minStock: number, onHand: number): number => Math.max(0, 2 * minStock - onHand);
+
+/**
+ * The server's FEFO for a whole round, simulated before sending: every formulary line takes ONE lot. The lot is
+ * the one the pharmacist chose, or else the first-expiring usable lot that still holds the whole line after the
+ * lines before it. Returns dose id → lot id, or null when no lot can serve the line (shown as a shortage).
+ */
+export function planLots(
+  doses: readonly RoundDose[],
+  lotsByDrug: ReadonlyMap<string, readonly LotLike[]>,
+  date: string,
+  chosen: Readonly<Record<string, string>> = {},
+): Map<string, string | null> {
+  const left = new Map<string, number>(); // lot id → units not yet planned
+  const plan = new Map<string, string | null>();
+  for (const d of doses) {
+    if (!d.drug_id || d.dispensed) continue;
+    const lots = fefoLots(lotsByDrug.get(d.drug_id) ?? [], date);
+    const room = (l: LotLike) => left.get(l.id) ?? l.quantity;
+    const want = chosen[d.dose_id];
+    const pick = want ? lots.find((l) => l.id === want && room(l) >= d.quantity) : lots.find((l) => room(l) >= d.quantity);
+    plan.set(d.dose_id, pick?.id ?? null);
+    if (pick) left.set(pick.id, room(pick) - d.quantity);
+  }
+  return plan;
+}
+
+/** Round times offered by the dispensing page: every hour. */
+export const ROUND_TIMES: string[] = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")}:00`);
+
+/** The first round at or after `hhmm` ("09:12" → "10:00"); after 23:00, "23:00". */
+export function nextRound(hhmm: string): string {
+  return ROUND_TIMES.find((r) => r >= hhmm) ?? ROUND_TIMES[ROUND_TIMES.length - 1];
 }

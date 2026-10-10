@@ -1,7 +1,8 @@
 // Pharmacy fixtures and the mock check engine. Synthetic and illustrative, not a clinical reference.
 // The engine follows spec §4 closely enough for the demo; the backend's rule files are the authority.
-import { isRunning, SEVERITY_RANK } from "@/lib/pharmacy";
-import type { Check, CheckRequest, CheckSeverity, Drug, Patient, Prescription, PrescriptionItem, PrescriptionReview } from "@/lib/types";
+import { fefoLots, isRunning, SEVERITY_RANK } from "@/lib/pharmacy";
+import { tunisDate } from "@/lib/time";
+import type { Check, CheckRequest, CheckSeverity, Dispensation, DispensationLine, Dose, Drug, Patient, Prescription, PrescriptionItem, PrescriptionReview, StockLot } from "@/lib/types";
 import { USERS } from "./people";
 import { at, TODAY } from "./time";
 
@@ -178,3 +179,72 @@ export const REVIEWS: PrescriptionReview[] = [
     pharmacist_name: USERS.pharmacist.name,
   },
 ];
+
+/** A lot as the mock stores it; `expired`/`expiring` are computed when read. */
+export type MockLot = Omit<StockLot, "expired" | "expiring">;
+
+const RECEIVED = at("2026-09-01", "09:00");
+const mockLot = (n: number, drug_id: string, lot_number: string, expiry_date: string, quantity: number): MockLot => ({
+  id: `lot-${String(n).padStart(4, "0")}`,
+  drug_id,
+  lot_number,
+  expiry_date,
+  quantity,
+  received_at: RECEIVED,
+});
+
+/**
+ * One lot for every formulary drug, plus the spec §7 demo cases: Enoxaparin under min_stock (6 < 20), an
+ * Amoxicillin 1 g lot expiring in 10 days (FEFO serves it first), and an expired Paracetamol 500 mg lot.
+ */
+export const LOTS: MockLot[] = [
+  ...FORMULARY.map((d, i) => mockLot(i + 1, d.id, `L26-${String(i + 1).padStart(3, "0")}`, "2027-06-30", d.id === "d-0009" ? 6 : 200)),
+  mockLot(FORMULARY.length + 1, "d-0003", "L26-003B", "2026-10-15", 30),
+  mockLot(FORMULARY.length + 2, "d-0001", "L25-001X", "2026-09-30", 40),
+];
+
+/**
+ * The 10:00 Cardiology round, already sent at 07:45 (the nurse's "Confirm receipt" demo). The 20:00 round is
+ * left for the pharmacist's demo (spec §7, step 6). Marks those doses `pharmacy: "sent"`.
+ */
+export function seedDispensations(doses: Dose[], prescriptions: Prescription[], patients: Patient[], lots: MockLot[]): Dispensation[] {
+  const id = "disp-0001";
+  const lines: DispensationLine[] = doses
+    .filter((d) => d.time_of_day === "10:00" && tunisDate(d.scheduled_at) === TODAY)
+    .map((d, i) => {
+      const rx = prescriptions.find((r) => r.id === d.prescription_id);
+      const item = rx?.items.find((x) => x.med === d.meds[0]) ?? rx?.items[0];
+      const drugId = item?.drug_id ?? null;
+      const lot = drugId ? (fefoLots(lots.filter((l) => l.drug_id === drugId), TODAY)[0] ?? null) : null;
+      const p = patients.find((x) => x.id === d.patient_id);
+      d.pharmacy = "sent";
+      return {
+        id: `dl-${String(i + 1).padStart(6, "0")}`,
+        dose_id: d.id,
+        patient_id: d.patient_id,
+        patient_name: p ? `${p.first_name} ${p.last_name}` : null,
+        bed: p?.bed ?? null,
+        drug_id: drugId,
+        lot_id: lot?.id ?? null,
+        lot_number: lot?.lot_number ?? null,
+        quantity: item?.units_per_intake ?? 1,
+        med: d.meds.join(" + "),
+      };
+    });
+  return [
+    {
+      id,
+      ward: "Cardiology",
+      round_date: TODAY,
+      round_time: "10:00",
+      status: "sent",
+      prepared_by: USERS.pharmacist.id,
+      prepared_by_name: USERS.pharmacist.name,
+      prepared_at: at(TODAY, "07:45"),
+      received_by: null,
+      received_by_name: null,
+      received_at: null,
+      lines,
+    },
+  ];
+}

@@ -10,6 +10,8 @@ const BY_CODE: Partial<Record<string, Key>> = {
   bad_status: "pharmacy.errBadStatus",
   conflict: "pharmacy.errRxConflict",
   unknown_drug: "pharmacy.errUnknownDrug",
+  insufficient_stock: "pharmacy.errInsufficientStock",
+  already_dispensed: "pharmacy.errAlreadyDispensed",
 };
 
 /** Where the call was made: `conflict` is a prescription version clash for "rx" and a duplicate drug for "drug". */
@@ -25,4 +27,9 @@ export function pharmacyErrorKey(err: unknown, context: PharmacyErrorContext = "
 /** pharmacyErrorKey, else the shared mapping (server unreachable, 403, 404, 422…). */
 export function describePharmacyError(err: unknown, context: PharmacyErrorContext = "rx"): Key {
   return pharmacyErrorKey(err, context) ?? describeError(err).key;
+}
+
+/** The drug a 409 `insufficient_stock` names (its body carries `drug_id`), else null. */
+export function shortDrugId(err: unknown): string | null {
+  return err instanceof ApiError && err.code === "insufficient_stock" && typeof err.extra.drug_id === "string" ? err.extra.drug_id : null;
 }

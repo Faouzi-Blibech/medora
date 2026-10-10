@@ -165,6 +165,8 @@ export interface Dose {
   given_by_name?: string | null;
   /** UI extension: "Give by hand", "Injection", "2 puffs". */
   instructions?: string | null;
+  /** api 1.12 Phase B: delivery from the pharmacy. A dose can still be given when "none" (ward stock). */
+  pharmacy?: PharmacyDelivery;
 }
 
 // ── AI ──────────────────────────────────────────────────────────────────────
@@ -462,7 +464,16 @@ export interface PatientAccessGrant {
 
 export type PrescriptionStatus = "pending_pharmacy" | "validated" | "changes_requested" | "rejected" | "stopped" | "superseded";
 export type CheckSeverity = "critical" | "major" | "moderate" | "info";
-export type CheckCode = "allergy" | "interaction" | "max_daily_dose" | "duplicate_therapy" | "non_formulary" | "high_alert" | "elderly";
+export type CheckCode =
+  | "allergy"
+  | "interaction"
+  | "max_daily_dose"
+  | "duplicate_therapy"
+  | "non_formulary"
+  | "high_alert"
+  | "elderly"
+  /** Minor: the daily dose could not be computed, so the maximum was not checked. */
+  | "dose_unverified";
 
 /** One check-engine finding (spec §4). `message` is English (logs); the UI translates by `code` + `params`. */
 export interface Check {
@@ -631,4 +642,137 @@ export type WsFrame =
 export interface ApiErrorBody {
   detail: string;
   code: string;
+}
+
+// ── Pharmacy Phase B: dispensing and stock (api 1.12 "Dispensing and stock") ──
+
+export type PharmacyDelivery = "none" | "sent" | "received";
+
+/** `Lot`: GET /pharmacy/stock lists only lots with quantity > 0. */
+export interface StockLot {
+  id: string; // lot-0001
+  drug_id: string;
+  lot_number: string;
+  expiry_date: string; // YYYY-MM-DD
+  quantity: number;
+  received_at: string;
+  /** expiry_date before today (Africa/Tunis). */
+  expired: boolean;
+  /** Has stock and expires within 30 days, today included. */
+  expiring: boolean;
+}
+
+export interface LotRef {
+  id: string;
+  lot_number: string;
+  expiry_date: string;
+}
+
+/** One dose of a round (`RoundDose`). */
+export interface RoundDose {
+  dose_id: string;
+  prescription_id: string;
+  med: string;
+  drug_id: string | null;
+  /** Units for this intake (the item's units_per_intake). */
+  quantity: number;
+  /** FEFO: the first-expiring usable lot that holds the whole line, or null when none does. */
+  suggested_lot: LotRef | null;
+  /** null for a non-formulary dose. */
+  on_hand: number | null;
+  dispensed: boolean;
+}
+
+export interface RoundPatient {
+  id: string;
+  name: string;
+  bed: string | null;
+  doses: RoundDose[];
+}
+
+/** GET /pharmacy/dispensing → one per ward. */
+export interface DispensingWard {
+  ward: string;
+  patients: RoundPatient[];
+}
+
+export type DispensationStatus = "sent" | "received";
+
+export interface DispensationLine {
+  id: string; // dl-000001
+  /** null when the dose was later cancelled. */
+  dose_id: string | null;
+  patient_id: string;
+  patient_name: string | null;
+  bed: string | null;
+  drug_id: string | null;
+  lot_id: string | null;
+  lot_number: string | null;
+  quantity: number;
+  med: string;
+}
+
+export interface Dispensation {
+  id: string; // disp-0001
+  ward: string;
+  round_date: string;
+  round_time: string; // HH:MM
+  status: DispensationStatus;
+  prepared_by: string;
+  prepared_by_name: string | null;
+  prepared_at: string;
+  received_by: string | null;
+  received_by_name: string | null;
+  received_at: string | null;
+  lines: DispensationLine[];
+}
+
+export interface CreateDispensationRequest {
+  ward: string;
+  date: string;
+  round_time: string;
+  /** 1–200 lines; without lot_id the server takes the FEFO lot. */
+  lines: { dose_id: string; lot_id?: string }[];
+}
+
+/** `StockItem`: one per active drug. on_hand leaves out expired lots. */
+export interface StockItem {
+  drug_id: string;
+  dci: string;
+  strength: string;
+  form: DrugForm;
+  on_hand: number;
+  min_stock: number;
+  lots: StockLot[];
+  low: boolean;
+  expiring: boolean;
+  expired: boolean;
+}
+
+export interface ReorderItem {
+  drug_id: string;
+  dci: string;
+  strength: string;
+  form: DrugForm;
+  on_hand: number;
+  min_stock: number;
+  /** 2 × min_stock − on_hand */
+  suggested_quantity: number;
+}
+
+export interface StockReceiptRequest {
+  drug_id: string;
+  lot_number: string; // 1–40
+  expiry_date: string; // YYYY-MM-DD, not in the past
+  quantity: number; // 1–100000
+}
+
+export type AdjustmentReason = "adjustment" | "expired" | "return";
+
+export interface StockAdjustmentRequest {
+  lot_id: string;
+  /** ≠ 0, at most ±100000; `expired` needs a negative delta. */
+  delta: number;
+  reason: AdjustmentReason;
+  comment: string; // 1–500
 }
