@@ -28,6 +28,7 @@ from app.models import (
 )
 from app.services import exams as E
 from app.services.appointments import new_appointment_fields
+from app.services.pharmacy.formulary import load_formulary
 from app.services.schedule import local_to_utc, rebuild_doses, today_local
 
 # (id, email, name, role, ward, rfid)
@@ -92,12 +93,14 @@ def seed(db: Session) -> bool:
     pw = hash_password(get_settings().seed_password)
     if db.scalar(select(User).where(User.email == "doctor@ward.tn")):
         _upsert_missing_staff(db, pw)
+        load_formulary(db)
         return False
     now = datetime.now(UTC).replace(second=0, microsecond=0)
 
     for uid, email, name, role, _, _ in STAFF:
         db.add(User(id=uid, email=email, name=name, role=role, password_hash=pw))
     db.flush()  # users <-> patients is an FK cycle, so the unit of work can't order these inserts itself
+    load_formulary(db)  # reserves the d-0001..d-0051 ids before any dose id is drawn
     for i, (first, last, dob, sex, allergies, history) in enumerate(PATIENTS):
         cardio = i < 6
         db.add(Patient(id=_patient_id(i), first_name=first, last_name=last, date_of_birth=dob, sex=sex,
