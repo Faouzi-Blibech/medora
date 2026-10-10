@@ -154,3 +154,24 @@ def test_rule_files_are_consistent_and_labelled():
     demo = {"amoxicillin", "azithromycin", "warfarin", "ibuprofen", "enoxaparin", "insulin glargine", "morphine",
             "potassium chloride", "metformin", "furosemide", "amlodipine", "paracetamol"}
     assert demo <= {norm(e["dci"]) for e in entries}
+
+
+def test_clopidogrel_maintenance_dose_is_the_daily_max():
+    checks = run_checks(ADULT, [item("d-0017", times=("08:00", "20:00"))], [], DRUGS)  # 75 mg x 2
+    assert [(c.code, c.severity) for c in checks] == [("max_daily_dose", "major")]
+    assert checks[0].params["max_daily_mg"] == 75
+
+
+@pytest.mark.parametrize("allergy", ["aspirin", "Aspirine", "أسبرين"])
+def test_aspirin_allergy_flags_ibuprofen_and_aspirin_flags_nsaid_allergy(allergy):
+    checks = run_checks(PatientInfo(40, (allergy,)), [item("d-0018")], [], DRUGS)
+    assert codes(checks) == [("allergy", "critical", 0)] and checks[0].params["class"] == "nsaid"
+    assert ("allergy", "critical", 0) in codes(run_checks(PatientInfo(40, ("ibuprofen allergy nsaid",)),
+                                                          [item("d-0016")], [], DRUGS))
+
+
+@pytest.mark.parametrize("potentiator", ["d-0040", "d-0010"])  # amiodarone, metronidazole
+def test_warfarin_potentiators_interact(potentiator):
+    checks = run_checks(ADULT, [item("d-0012"), item(potentiator)], [], DRUGS)
+    hit = [c for c in checks if c.code == "interaction" and "warfarin_potentiator" in c.params["groups"]]
+    assert len(hit) == 1 and hit[0].severity == "major"

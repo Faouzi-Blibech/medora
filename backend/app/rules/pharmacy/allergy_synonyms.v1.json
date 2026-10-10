@@ -9,7 +9,7 @@
     "fluoroquinolone": ["fluoroquinolone", "fluoroquinolones", "quinolone", "quinolones", "فلوروكينولون"],
     "nitroimidazole": ["metronidazole", "métronidazole", "flagyl", "ميترونيدازول"],
     "sulfonamide": ["sulfa", "sulfas", "sulfonamide", "sulfonamides", "sulfamide", "sulfamides", "bactrim", "سلفا", "السلفا"],
-    "nsaid": ["nsaid", "nsaids", "ains", "anti-inflammatoire", "anti-inflammatoires", "مضادات الالتهاب"],
+    "nsaid": ["nsaid", "nsaids", "ains", "anti-inflammatoire", "anti-inflammatoires", "مضادات الالتهاب", "aspirin", "aspirine", "acetylsalicylic acid", "acide acétylsalicylique", "أسبرين", "الأسبرين"],
     "aspirin": ["aspirin", "aspirine", "acetylsalicylic acid", "acide acétylsalicylique", "أسبرين", "الأسبرين"],
     "paracetamol": ["paracétamol", "acetaminophen", "باراسيتامول"],
     "heparin": ["héparine", "هيبارين", "الهيبارين"],

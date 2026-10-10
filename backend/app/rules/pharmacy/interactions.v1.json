@@ -6,6 +6,7 @@
     {"groups": ["potassium", "potassium_sparing"], "severity": "critical", "note": "hyperkalaemia"},
     {"groups": ["anticoagulant", "nsaid"], "severity": "major", "note": "bleeding risk"},
     {"groups": ["anticoagulant", "antiplatelet"], "severity": "major", "note": "bleeding risk"},
+    {"groups": ["anticoagulant", "warfarin_potentiator"], "severity": "major", "note": "raised INR, bleeding risk"},
     {"groups": ["anticoagulant", "anticoagulant"], "severity": "major", "note": "double anticoagulation, bleeding risk"},
     {"groups": ["potassium", "ace_inhibitor"], "severity": "major", "note": "hyperkalaemia"},
     {"groups": ["potassium", "arb"], "severity": "major", "note": "hyperkalaemia"},
