@@ -1,6 +1,7 @@
 // Nurse view helpers: NEWS2 sub-scores, alert labels, dose statuses and sparklines.
 // UI-derived values only (computed from the contract records, never stored in fixtures).
 import type { Key, TFn } from "@/i18n/messages";
+import { isPendingUrgent } from "@/lib/pharmacy";
 import { tunisTime, USE_MOCKS } from "@/lib/time";
 import type { Alert, AlertKind, Dose, Prescription, WardBed } from "@/lib/types";
 
@@ -163,6 +164,8 @@ export interface DoseView {
   canGive: boolean;
   /** Text in the action column when there is no button. */
   by: string;
+  /** The dose comes from an urgent prescription the pharmacist hasn't reviewed yet (spec §6). */
+  pendingReview: boolean;
 }
 
 export interface DoseContext {
@@ -228,6 +231,7 @@ export function doseView(dose: Dose, ctx: DoseContext, original: Dose = dose): D
     statusText,
     canGive: !done && status !== "Scheduled",
     by,
+    pendingReview: isPendingUrgent(ctx.prescriptions?.get(dose.prescription_id)),
   };
 }
 

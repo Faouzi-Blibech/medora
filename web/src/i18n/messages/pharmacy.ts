@@ -166,6 +166,7 @@ export const pharmacy = messages({
     validatedBy: "by {name}",
     newVersionPending: "New version awaiting the pharmacist",
     overrideNote: "Sent despite a warning: {reason}",
+    pendingReview: "Pending pharmacy review",
   },
   fr: {
     rolePharmacist: "Pharmacien(ne)",
@@ -330,6 +331,7 @@ export const pharmacy = messages({
     validatedBy: "par {name}",
     newVersionPending: "Nouvelle version en attente du pharmacien",
     overrideNote: "Envoyée malgré un avertissement : {reason}",
+    pendingReview: "En attente de validation par la pharmacie",
   },
   ar: {
     rolePharmacist: "صيدلي",
@@ -494,5 +496,6 @@ export const pharmacy = messages({
     validatedBy: "من {name}",
     newVersionPending: "نسخة جديدة بانتظار الصيدلي",
     overrideNote: "أُرسلت رغم تحذير: {reason}",
+    pendingReview: "بانتظار مراجعة الصيدلية",
   },
 });

@@ -11,6 +11,7 @@ import { useDemoFlags } from "@/lib/demo";
 import { now, tunisDay, tunisTime } from "@/lib/time";
 import type { Alert, Dose, MedRoundGroup, Prescription } from "@/lib/types";
 import { DosePill } from "./DosePill";
+import { PendingReviewBadge } from "./PharmacyBadge";
 import { allergyLabel, doseView, NURSE_ID, nurseStatus, wardLabel, type DoseContext } from "./nurse";
 import styles from "./MedRound.module.css";
 
@@ -176,6 +177,7 @@ export function MedRound() {
                         <span className={styles.medSub} style={{ color: v.subAlert ? "var(--danger)" : "var(--muted)" }}>
                           {v.sub}
                         </span>
+                        {v.pendingReview ? <PendingReviewBadge /> : null}
                       </div>
                       <span className={styles.slot}>{v.slot}</span>
                       <DosePill status={v.status} text={v.statusText} className={styles.pill} />
