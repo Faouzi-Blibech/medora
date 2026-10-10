@@ -227,3 +227,12 @@ class DrugPatch(BaseModel):
     high_alert: bool | None = None
     min_stock: int | None = Field(default=None, ge=0, le=1000000)
     active: bool | None = None
+
+
+class ValidateIn(BaseModel):
+    acknowledged: bool = False  # "warnings reviewed": required when the prescription has any check
+    comment: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+
+
+class CommentIn(BaseModel):
+    comment: Comment  # 1–500 characters after trimming

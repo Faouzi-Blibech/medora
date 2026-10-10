@@ -32,6 +32,15 @@ def local_to_utc(day: date, hhmm: str) -> datetime:
     return datetime.combine(day, time(h, m), TUNIS).astimezone(UTC)
 
 
+def course_start(rx: Prescription) -> datetime:
+    """When the course starts (pharmacy spec §2): at once for an urgent prescription or one that predates the
+    pharmacy gate, else when the pharmacist validated it, so no dose is ever born overdue."""
+    written = rx.created_at or now_utc()
+    if not rx.urgent and rx.reviewed_at is not None:
+        return max(rx.reviewed_at, written)
+    return written
+
+
 def rebuild_doses(db: Session, prescription: Prescription) -> list[MedDose]:
     """Drop the prescription's future `scheduled` doses, then (if active) create `days × times` rows:
     the first occurrences at or after the moment the prescription was written (a time already past on
@@ -44,7 +53,7 @@ def rebuild_doses(db: Session, prescription: Prescription) -> list[MedDose]:
         return []
     existing = {(d.scheduled_at, d.slot, tuple(d.meds)): d
                 for d in db.scalars(select(MedDose).where(MedDose.prescription_id == rx.id))}
-    written = rx.created_at or now_utc()
+    written = course_start(rx)
     start = written.astimezone(TUNIS).date()
     out: list[MedDose] = []
     for item in rx.items:

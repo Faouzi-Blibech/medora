@@ -3,17 +3,19 @@ superseded. `active` is derived from the status and kept in its column for the d
 these, then audit, commit and publish the frames."""
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.errors import ApiError, not_found
 from app.ids import new_id
+from app.integrations import n8n
 from app.iot.ingest import frame
-from app.models import Drug, Patient, Prescription, User
+from app.models import Drug, Patient, Prescription, PrescriptionReview, Staff, User
 from app.schemas import iso
 from app.services import schedule
+from app.services.accounts import active_doctor
 from app.services.pharmacy import formulary as F
 from app.services.pharmacy.checks import Check, PatientInfo, RunningItem, run_checks
 
@@ -187,3 +189,46 @@ def rx_out(db: Session, rx: Prescription, *, for_patient: bool = False) -> dict:
     return {**out, "urgent": rx.urgent, "version": rx.version, "replaces_id": rx.replaces_id,
             "checks": rx.checks or [], "override_reason": rx.override_reason, "review_comment": rx.review_comment,
             "reviewed_by_name": reviewer.name if reviewer else None, "reviewed_at": iso(rx.reviewed_at)}
+
+
+DECISIONS = ("validated", "changes_requested", "rejected")
+
+
+def decide(db: Session, pharmacist: User, rx_id: str, decision: str, comment: str | None, *,
+           acknowledged: bool = False) -> Outcome:
+    """A pharmacist decision on a pending prescription, under the row lock. The checks are recomputed now (the
+    patient's other prescriptions may have changed since the save). Every 4xx is raised before the first write."""
+    assert decision in DECISIONS
+    rx = lock(db, rx_id)
+    if rx.status != "pending_pharmacy":
+        raise ApiError(409, "bad_status", f"prescription is {rx.status}")
+    ancestors = chain(db, rx)
+    checks = checks_for(db, db.get(Patient, rx.patient_id), rx.items, {rx.id, *(a.id for a in ancestors)})
+    if decision == "validated" and checks and not acknowledged:
+        raise ApiError(422, "ack_required", "tick 'warnings reviewed' before validating")
+    now = datetime.now(UTC)
+    rx.checks = [c.as_dict() for c in checks]
+    rx.reviewed_by, rx.reviewed_at = pharmacist.id, now
+    rx.review_comment = (comment or "").strip() or None
+    out = Outcome(rx=rx, touched=[rx], doses_changed=set_status(rx, decision))
+    if decision == "validated":
+        for prev in ancestors:
+            if prev.active:  # the new version takes over only now (spec §2: treatment never stops)
+                set_status(prev, "superseded")
+                out.touched.append(prev)
+                out.doses_changed = True
+    db.add(PrescriptionReview(id=new_id(db, "pr"), prescription_id=rx.id, pharmacist_id=pharmacist.id,
+                              decision=decision, comment=rx.review_comment, checks_snapshot=rx.checks))
+    db.flush()
+    return out
+
+
+def emit_review(db: Session, rx: Prescription, decision: str, comment: str | None) -> None:
+    """n8n `prescription.review` (n8n-webhooks 1.4), sent only if the transaction commits. A doctor whose account
+    is no longer active gets nothing (api 1.9)."""
+    doctor = active_doctor(db, rx.doctor_id)
+    st = db.get(Staff, rx.doctor_id) if doctor else None
+    n8n.emit_after_commit(db, "prescription.review", {
+        "prescription_id": rx.id, "patient_id": rx.patient_id, "decision": decision,
+        "comment": (comment or "").strip() or None, "doctor_email": doctor.email if doctor else None,
+        "doctor_chat_id": st.telegram_chat_id if st else None})

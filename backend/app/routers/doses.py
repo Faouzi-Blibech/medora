@@ -8,10 +8,10 @@ from sqlalchemy.orm import Session
 
 from app.auth.deps import check_patient_access, require_roles
 from app.db import get_db
-from app.errors import not_found
+from app.errors import ApiError, not_found
 from app.iot import publisher
 from app.iot.ingest import frame
-from app.models import MedDose, User
+from app.models import MedDose, Prescription, User
 from app.schemas import DoseOut, iso
 from app.services.schedule import local_to_utc, today_local
 
@@ -44,6 +44,9 @@ def given(dose_id: str, request: Request, user: User = Depends(require_roles("nu
     if d is None:
         raise not_found("dose")
     check_patient_access(db, user, d.patient_id, write=True, resource="dose", ip=_ip(request))
+    rx = db.get(Prescription, d.prescription_id)
+    if rx is not None and not rx.active and d.status != "taken":  # validated or urgent only (pharmacy spec §2)
+        raise ApiError(409, "bad_status", f"prescription is {rx.status}: this dose must not be given")
     now = datetime.now(UTC)
     if d.status != "taken":
         d.status, d.updated_at = "taken", now
