@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "note": "Illustrative, not a clinical reference; to be validated by the hospital's pharmacists. A patient allergy matches a class when one of its terms appears as a whole word, after lower-casing and removing accents and Arabic marks. The class name itself is also a term.",
+  "classes": {
+    "penicillin": ["penicillin", "penicillins", "pénicilline", "pénicillines", "بنسلين", "البنسلين", "amoxicillin", "amoxicilline", "أموكسيسيلين", "augmentin"],
+    "beta_lactam": ["beta-lactam", "beta-lactams", "bêta-lactamine", "bêta-lactamines", "betalactamine", "بيتا لاكتام"],
+    "cephalosporin": ["cephalosporin", "cephalosporins", "céphalosporine", "céphalosporines", "سيفالوسبورين"],
+    "macrolide": ["macrolide", "macrolides", "azithromycin", "azithromycine", "clarithromycin", "clarithromycine", "ماكروليد"],
+    "fluoroquinolone": ["fluoroquinolone", "fluoroquinolones", "quinolone", "quinolones", "فلوروكينولون"],
+    "nitroimidazole": ["metronidazole", "métronidazole", "flagyl", "ميترونيدازول"],
+    "sulfonamide": ["sulfa", "sulfas", "sulfonamide", "sulfonamides", "sulfamide", "sulfamides", "bactrim", "سلفا", "السلفا"],
+    "nsaid": ["nsaid", "nsaids", "ains", "anti-inflammatoire", "anti-inflammatoires", "مضادات الالتهاب"],
+    "aspirin": ["aspirin", "aspirine", "acetylsalicylic acid", "acide acétylsalicylique", "أسبرين", "الأسبرين"],
+    "paracetamol": ["paracétamol", "acetaminophen", "باراسيتامول"],
+    "heparin": ["héparine", "هيبارين", "الهيبارين"],
+    "opioid": ["opioids", "opiacé", "opiacés", "opiate", "opiates", "morphine", "codeine", "codéine", "مورفين", "المورفين"],
+    "sulfonylurea": ["sulfonylureas", "sulfonylurée", "sulfonylurées"]
+  }
+}

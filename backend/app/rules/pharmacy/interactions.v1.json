@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "note": "Illustrative, not a clinical reference; to be validated by the hospital's pharmacists. A pair matches when one drug carries the first group and another drug the second (either order). Severity: critical, major or moderate.",
+  "pairs": [
+    {"groups": ["opioid", "benzodiazepine"], "severity": "critical", "note": "respiratory depression"},
+    {"groups": ["potassium", "potassium_sparing"], "severity": "critical", "note": "hyperkalaemia"},
+    {"groups": ["anticoagulant", "nsaid"], "severity": "major", "note": "bleeding risk"},
+    {"groups": ["anticoagulant", "antiplatelet"], "severity": "major", "note": "bleeding risk"},
+    {"groups": ["anticoagulant", "anticoagulant"], "severity": "major", "note": "double anticoagulation, bleeding risk"},
+    {"groups": ["potassium", "ace_inhibitor"], "severity": "major", "note": "hyperkalaemia"},
+    {"groups": ["potassium", "arb"], "severity": "major", "note": "hyperkalaemia"},
+    {"groups": ["ace_inhibitor", "potassium_sparing"], "severity": "major", "note": "hyperkalaemia"},
+    {"groups": ["macrolide_cyp3a4", "statin_cyp3a4"], "severity": "major", "note": "myopathy, rhabdomyolysis"},
+    {"groups": ["serotonergic", "serotonergic"], "severity": "major", "note": "serotonin syndrome"},
+    {"groups": ["opioid", "opioid"], "severity": "major", "note": "additive respiratory depression"},
+    {"groups": ["qt_prolonging", "qt_prolonging"], "severity": "moderate", "note": "QT prolongation"},
+    {"groups": ["cardiac_glycoside", "loop_diuretic"], "severity": "moderate", "note": "low potassium raises digoxin toxicity"},
+    {"groups": ["nsaid", "ace_inhibitor"], "severity": "moderate", "note": "weaker blood-pressure control, kidney injury"},
+    {"groups": ["nsaid", "loop_diuretic"], "severity": "moderate", "note": "weaker diuretic effect, kidney injury"}
+  ]
+}
