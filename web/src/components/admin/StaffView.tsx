@@ -24,11 +24,12 @@ import styles from "./StaffView.module.css";
 
 type StaffRole = StaffMember["role"];
 
-const ROLE_LABEL: Record<StaffRole, Key> = { doctor: "admin.roleDoctor", nurse: "admin.roleNurse", admin: "admin.roleAdmin" };
+const ROLE_LABEL: Record<StaffRole, Key> = { doctor: "admin.roleDoctor", nurse: "admin.roleNurse", admin: "admin.roleAdmin", pharmacist: "pharmacy.rolePharmacist" };
 const ROLE_COLORS: Record<StaffRole, [string, string]> = {
   doctor: ["var(--doctor-bg)", "var(--doctor-fg)"],
   nurse: ["var(--ai-bg)", "var(--news-normal-fg)"],
   admin: ["var(--segment)", "var(--text)"],
+  pharmacist: ["var(--warn-bg)", "var(--warn-ink)"],
 };
 const STATUS_LABEL: Record<StaffMember["status"], Key> = {
   active: "accounts.statusActive",

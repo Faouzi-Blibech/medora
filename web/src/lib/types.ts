@@ -5,7 +5,7 @@
 // API omits them (e.g. show the id, or derive the value). They are listed in the
 // Task 1 report as a proposed api.md 1.5 bump.
 
-export type Role = "doctor" | "nurse" | "admin" | "patient";
+export type Role = "doctor" | "nurse" | "admin" | "patient" | "pharmacist";
 
 /** `source` on every AI output (api.md 1.4). */
 export type AiSource = "model" | "rules" | "llm";
@@ -94,7 +94,13 @@ export interface Note {
 // ── Prescriptions and doses ─────────────────────────────────────────────────
 
 export interface PrescriptionItem {
-  med: string; // "Paracetamol 500mg"
+  med: string; // display string, "Paracetamol 500 mg"
+  /** api 1.12: formulary drug id ("d-0001"); null or absent = non-formulary ("hors livret"). */
+  drug_id?: string | null;
+  /** api 1.12: mg per intake; null = use units_per_intake × unit_mg. */
+  dose_mg?: number | null;
+  /** api 1.12: tablets/capsules per intake, default 1. */
+  units_per_intake?: number;
   times: string[]; // ["08:00","20:00"], Africa/Tunis wall-clock
   slot: number | null; // carousel slot 1–4, null = reminder only
   days: number;
@@ -106,18 +112,36 @@ export interface Prescription {
   doctor_id: string;
   items: PrescriptionItem[];
   care_plan: string;
+  /** Derived (spec §3): validated, or pending_pharmacy with urgent. */
   active: boolean;
   created_at: string;
   schedule_version: number;
   published_to_device: boolean;
   /** UI extension: saved despite an allergy rule conflict (override logged). */
   allergy_override?: boolean;
+  /** api 1.12 */
+  status: PrescriptionStatus;
+  urgent: boolean;
+  version: number;
+  replaces_id?: string | null;
+  /** The last check results (doctor and pharmacist roles; absent for patients). */
+  checks?: Check[];
+  override_reason?: string | null;
+  review_comment?: string | null;
+  reviewed_by_name?: string | null;
+  reviewed_at?: string | null;
 }
 
 export interface CreatePrescriptionRequest {
   patient_id: string;
   items: PrescriptionItem[];
   care_plan: string;
+  /** api 1.12: doses start at once; the pharmacist reviews right after. */
+  urgent?: boolean;
+  /** Required (422 `override_required`) when a check is critical. */
+  override_reason?: string;
+  /** Edit = a new version of this prescription (409 `conflict` if it already has a successor). */
+  replaces_id?: string;
 }
 
 export type DoseStatus = "scheduled" | "dispensed" | "taken" | "missed";
@@ -434,6 +458,124 @@ export interface PatientAccessGrant {
   expires_at: string;
 }
 
+// ── Pharmacy (api 1.12, spec 2026-10-10-hospital-pharmacy-design.md §5) ─────
+
+export type PrescriptionStatus = "pending_pharmacy" | "validated" | "changes_requested" | "rejected" | "stopped" | "superseded";
+export type CheckSeverity = "critical" | "major" | "moderate" | "info";
+export type CheckCode = "allergy" | "interaction" | "max_daily_dose" | "duplicate_therapy" | "non_formulary" | "high_alert" | "elderly";
+
+/** One check-engine finding (spec §4). `message` is English (logs); the UI translates by `code` + `params`. */
+export interface Check {
+  code: CheckCode;
+  severity: CheckSeverity;
+  /** Index in the prescription's `items`; null when the finding is not tied to one item. */
+  item_index: number | null;
+  drug_id: string | null;
+  params: Record<string, string | number | null>;
+  message: string;
+}
+
+export type DrugForm = "tablet" | "capsule" | "syrup" | "injection" | "inhaler" | "patch" | "drops" | "other";
+
+/** One formulary row (`drugs`, data-model 1.7). */
+export interface Drug {
+  id: string; // d-0001
+  dci: string;
+  brand_names: string[];
+  form: DrugForm;
+  strength: string; // display only, "500 mg"
+  unit_mg: number | null;
+  max_daily_mg: number | null; // null = no dose check
+  atc_code: string;
+  allergy_classes: string[];
+  interaction_groups: string[];
+  high_alert: boolean;
+  min_stock: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+export type DrugInput = Omit<Drug, "id" | "created_at" | "updated_at">;
+export type DrugPatch = Partial<DrugInput>;
+
+/** POST /prescriptions/check (dry run). */
+export interface CheckRequest {
+  patient_id: string;
+  items: PrescriptionItem[];
+  replaces_id?: string;
+}
+export interface CheckResponse {
+  checks: Check[];
+}
+
+/** The pharmacist's minimal patient projection (spec §2): never notes, exams, vitals or AI summaries. */
+export interface PharmacyPatient {
+  id: string;
+  name: string;
+  age: number;
+  sex: "F" | "M";
+  ward: string | null;
+  bed: string | null;
+  allergies: string[];
+  /** Shown when present (spec §2 "weight if present"); not checked. */
+  weight_kg?: number | null;
+}
+
+export type WorklistStatus = "pending_pharmacy" | "changes_requested" | "all";
+
+export interface WorklistItem {
+  prescription: Prescription;
+  patient: PharmacyPatient;
+  doctor_name: string;
+  checks: Check[];
+  urgent: boolean;
+  waiting_since: string;
+  max_severity: CheckSeverity | null;
+}
+
+export type ReviewDecision = "validated" | "changes_requested" | "rejected";
+
+/** One `prescription_reviews` row. */
+export interface PrescriptionReview {
+  id: string; // pr-0001
+  prescription_id: string;
+  pharmacist_id: string;
+  decision: ReviewDecision;
+  comment: string | null;
+  checks_snapshot: Check[];
+  created_at: string;
+  /** UI extension: "Pharm. Salma". */
+  pharmacist_name?: string | null;
+}
+
+/** GET /pharmacy/prescriptions/{id} */
+export interface ReviewDetail {
+  prescription: Prescription;
+  patient: PharmacyPatient;
+  doctor_name: string;
+  /** The patient's other running prescriptions. */
+  running: Prescription[];
+  /** Recomputed now. */
+  checks: Check[];
+  history: PrescriptionReview[];
+  replaces?: Prescription | null;
+}
+
+export interface ValidateRequest {
+  acknowledged: boolean;
+  comment?: string;
+}
+
+/** GET /pharmacy/summary (sidebar badge and dashboard). Phase B adds the stock counts. */
+export interface PharmacySummary {
+  pending: number;
+  urgent_pending: number;
+  critical_pending: number;
+  changes_requested: number;
+  low_stock?: number;
+  expiring?: number;
+}
+
 // ── Composed views (built client-side from several contract calls) ──────────
 
 /** One bed on the nurse ward board. */
@@ -480,7 +622,11 @@ export type WsFrame =
         ts: string;
       };
     }
-  | { type: "device_status"; data: { device_id: string; online: boolean; ts: string } };
+  | { type: "device_status"; data: { device_id: string; online: boolean; ts: string } }
+  | {
+      type: "prescription_status";
+      data: { prescription_id: string; patient_id: string; status: PrescriptionStatus; urgent: boolean };
+    };
 
 export interface ApiErrorBody {
   detail: string;

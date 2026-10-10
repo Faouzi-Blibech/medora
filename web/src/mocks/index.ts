@@ -1,7 +1,9 @@
 // Mock fixtures entry point. All data is synthetic, copied from the Claude Design mockups.
 // `api.ts` is the only consumer: components never import mocks directly
 // (except `NAV_COUNTS`, the static sidebar counts).
-import type { Alert, AiSummary, Appointment, Device, Dose, ExamOrder, HomeCarePlan, Note, Patient, Prescription, SlotOffer, StaffMember, Vital, DoctorRef, PatientAccessGrant, PendingUser, UserAdmin } from "@/lib/types";
+import type { Alert, AiSummary, Appointment, Device, Dose, Drug, ExamOrder, HomeCarePlan, Note, Patient, Prescription, PrescriptionReview, SlotOffer, StaffMember, Vital, DoctorRef, PatientAccessGrant, PendingUser, UserAdmin } from "@/lib/types";
+import { checksFor, FORMULARY, REVIEWS } from "./pharmacy";
+export { chainOf, checksFor, drugMatches } from "./pharmacy";
 import { ALERTS } from "./alerts";
 import { PATIENT_APPOINTMENTS, WAITLIST } from "./appointments";
 import { DOSES, NOTES, PRESCRIPTIONS, SUMMARIES } from "./clinical";
@@ -45,12 +47,14 @@ export interface MockStore {
   grants: Record<string, PatientAccessGrant[]>;
   /** Patient records that already have an account (the real API enforces one account per record). */
   linkedPatients: string[];
-  seq: { rx: number; dose: number; note: number; user: number };
+  drugs: Drug[];
+  reviews: PrescriptionReview[];
+  seq: { rx: number; dose: number; note: number; user: number; drug: number; review: number };
 }
 
 /** A fresh, deep-copied, mutable store. Mutations in api.ts write here. */
 export function createStore(): MockStore {
-  return structuredClone({
+  const s: MockStore = structuredClone({
     patients: PATIENTS,
     vitals: VITALS,
     prescriptions: PRESCRIPTIONS,
@@ -70,7 +74,21 @@ export function createStore(): MockStore {
     team: TEAM,
     grants: GRANTS,
     linkedPatients: [USERS.patient.patient_id],
-    seq: { rx: PRESCRIPTIONS.length, dose: DOSES.length, note: Object.values(NOTES).flat().length, user: 100 },
+    drugs: FORMULARY,
+    reviews: REVIEWS,
+    seq: {
+      rx: PRESCRIPTIONS.length,
+      dose: DOSES.length,
+      note: Object.values(NOTES).flat().length,
+      user: 100,
+      drug: FORMULARY.length,
+      review: REVIEWS.length,
+    },
   });
+  // Checks are computed, never typed into fixtures: the same engine the mock POST /prescriptions runs.
+  for (const rx of s.prescriptions)
+    if (rx.status === "pending_pharmacy" || rx.status === "changes_requested")
+      rx.checks = checksFor(s.patients, s.prescriptions, s.drugs, { patient_id: rx.patient_id, items: rx.items, ...(rx.replaces_id ? { replaces_id: rx.replaces_id } : {}) }, rx.id);
+  for (const r of s.reviews) r.checks_snapshot = s.prescriptions.find((x) => x.id === r.prescription_id)?.checks ?? [];
+  return s;
 }
-

@@ -21,6 +21,7 @@ const ROLE_WORD: Record<Role, Key> = {
   doctor: "shared.roleDoctor",
   admin: "shared.roleAdmin",
   patient: "shared.rolePatient",
+  pharmacist: "pharmacy.rolePharmacist",
 };
 
 export interface NotesPanelProps {

@@ -5,7 +5,9 @@
 // store, so a later read reflects them (until a full page reload).
 // Real mode: calls NEXT_PUBLIC_API_URL with the paths of docs/contracts/api.md.
 // Paths marked NOT IN CONTRACT have no api.md 1.4 endpoint yet (see the Task 1 report).
-import { createStore, generateCode, MOCK_CODES, EXAM_CATALOGUE, mockAssistant, USERS, userName, type AssistantContext, type MockStore } from "@/mocks";
+import { chainOf, checksFor, createStore, drugMatches, generateCode, MOCK_CODES, EXAM_CATALOGUE, mockAssistant, USERS, userName, type AssistantContext, type MockStore } from "@/mocks";
+import { publishFrame } from "./frames";
+import { COMMENT_MAX, hasCritical, isRunning, maxSeverity, sortWorklist } from "./pharmacy";
 import { now, tunisDate, USE_MOCKS } from "./time";
 import type {
   AccountStatus,
@@ -16,6 +18,9 @@ import type {
   CatalogueItem,
   ChatResponse,
   ChatTurn,
+  Check,
+  CheckRequest,
+  CheckResponse,
   Conversation,
   ConversationMessage,
   ApproveRequest,
@@ -25,6 +30,9 @@ import type {
   Device,
   DoctorRef,
   Dose,
+  Drug,
+  DrugInput,
+  DrugPatch,
   ExamOrder,
   HomeCarePlan,
   Hospital,
@@ -37,17 +45,24 @@ import type {
   PatientAccessGrant,
   PatientSummary,
   PendingUser,
+  PharmacyPatient,
+  PharmacySummary,
   Prescription,
   RegisterRequest,
   RegisterResponse,
   ResetRequest,
+  ReviewDecision,
+  ReviewDetail,
   Role,
   SlotOffer,
   StaffMember,
   Urgency,
   UserAdmin,
+  ValidateRequest,
   Vital,
   WardBed,
+  WorklistItem,
+  WorklistStatus,
 } from "./types";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -543,65 +558,106 @@ export function addNote(patientId: string, text: string, opts: ActorOpts = {}): 
 
 // ── Prescriptions and doses ─────────────────────────────────────────────────
 
-/** GET /patients/{id}/prescriptions */
+/** GET /patients/{id}/prescriptions: every version and status, newest first (screens filter with lib/pharmacy.ts). */
 export function getPrescriptions(patientId: string): Promise<Prescription[]> {
-  if (USE_MOCKS) return mock((s) => s.prescriptions.filter((r) => r.patient_id === patientId && r.active));
+  if (USE_MOCKS)
+    return mock((s) =>
+      s.prescriptions.filter((r) => r.patient_id === patientId).sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    );
   return http<Prescription[]>("GET", `/patients/${encodeURIComponent(patientId)}/prescriptions`);
 }
 
-const PENICILLIN_FAMILY = /amox|penic|ampic|augment/i;
+/** Future doses of `rx` after `from`, one per (day × time), like the backend's rebuild_doses. Mock only. */
+function scheduleDoses(s: MockStore, rx: Prescription, from: Date): void {
+  const today = tunisDate(iso(from));
+  for (const item of rx.items) {
+    for (let d = 0; d < item.days + 1; d++) {
+      const date = new Date(Date.parse(`${today}T12:00:00Z`) + d * 86_400_000).toISOString().slice(0, 10);
+      for (const t of item.times) {
+        const at = new Date(Date.parse(`${date}T${t}:00+01:00`));
+        if (at <= from) continue;
+        s.seq.dose += 1;
+        s.doses.push({
+          id: `d-${String(s.seq.dose).padStart(6, "0")}`,
+          prescription_id: rx.id,
+          patient_id: rx.patient_id,
+          scheduled_at: iso(at),
+          time_of_day: t,
+          meds: [item.med],
+          slot: item.slot,
+          status: "scheduled",
+          taken_method: null,
+          updated_at: iso(from),
+          taken_at: null,
+          given_by: null,
+          given_by_name: null,
+          instructions: item.slot == null ? "Give by hand" : null,
+        });
+      }
+    }
+  }
+  s.doses.sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
+}
 
-/** POST /prescriptions → Prescription (`published_to_device` false when no device). */
+/** Deletes the future, not-yet-given doses of a prescription (reject, supersede). Mock only. */
+function dropFutureDoses(s: MockStore, rxId: string): void {
+  const t = now().getTime();
+  s.doses = s.doses.filter((d) => !(d.prescription_id === rxId && d.status === "scheduled" && Date.parse(d.scheduled_at) > t));
+}
+
+/** The check engine on a saved prescription, as it stands now (the server's recompute). */
+function rxChecks(s: MockStore, rx: Prescription): Check[] {
+  return checksFor(s.patients, s.prescriptions, s.drugs, { patient_id: rx.patient_id, items: rx.items, ...(rx.replaces_id ? { replaces_id: rx.replaces_id } : {}) }, rx.id);
+}
+
+const statusFrame = (rx: Prescription) =>
+  publishFrame({ type: "prescription_status", data: { prescription_id: rx.id, patient_id: rx.patient_id, status: rx.status, urgent: rx.urgent } });
+
+/**
+ * POST /prescriptions → Prescription with status/urgent/version/checks (api 1.12). The check engine runs on every save.
+ * 422 `override_required`: a critical check and no `override_reason`. 409 `conflict`: `replaces_id` already has a successor.
+ * Doses are created now only when `urgent`; otherwise on validation.
+ */
 export function createPrescription(req: CreatePrescriptionRequest, opts: ActorOpts = {}): Promise<Prescription> {
   if (USE_MOCKS)
     return mock((s) => {
       const patient = s.patients.find((p) => p.id === req.patient_id) ?? notFound(`Patient ${req.patient_id}`);
-      const version = Math.max(0, ...s.prescriptions.filter((r) => r.patient_id === patient.id).map((r) => r.schedule_version)) + 1;
+      const replaced = req.replaces_id
+        ? (s.prescriptions.find((r) => r.id === req.replaces_id && r.patient_id === patient.id) ?? notFound(`Prescription ${req.replaces_id}`))
+        : null;
+      if (replaced && s.prescriptions.some((r) => r.replaces_id === replaced.id && r.status !== "rejected"))
+        throw new ApiError(409, "conflict", "A newer version already replaces this prescription.");
+      const checks = checksFor(s.patients, s.prescriptions, s.drugs, { patient_id: patient.id, items: req.items, ...(replaced ? { replaces_id: replaced.id } : {}) });
+      const reason = req.override_reason?.trim() || null;
+      if (hasCritical(checks) && !reason) throw new ApiError(422, "override_required", "A critical check needs an override_reason.");
+      const urgent = !!req.urgent;
+      const scheduleVersion = Math.max(0, ...s.prescriptions.filter((r) => r.patient_id === patient.id).map((r) => r.schedule_version)) + 1;
       s.seq.rx += 1;
       const created = now();
-      const allergic = patient.allergies.some((a) => /penicillin/i.test(a));
       const rx: Prescription = {
         id: `rx-${String(s.seq.rx).padStart(4, "0")}`,
         patient_id: patient.id,
         doctor_id: opts.by ?? USERS.doctor.id,
-        items: req.items,
+        items: req.items.map((i) => ({ ...i, units_per_intake: i.units_per_intake ?? 1 })),
         care_plan: req.care_plan,
-        active: true,
+        active: urgent,
         created_at: iso(created),
-        schedule_version: version,
-        published_to_device: !!patient.device_id,
-        ...(allergic && req.items.some((i) => PENICILLIN_FAMILY.test(i.med)) ? { allergy_override: true } : {}),
+        schedule_version: scheduleVersion,
+        published_to_device: urgent && !!patient.device_id,
+        status: "pending_pharmacy",
+        urgent,
+        version: (replaced?.version ?? 0) + 1,
+        replaces_id: replaced?.id ?? null,
+        checks,
+        override_reason: reason,
+        review_comment: null,
+        reviewed_by_name: null,
+        reviewed_at: null,
+        ...(reason && checks.some((c) => c.code === "allergy") ? { allergy_override: true } : {}),
       };
       s.prescriptions.push(rx);
-      // Regenerate doses: one per (day × time) from today, future occurrences only.
-      const today = tunisDate(iso(created));
-      for (const item of req.items) {
-        for (let d = 0; d < item.days + 1; d++) {
-          const date = new Date(Date.parse(`${today}T12:00:00Z`) + d * 86_400_000).toISOString().slice(0, 10);
-          for (const t of item.times) {
-            const at = new Date(Date.parse(`${date}T${t}:00+01:00`));
-            if (at <= created) continue;
-            s.seq.dose += 1;
-            s.doses.push({
-              id: `d-${String(s.seq.dose).padStart(6, "0")}`,
-              prescription_id: rx.id,
-              patient_id: patient.id,
-              scheduled_at: iso(at),
-              time_of_day: t,
-              meds: [item.med],
-              slot: item.slot,
-              status: "scheduled",
-              taken_method: null,
-              updated_at: iso(created),
-              taken_at: null,
-              given_by: null,
-              given_by_name: null,
-              instructions: item.slot == null ? "Give by hand" : null,
-            });
-          }
-        }
-      }
-      s.doses.sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
+      if (urgent) scheduleDoses(s, rx, created);
+      statusFrame(rx);
       return rx;
     });
   return http<Prescription>("POST", "/prescriptions", req);
@@ -635,6 +691,216 @@ export function markDoseGiven(doseId: string, opts: ActorOpts = {}): Promise<Dos
       return dose;
     });
   return http<Dose>("POST", `/doses/${encodeURIComponent(doseId)}/given`, {});
+}
+
+// ── Pharmacy (api 1.12, spec 2026-10-10 §5) ─────────────────────────────────
+
+/** WS /ws?token=<jwt> for this tab's session; null in mock mode or when signed out (used by lib/live.ts). */
+export function liveSocketUrl(): string | null {
+  if (USE_MOCKS) return null;
+  const token = getToken();
+  return token ? `${BASE.replace(/^http/, "ws")}/ws?token=${encodeURIComponent(token)}` : null;
+}
+
+/** GET /drugs?q=&active=: DCI or brand (substring) or ATC code (prefix); at most 50. Omit `active` for both (sent as `all`; the server default is active only). */
+export function listDrugs(opts: { q?: string; active?: boolean } = {}): Promise<Drug[]> {
+  const q = (opts.q ?? "").trim();
+  if (USE_MOCKS)
+    return mock((s) => s.drugs.filter((d) => (opts.active === undefined || d.active === opts.active) && drugMatches(d, q)).slice(0, 50));
+  const p = new URLSearchParams();
+  if (q) p.set("q", q);
+  p.set("active", opts.active === undefined ? "all" : String(opts.active));
+  const qs = p.toString();
+  return http<Drug[]>("GET", `/drugs${qs ? `?${qs}` : ""}`);
+}
+
+const sortDrugs = (s: MockStore) => s.drugs.sort((a, b) => a.dci.localeCompare(b.dci) || a.strength.localeCompare(b.strength));
+
+/** POST /drugs (pharmacist, admin). */
+export function createDrug(req: DrugInput): Promise<Drug> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      if (!req.dci.trim() || !req.strength.trim() || !req.atc_code.trim()) throw new ApiError(422, "validation_error", "dci, strength and atc_code are required");
+      s.seq.drug += 1;
+      const t = iso(now());
+      const drug: Drug = { ...req, id: `d-${String(s.seq.drug).padStart(4, "0")}`, created_at: t, updated_at: t };
+      s.drugs.push(drug);
+      sortDrugs(s);
+      return drug;
+    });
+  return http<Drug>("POST", "/drugs", req);
+}
+
+/** PATCH /drugs/{id} (pharmacist, admin). Deactivate with `{active: false}`; there is no delete. */
+export function updateDrug(id: string, patch: DrugPatch): Promise<Drug> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const drug = s.drugs.find((d) => d.id === id) ?? notFound(`Drug ${id}`);
+      for (const k of ["dci", "strength", "atc_code"] as const)
+        if (patch[k] !== undefined && !patch[k]?.trim()) throw new ApiError(422, "validation_error", `${k} is required`);
+      Object.assign(drug, patch, { updated_at: iso(now()) });
+      sortDrugs(s);
+      return drug;
+    });
+  return http<Drug>("PATCH", `/drugs/${enc(id)}`, patch);
+}
+
+/** POST /prescriptions/check: a dry run of the check engine while the doctor types. */
+export function checkPrescription(req: CheckRequest): Promise<CheckResponse> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      s.patients.find((p) => p.id === req.patient_id) ?? notFound(`Patient ${req.patient_id}`);
+      return { checks: checksFor(s.patients, s.prescriptions, s.drugs, req) };
+    });
+  return http<CheckResponse>("POST", "/prescriptions/check", req);
+}
+
+/** The pharmacist's minimal projection (spec §2). Explicit pick: never spread a Patient (history, notes…). */
+function pharmacyPatient(p: Patient): PharmacyPatient {
+  return { id: p.id, name: `${p.first_name} ${p.last_name}`, age: p.age, sex: p.sex, ward: p.ward, bed: p.bed, allergies: p.allergies };
+}
+
+function worklistItem(s: MockStore, rx: Prescription): WorklistItem {
+  const p = s.patients.find((x) => x.id === rx.patient_id) ?? notFound(`Patient ${rx.patient_id}`);
+  const checks = rx.checks ?? [];
+  return {
+    prescription: rx,
+    patient: pharmacyPatient(p),
+    doctor_name: userName(rx.doctor_id) ?? rx.doctor_id,
+    checks,
+    urgent: rx.urgent,
+    waiting_since: rx.created_at,
+    max_severity: maxSeverity(checks),
+  };
+}
+
+/** GET /pharmacy/worklist?status=: urgent, then severity, then oldest (sorted here too, so both modes match). */
+export async function getWorklist(status: WorklistStatus = "pending_pharmacy"): Promise<WorklistItem[]> {
+  const list = USE_MOCKS
+    ? await mock((s) =>
+        s.prescriptions
+          .filter((r) => (status === "all" ? r.status !== "stopped" && r.status !== "superseded" : r.status === status))
+          .map((rx) => worklistItem(s, rx)),
+      )
+    : await http<WorklistItem[]>("GET", `/pharmacy/worklist?status=${status}`);
+  return sortWorklist(list);
+}
+
+/** GET /pharmacy/prescriptions/{id}: the review panel, with `checks` recomputed now. */
+export function getReview(id: string): Promise<ReviewDetail> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const rx = s.prescriptions.find((r) => r.id === id) ?? notFound(`Prescription ${id}`);
+      const p = s.patients.find((x) => x.id === rx.patient_id) ?? notFound(`Patient ${rx.patient_id}`);
+      const chain = chainOf(s.prescriptions, rx.replaces_id);
+      return {
+        prescription: rx,
+        patient: pharmacyPatient(p),
+        doctor_name: userName(rx.doctor_id) ?? rx.doctor_id,
+        running: s.prescriptions.filter((r) => r.patient_id === p.id && r.id !== rx.id && !chain.has(r.id) && isRunning(r)),
+        checks: rxChecks(s, rx),
+        history: s.reviews.filter((r) => r.prescription_id === rx.id),
+        replaces: rx.replaces_id ? (s.prescriptions.find((r) => r.id === rx.replaces_id) ?? null) : null,
+      };
+    });
+  return http<ReviewDetail>("GET", `/pharmacy/prescriptions/${enc(id)}`);
+}
+
+/** The prescription, if it is still pending; 409 `bad_status` otherwise (a second pharmacist was faster). */
+function pendingRx(s: MockStore, id: string): Prescription {
+  const rx = s.prescriptions.find((r) => r.id === id) ?? notFound(`Prescription ${id}`);
+  if (rx.status !== "pending_pharmacy") throw new ApiError(409, "bad_status", `prescription is ${rx.status}`);
+  return rx;
+}
+
+function requireComment(comment: string): string {
+  const c = comment.trim();
+  if (!c || [...c].length > COMMENT_MAX) throw new ApiError(422, "validation_error", "comment must be 1-500 characters");
+  return c;
+}
+
+/** Writes the prescription_reviews row, the status and the reviewer, then sends the frame. */
+function recordDecision(s: MockStore, rx: Prescription, decision: ReviewDecision, comment: string | null, by: string, checks: Check[]): Prescription {
+  const at = iso(now());
+  const name = userName(by) ?? by;
+  s.seq.review += 1;
+  s.reviews.unshift({
+    id: `pr-${String(s.seq.review).padStart(4, "0")}`,
+    prescription_id: rx.id,
+    pharmacist_id: by,
+    decision,
+    comment,
+    checks_snapshot: checks,
+    created_at: at,
+    pharmacist_name: name,
+  });
+  Object.assign(rx, { status: decision, checks, review_comment: comment, reviewed_by_name: name, reviewed_at: at });
+  statusFrame(rx);
+  return rx;
+}
+
+/** POST /pharmacy/prescriptions/{id}/validate `{acknowledged, comment?}`. 409 `bad_status`; 422 `ack_required`. */
+export function validatePrescription(id: string, req: ValidateRequest, opts: ActorOpts = {}): Promise<Prescription> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const rx = pendingRx(s, id);
+      const checks = rxChecks(s, rx);
+      if (checks.length && !req.acknowledged) throw new ApiError(422, "ack_required", "Acknowledge the checks first.");
+      if (req.comment && [...req.comment.trim()].length > COMMENT_MAX) throw new ApiError(422, "validation_error", "comment is too long");
+      // The running ancestor of this version is superseded only now: treatment never stops (spec §2).
+      const ancestor = [...chainOf(s.prescriptions, rx.replaces_id)]
+        .map((cid) => s.prescriptions.find((r) => r.id === cid))
+        .find((r): r is Prescription => !!r && isRunning(r));
+      if (ancestor) {
+        Object.assign(ancestor, { status: "superseded", active: false });
+        dropFutureDoses(s, ancestor.id);
+      }
+      rx.active = true;
+      if (!rx.urgent) scheduleDoses(s, rx, now());
+      return recordDecision(s, rx, "validated", req.comment?.trim() || null, opts.by ?? USERS.pharmacist.id, checks);
+    });
+  return http<Prescription>("POST", `/pharmacy/prescriptions/${enc(id)}/validate`, req);
+}
+
+/** POST /pharmacy/prescriptions/{id}/request-changes `{comment}` (1–500). An urgent one stops its future doses. */
+export function requestPrescriptionChanges(id: string, comment: string, opts: ActorOpts = {}): Promise<Prescription> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const rx = pendingRx(s, id);
+      const text = requireComment(comment);
+      rx.active = false;
+      if (rx.urgent) dropFutureDoses(s, rx.id);
+      return recordDecision(s, rx, "changes_requested", text, opts.by ?? USERS.pharmacist.id, rxChecks(s, rx));
+    });
+  return http<Prescription>("POST", `/pharmacy/prescriptions/${enc(id)}/request-changes`, { comment });
+}
+
+/** POST /pharmacy/prescriptions/{id}/reject `{comment}`. Urgent then rejected: its future doses are deleted (spec §2). */
+export function rejectPrescription(id: string, comment: string, opts: ActorOpts = {}): Promise<Prescription> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const rx = pendingRx(s, id);
+      const text = requireComment(comment);
+      rx.active = false;
+      if (rx.urgent) dropFutureDoses(s, rx.id);
+      return recordDecision(s, rx, "rejected", text, opts.by ?? USERS.pharmacist.id, rxChecks(s, rx));
+    });
+  return http<Prescription>("POST", `/pharmacy/prescriptions/${enc(id)}/reject`, { comment });
+}
+
+/** GET /pharmacy/summary: sidebar badge and dashboard tiles. */
+export function getPharmacySummary(): Promise<PharmacySummary> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const pending = s.prescriptions.filter((r) => r.status === "pending_pharmacy");
+      return {
+        pending: pending.length,
+        urgent_pending: pending.filter((r) => r.urgent).length,
+        critical_pending: pending.filter((r) => hasCritical(r.checks)).length,
+        changes_requested: s.prescriptions.filter((r) => r.status === "changes_requested").length,
+      };
+    });
+  return http<PharmacySummary>("GET", "/pharmacy/summary");
 }
 
 // ── AI summary and assistant ────────────────────────────────────────────────
