@@ -381,7 +381,7 @@ export interface StaffMember {
 export type AccountStatus = "pending" | "active" | "disabled" | "rejected";
 
 /** The roles a person can ask for on /register (`admin` is never a sign-up choice). */
-export type SignupRole = "patient" | "nurse" | "doctor";
+export type SignupRole = "patient" | "nurse" | "doctor" | "pharmacist";
 /** The roles an approver can grant (only an admin may grant `admin`). */
 export type GrantRole = SignupRole | "admin";
 
@@ -391,7 +391,7 @@ export interface RegisterRequest {
   password: string;
   role: SignupRole;
   note?: string;
-  /** Patients and nurses only; sending it with `role: "doctor"` is a 422. */
+  /** Patients and nurses only; sending it with role doctor or pharmacist is a 422. */
   requested_doctor_id?: string;
 }
 /** GET /hospital (public): this install's hospital. */

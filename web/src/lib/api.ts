@@ -273,7 +273,8 @@ export function registerAccount(req: RegisterRequest): Promise<RegisterResponse>
   if (USE_MOCKS)
     return mock((s) => {
       if (req.password.length < 10) throw new ApiError(422, "weak_password", "Password must be at least 10 characters.");
-      if (req.role === "doctor" && req.requested_doctor_id) throw new ApiError(422, "validation_error", "A doctor can't pick a doctor.");
+      if ((req.role === "doctor" || req.role === "pharmacist") && req.requested_doctor_id)
+        throw new ApiError(422, "validation_error", "Doctors and pharmacists don't pick a doctor.");
       if (!s.pending.some((p) => p.email === req.email)) {
         s.seq.user += 1;
         s.pending.push({

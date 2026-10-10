@@ -47,6 +47,7 @@ const WARDS: { value: string; ward: string | null; label: Key }[] = [
 const ALL_WARDS = "All wards";
 const ROLE_HELP: Partial<Record<StaffRole, Key>> = {
   nurse: "admin.roleHelpNurse",
+  pharmacist: "pharmacy.roleHelpPharmacist",
 };
 const DESIGN_DRAFT = { name: "Nour Hammami", email: "n.hammami@hr-ward.tn", role: "nurse" as StaffRole, scope: WARDS[0].value };
 const EMPTY_DRAFT = { name: "", email: "", role: "nurse" as StaffRole, scope: WARDS[0].value };
@@ -285,7 +286,7 @@ export function StaffView() {
               {t("admin.staffRole")}
             </span>
             <div role="radiogroup" aria-labelledby="role-label" className={styles.segment}>
-              {(["doctor", "nurse", "admin"] as StaffRole[]).map((r) => (
+              {(["doctor", "nurse", "pharmacist", "admin"] as StaffRole[]).map((r) => (
                 <button
                   key={r}
                   type="button"

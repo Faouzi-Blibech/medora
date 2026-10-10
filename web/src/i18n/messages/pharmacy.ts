@@ -167,6 +167,7 @@ export const pharmacy = messages({
     newVersionPending: "New version awaiting the pharmacist",
     overrideNote: "Sent despite a warning: {reason}",
     pendingReview: "Pending pharmacy review",
+    roleHelpPharmacist: "Pharmacists review every prescription with only the allergies and running treatments. They never see notes, exams or vitals.",
   },
   fr: {
     rolePharmacist: "Pharmacien(ne)",
@@ -332,6 +333,7 @@ export const pharmacy = messages({
     newVersionPending: "Nouvelle version en attente du pharmacien",
     overrideNote: "Envoyée malgré un avertissement : {reason}",
     pendingReview: "En attente de validation par la pharmacie",
+    roleHelpPharmacist: "Les pharmaciens examinent toutes les ordonnances avec seulement les allergies et les traitements en cours. Ils ne voient ni notes, ni examens, ni constantes.",
   },
   ar: {
     rolePharmacist: "صيدلي",
@@ -497,5 +499,6 @@ export const pharmacy = messages({
     newVersionPending: "نسخة جديدة بانتظار الصيدلي",
     overrideNote: "أُرسلت رغم تحذير: {reason}",
     pendingReview: "بانتظار مراجعة الصيدلية",
+    roleHelpPharmacist: "يراجع الصيادلة كل الوصفات مع الحساسية والعلاجات الجارية فقط. لا يرون الملاحظات ولا الفحوص ولا المؤشرات الحيوية.",
   },
 });
