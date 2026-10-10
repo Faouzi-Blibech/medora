@@ -18,7 +18,7 @@
 
 - **Field names.** Spec §5 field names, paths and error codes are used verbatim (`status`, `urgent`, `version`, `replaces_id`, `checks`, `override_reason`, `review_comment`, `reviewed_by_name`, `reviewed_at`, `acknowledged`, `waiting_since`, `max_severity`, `on_hand`, `min_stock`, `lots`, `low`, `expiring`, `expired`, `round_time`…). A backend plan is written in parallel from the same spec. Where the spec is silent, follow the "Contract decisions" section at the end of this plan, and never invent a shape inline.
 - **API types.** `web/src/lib/types.ts` mirrors the API (CLAUDE.md). This plan does not edit `docs/contracts/*`; the backend plan owns the api 1.11 → 1.12 bump.
-- **Mocks.** Components never import `@/mocks`; only `api.ts` does (existing rule). Every new API function has a mock branch, and the mocks throw the same `{status, code}` errors the server does: `override_required`, `ack_required`, `bad_status`, `conflict`, `insufficient_stock`, `already_dispensed`, `negative_stock`.
+- **Mocks.** Components never import `@/mocks`; only `api.ts` does (existing rule). Every new API function has a mock branch, and the mocks throw the same `{status, code}` errors the server does: `override_required`, `ack_required`, `bad_status`, `conflict`, `insufficient_stock` (with `drug_id`), `already_dispensed`, `invalid` (backend plan Contract decisions are binding).
 - **i18n.** Every user-visible string goes through `t()`, with `en`, `fr` and `ar` values. New keys go only in `web/src/i18n/messages/pharmacy.ts` (namespace `pharmacy`). There are no string literals in JSX, apart from symbols (`×`, `−`, `+`, `—`, `–`).
 - **RTL.** CSS uses logical properties only (`margin-inline-*`, `padding-inline-*`, `inset-inline-*`, `border-inline-start`, `text-align: start`). Codes, ids, ATC codes, lot numbers, doses, dates and times are `dir="ltr"`. Names, drug names and free text are `dir="auto"`.
 - **Pharmacist privacy (spec §2, §8).** Pharmacist screens call only the pharmacy functions: `getWorklist`, `getReview`, the decision functions, `getPharmacySummary`, the catalogue, and the Phase B stock and dispensing functions. They never call `getPatient`, `getNotes`, `getVitals`, `getPatientExams`, `getSummary` or `getDoses`. They never render `NotesPanel`, `ExamsPanel`, `PatientAiCard`, `VitalsChart`, `VitalsCard` or `DosesTimeline`, and they never link to `/doctor/patients/*` or `/nurse/patients/*`.
@@ -34,14 +34,14 @@
 
 ## Review Focus
 
-1. **Arabic (RTL) on the new screens.** This covers the worklist row's red critical edge, the review panel, the comment dialog, the doctor's drug picker and check panel, catalogue tags, and dispensing lot selects. In `ar`, the critical edge must sit on the right (inline-start). Drug names, ATC codes, doses, `08:00` times and lot numbers must not reorder. An Arabic comma (`،`) must add a tag like `,` does. *Pinned by:* Task 8, Steps 3 and 5 (physical-property grep, manual `ar` walk-through); Task 4, Step 6 (Arabic comma); Task 12, Step 7.
+1. **Arabic (RTL) on the new screens.** This covers the worklist row's red critical edge, the review panel, the comment dialog, the doctor's drug picker and check panel, catalogue tags, and dispensing lot selects. In `ar`, the critical edge must sit on the right (inline-start). Drug names, ATC codes, doses, `08:00` times and lot numbers must not reorder. An Arabic comma (`،`) must add a tag like `,` does. *Pinned by:* Task 8, Steps 3 and 6 (physical-property grep, manual `ar` walk-through); Task 4, Step 9 (Arabic comma); Task 12, Steps 7–8.
 2. **Decisions under races.**
    - Two pharmacists on one row: the second gets 409 `bad_status`. Expected: a localized message, the list refreshes, and nothing crashes.
    - Checks appear between opening and clicking Validate: 422 `ack_required`. Expected: the tick is cleared and must be given again; the prescription is never silently validated.
    - Double-clicking Validate or Send must send one request.
-   - *Pinned by:* Task 3, Step 9 (mock scenarios with two tabs and a `?` race).
+   - *Pinned by:* Task 3, Step 9 (scenarios 5, 6 and 9: urgent reject, double click, two pharmacists in real mode).
 3. **The pharmacist never sees notes, exams or vitals.** The mock patient projection must pick fields explicitly; a `...patient` spread would leak `history`. No pharmacist file imports a clinical-record component or call. *Pinned by:* Task 1, Step 9 (explicit `pharmacyPatient` pick); Task 8, Step 4 (privacy grep, run again in Task 12).
-4. **Mock-mode parity.** Every flow and error code of spec §5 is reachable with `NEXT_PUBLIC_USE_MOCKS=1`: override required, ack required, bad status, version conflict, insufficient stock, already dispensed, negative stock. The mock build passes. *Pinned by:* the mock scenarios in Tasks 3, 5, 10 and 11, and the build gate in every task.
+4. **Mock-mode parity.** Every flow and error code of spec §5 is reachable with `NEXT_PUBLIC_USE_MOCKS=1`: override required, ack required, bad status, version conflict, insufficient stock, already dispensed, below-zero adjustment (409 `insufficient_stock`). The mock build passes. *Pinned by:* the mock scenarios in Tasks 3, 5, 10 and 11, and the build gate in every task.
 5. **Stale or unexpected check data.** A slow `/prescriptions/check` reply must never overwrite a newer one (last request wins). A check `code` the web doesn't know, or a missing `params` value, must fall back to the server's English `message`, never `{allergy}` or a crash. A pre-1.12 prescription with no `status` is treated through `active`. *Pinned by:* Task 5, Step 8 (fast typing and a slow-reply check); Task 3, Step 9 (unknown-code check); Task 1 (`statusOf`, `checkText` fallbacks).
 
 ---
@@ -5053,3 +5053,2367 @@ git commit -m "fix(web): pharmacy i18n, RTL and privacy gate fixes"
 (Skip the commit when Steps 1–7 found nothing.)
 
 ---
+
+# Phase B: logistics (dispensing and stock)
+
+Phase B starts only when Phase A (Tasks 1–8) is merged and green. The shapes below copy the backend plan's api.md 1.12 text ("Dispensing and stock") and its Contract decisions 20, 23, 25, 26 and 28–30 (`docs/superpowers/plans/2026-10-10-pharmacy-backend.md`). Those decisions are binding: if this plan and that text disagree, the backend text wins. Report the difference; don't work around it.
+
+## Task 9: Phase B data layer (types, FEFO rules, mocks, API client)
+
+**Files:**
+- Modify:
+  - `web/src/lib/types.ts`;
+  - `web/src/lib/api.ts` (`ApiError.extra`, `http()`, `scheduleDoses`, `dropFutureDoses`, the summary, new functions);
+  - `web/src/lib/pharmacy.ts`, `web/src/lib/pharmacyUi.ts`;
+  - `web/src/mocks/pharmacy.ts`, `web/src/mocks/index.ts`;
+  - `web/src/i18n/messages/pharmacy.ts`.
+
+**Interfaces:**
+- Consumes: from Task 1, `mock()`, `notFound()`, `iso`, `enc`, `USERS`, `userName`, `isRunning`, `COMMENT_MAX`, the mock store and `describePharmacyError`.
+- Produces, as types in `@/lib/types` (field names as in the backend plan's api.md text):
+  ```ts
+  export type PharmacyDelivery = "none" | "sent" | "received";              // Dose.pharmacy?
+  export interface StockLot { id; drug_id; lot_number; expiry_date; quantity; received_at; expired: boolean; expiring: boolean }
+  export interface LotRef { id: string; lot_number: string; expiry_date: string }
+  export interface RoundDose { dose_id; prescription_id; med; drug_id: string | null; quantity: number; suggested_lot: LotRef | null; on_hand: number | null; dispensed: boolean }
+  export interface RoundPatient { id: string; name: string; bed: string | null; doses: RoundDose[] }
+  export interface DispensingWard { ward: string; patients: RoundPatient[] }
+  export type DispensationStatus = "sent" | "received";
+  export interface DispensationLine { id; dose_id: string | null; patient_id; patient_name: string | null; bed: string | null; drug_id: string | null; lot_id: string | null; lot_number: string | null; quantity: number; med: string }
+  export interface Dispensation { id; ward; round_date; round_time; status: DispensationStatus; prepared_by; prepared_by_name: string | null; prepared_at; received_by: string | null; received_by_name: string | null; received_at: string | null; lines: DispensationLine[] }
+  export interface CreateDispensationRequest { ward: string; date: string; round_time: string; lines: { dose_id: string; lot_id?: string }[] }
+  export interface StockItem { drug_id; dci; strength; form: DrugForm; on_hand: number; min_stock: number; lots: StockLot[]; low: boolean; expiring: boolean; expired: boolean }
+  export interface ReorderItem { drug_id; dci; strength; form: DrugForm; on_hand: number; min_stock: number; suggested_quantity: number }
+  export interface StockReceiptRequest { drug_id: string; lot_number: string; expiry_date: string; quantity: number }
+  export type AdjustmentReason = "adjustment" | "expired" | "return";
+  export interface StockAdjustmentRequest { lot_id: string; delta: number; reason: AdjustmentReason; comment: string }
+  ```
+- Produces in `@/lib/api`:
+  ```ts
+  class ApiError { …; extra: Record<string, unknown> }          // the error body's extra keys (409 insufficient_stock → drug_id)
+  getDispensing(q: { date: string; round: string; ward?: string }): Promise<DispensingWard[]>
+  createDispensation(req: CreateDispensationRequest, opts?: ActorOpts): Promise<Dispensation>
+  listDispensations(q?: { ward?: string; date?: string }): Promise<Dispensation[]>
+  receiveDispensation(id: string, opts?: ActorOpts): Promise<Dispensation>
+  getStock(): Promise<StockItem[]>
+  receiveStock(req: StockReceiptRequest): Promise<StockLot>
+  adjustStock(req: StockAdjustmentRequest): Promise<StockLot>
+  getReorderList(): Promise<ReorderItem[]>
+  getPharmacySummary(): Promise<PharmacySummary>                 // now with low_stock (drugs) and expiring (lots)
+  ```
+- Produces in `@/lib/pharmacy`:
+  - constants: `EXPIRING_DAYS` (30), `ROUND_TIMES`;
+  - types: `ExpiryState`, `LotLike`;
+  - functions: `daysBetween`, `expiryState`, `fefoLots`, `stockFlags`, `reorderQuantity`, `planLots`, `nextRound`.
+- Produces in `@/lib/pharmacyUi`: the `insufficient_stock` and `already_dispensed` keys, and `shortDrugId(err): string | null`.
+- Produces in `@/mocks`: `type MockLot`, plus `LOTS` and `seedDispensations` used by `createStore`.
+
+- [ ] **Step 1: Add the i18n keys (append)**
+
+`en`:
+```ts
+    errInsufficientStock: "Not enough stock. Nothing was written; the list was refreshed.",
+    errInsufficientStockOf: "Not enough stock of {drug}. Nothing was written; the list was refreshed.",
+    errAlreadyDispensed: "One of these doses was already sent. Nothing was written; the list was refreshed.",
+    errRoundChanged: "This round changed (a prescription stopped or a dose moved). Nothing was written; the list was refreshed.",
+    errLotExpiryConflict: "This lot number already exists with another expiry date. Check the label.",
+```
+`fr`:
+```ts
+    errInsufficientStock: "Stock insuffisant. Rien n'a été enregistré ; la liste a été actualisée.",
+    errInsufficientStockOf: "Stock insuffisant de {drug}. Rien n'a été enregistré ; la liste a été actualisée.",
+    errAlreadyDispensed: "Une de ces prises a déjà été envoyée. Rien n'a été enregistré ; la liste a été actualisée.",
+    errRoundChanged: "Cette tournée a changé (une ordonnance arrêtée ou une prise déplacée). Rien n'a été enregistré ; la liste a été actualisée.",
+    errLotExpiryConflict: "Ce numéro de lot existe déjà avec une autre date de péremption. Vérifiez l'étiquette.",
+```
+`ar`:
+```ts
+    errInsufficientStock: "المخزون غير كافٍ. لم يُسجَّل شيء وتم تحديث القائمة.",
+    errInsufficientStockOf: "المخزون غير كافٍ من {drug}. لم يُسجَّل شيء وتم تحديث القائمة.",
+    errAlreadyDispensed: "سبق إرسال إحدى هذه الجرعات. لم يُسجَّل شيء وتم تحديث القائمة.",
+    errRoundChanged: "تغيّرت هذه الجولة (أُوقفت وصفة أو تغيّرت جرعة). لم يُسجَّل شيء وتم تحديث القائمة.",
+    errLotExpiryConflict: "رقم الدفعة هذا موجود بتاريخ انتهاء مختلف. تحقّق من الملصق.",
+```
+
+- [ ] **Step 2: Add the types (`web/src/lib/types.ts`)**
+
+In `interface Dose`, after `instructions`:
+
+```ts
+  /** api 1.12 Phase B: delivery from the pharmacy. A dose can still be given when "none" (ward stock). */
+  pharmacy?: PharmacyDelivery;
+```
+
+Append after the Phase A pharmacy block:
+
+```ts
+// ── Pharmacy Phase B: dispensing and stock (api 1.12 "Dispensing and stock") ──
+
+export type PharmacyDelivery = "none" | "sent" | "received";
+
+/** `Lot`: GET /pharmacy/stock lists only lots with quantity > 0. */
+export interface StockLot {
+  id: string; // lot-0001
+  drug_id: string;
+  lot_number: string;
+  expiry_date: string; // YYYY-MM-DD
+  quantity: number;
+  received_at: string;
+  /** expiry_date before today (Africa/Tunis). */
+  expired: boolean;
+  /** Has stock and expires within 30 days, today included. */
+  expiring: boolean;
+}
+
+export interface LotRef {
+  id: string;
+  lot_number: string;
+  expiry_date: string;
+}
+
+/** One dose of a round (`RoundDose`). */
+export interface RoundDose {
+  dose_id: string;
+  prescription_id: string;
+  med: string;
+  drug_id: string | null;
+  /** Units for this intake (the item's units_per_intake). */
+  quantity: number;
+  /** FEFO: the first-expiring usable lot that holds the whole line, or null when none does. */
+  suggested_lot: LotRef | null;
+  /** null for a non-formulary dose. */
+  on_hand: number | null;
+  dispensed: boolean;
+}
+
+export interface RoundPatient {
+  id: string;
+  name: string;
+  bed: string | null;
+  doses: RoundDose[];
+}
+
+/** GET /pharmacy/dispensing → one per ward. */
+export interface DispensingWard {
+  ward: string;
+  patients: RoundPatient[];
+}
+
+export type DispensationStatus = "sent" | "received";
+
+export interface DispensationLine {
+  id: string; // dl-000001
+  /** null when the dose was later cancelled. */
+  dose_id: string | null;
+  patient_id: string;
+  patient_name: string | null;
+  bed: string | null;
+  drug_id: string | null;
+  lot_id: string | null;
+  lot_number: string | null;
+  quantity: number;
+  med: string;
+}
+
+export interface Dispensation {
+  id: string; // disp-0001
+  ward: string;
+  round_date: string;
+  round_time: string; // HH:MM
+  status: DispensationStatus;
+  prepared_by: string;
+  prepared_by_name: string | null;
+  prepared_at: string;
+  received_by: string | null;
+  received_by_name: string | null;
+  received_at: string | null;
+  lines: DispensationLine[];
+}
+
+export interface CreateDispensationRequest {
+  ward: string;
+  date: string;
+  round_time: string;
+  /** 1–200 lines; without lot_id the server takes the FEFO lot. */
+  lines: { dose_id: string; lot_id?: string }[];
+}
+
+/** `StockItem`: one per active drug. on_hand leaves out expired lots. */
+export interface StockItem {
+  drug_id: string;
+  dci: string;
+  strength: string;
+  form: DrugForm;
+  on_hand: number;
+  min_stock: number;
+  lots: StockLot[];
+  low: boolean;
+  expiring: boolean;
+  expired: boolean;
+}
+
+export interface ReorderItem {
+  drug_id: string;
+  dci: string;
+  strength: string;
+  form: DrugForm;
+  on_hand: number;
+  min_stock: number;
+  /** 2 × min_stock − on_hand */
+  suggested_quantity: number;
+}
+
+export interface StockReceiptRequest {
+  drug_id: string;
+  lot_number: string; // 1–40
+  expiry_date: string; // YYYY-MM-DD, not in the past
+  quantity: number; // 1–100000
+}
+
+export type AdjustmentReason = "adjustment" | "expired" | "return";
+
+export interface StockAdjustmentRequest {
+  lot_id: string;
+  /** ≠ 0, at most ±100000; `expired` needs a negative delta. */
+  delta: number;
+  reason: AdjustmentReason;
+  comment: string; // 1–500
+}
+```
+
+Run: `npx tsc --noEmit`
+Expected: exit 0. The types are not used yet.
+
+- [ ] **Step 3: Add the FEFO and stock rules (append to `web/src/lib/pharmacy.ts`)**
+
+Add `RoundDose` and `StockLot` to the type import list, then append:
+
+```ts
+// ── Phase B: stock, FEFO and rounds (backend plan Contract decisions 25, 26) ──
+
+export const EXPIRING_DAYS = 30;
+export type ExpiryState = "expired" | "expiring" | "ok";
+/** The lot fields the rules need (server lots and mock lots alike). */
+export type LotLike = Pick<StockLot, "id" | "expiry_date" | "quantity" | "received_at">;
+
+/** Whole days from `from` to `to` (both YYYY-MM-DD). */
+export function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+}
+
+/** Expired before `today`; expiring within 30 days, today included; else ok. Dates are Tunis YYYY-MM-DD. */
+export function expiryState(expiry: string, today: string): ExpiryState {
+  const left = daysBetween(today, expiry);
+  return left < 0 ? "expired" : left <= EXPIRING_DAYS ? "expiring" : "ok";
+}
+
+/** Lots usable on `date` (stock left, not expired that day), first-expiring first; ties: oldest receipt, then id. */
+export function fefoLots<L extends LotLike>(lots: readonly L[], date: string): L[] {
+  return lots
+    .filter((l) => l.quantity > 0 && expiryState(l.expiry_date, date) !== "expired")
+    .sort(
+      (a, b) =>
+        a.expiry_date.localeCompare(b.expiry_date) ||
+        Date.parse(a.received_at) - Date.parse(b.received_at) ||
+        a.id.localeCompare(b.id),
+    );
+}
+
+/** A StockItem's numbers for one drug's lots: on_hand leaves out expired lots (used by the mocks). */
+export function stockFlags(
+  lots: readonly LotLike[],
+  minStock: number,
+  today: string,
+): { on_hand: number; low: boolean; expiring: boolean; expired: boolean } {
+  const withStock = lots.filter((l) => l.quantity > 0);
+  const usable = withStock.filter((l) => expiryState(l.expiry_date, today) !== "expired");
+  const on_hand = usable.reduce((n, l) => n + l.quantity, 0);
+  return {
+    on_hand,
+    low: on_hand < minStock,
+    expiring: usable.some((l) => expiryState(l.expiry_date, today) === "expiring"),
+    expired: withStock.some((l) => expiryState(l.expiry_date, today) === "expired"),
+  };
+}
+
+/** Spec §5: 2 × min_stock − on_hand. */
+export const reorderQuantity = (minStock: number, onHand: number): number => Math.max(0, 2 * minStock - onHand);
+
+/**
+ * The server's FEFO for a whole round, simulated before sending: every formulary line takes ONE lot. The lot is
+ * the one the pharmacist chose, or else the first-expiring usable lot that still holds the whole line after the
+ * lines before it. Returns dose id → lot id, or null when no lot can serve the line (shown as a shortage).
+ */
+export function planLots(
+  doses: readonly RoundDose[],
+  lotsByDrug: ReadonlyMap<string, readonly LotLike[]>,
+  date: string,
+  chosen: Readonly<Record<string, string>> = {},
+): Map<string, string | null> {
+  const left = new Map<string, number>(); // lot id → units not yet planned
+  const plan = new Map<string, string | null>();
+  for (const d of doses) {
+    if (!d.drug_id || d.dispensed) continue;
+    const lots = fefoLots(lotsByDrug.get(d.drug_id) ?? [], date);
+    const room = (l: LotLike) => left.get(l.id) ?? l.quantity;
+    const want = chosen[d.dose_id];
+    const pick = want ? lots.find((l) => l.id === want && room(l) >= d.quantity) : lots.find((l) => room(l) >= d.quantity);
+    plan.set(d.dose_id, pick?.id ?? null);
+    if (pick) left.set(pick.id, room(pick) - d.quantity);
+  }
+  return plan;
+}
+
+/** Round times offered by the dispensing page: every hour. */
+export const ROUND_TIMES: string[] = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")}:00`);
+
+/** The first round at or after `hhmm` ("09:12" → "10:00"); after 23:00, "23:00". */
+export function nextRound(hhmm: string): string {
+  return ROUND_TIMES.find((r) => r >= hhmm) ?? ROUND_TIMES[ROUND_TIMES.length - 1];
+}
+```
+
+- [ ] **Step 4: Exercise the Phase B rules with a throwaway Node script (nothing is committed)**
+
+Run from `web/`:
+
+```bash
+node --input-type=module-typescript - <<'EOF'
+import assert from "node:assert/strict";
+import { pathToFileURL } from "node:url";
+const r = await import(pathToFileURL(`${process.cwd()}/src/lib/pharmacy.ts`).href);
+const lot = (id: string, expiry: string, quantity: number, received = "2026-09-01T08:00:00Z") => ({ id, drug_id: "d", lot_number: id, expiry_date: expiry, quantity, received_at: received });
+
+// Expiry: today is still usable and "expiring"; day 30 is expiring; day 31 is ok; yesterday is expired.
+assert.equal(r.expiryState("2026-10-05", "2026-10-05"), "expiring");
+assert.equal(r.expiryState("2026-11-04", "2026-10-05"), "expiring");
+assert.equal(r.expiryState("2026-11-05", "2026-10-05"), "ok");
+assert.equal(r.expiryState("2026-10-04", "2026-10-05"), "expired");
+
+// FEFO order: expired and empty lots out; first expiry, then oldest receipt, then id.
+const lots = [lot("late", "2027-06-30", 5), lot("gone", "2026-09-30", 9), lot("empty", "2026-10-12", 0), lot("soon", "2026-10-15", 3), lot("soon-old", "2026-10-15", 3, "2026-08-01T08:00:00Z")];
+assert.deepEqual(r.fefoLots(lots, "2026-10-05").map((l: { id: string }) => l.id), ["soon-old", "soon", "late"]);
+
+// Stock flags: the expired lot doesn't count in on_hand but sets `expired`.
+assert.deepEqual(r.stockFlags([lot("a", "2027-01-01", 6), lot("x", "2026-09-01", 40)], 20, "2026-10-05"), { on_hand: 6, low: true, expiring: false, expired: true });
+assert.equal(r.reorderQuantity(20, 6), 34);
+
+// One lot per line. Lots "small" (3, expires first) and "big" (5); four 2-unit lines:
+// line 1 → small (3 → 1 left), line 2 → big (5 → 3), line 3 → big (3 → 1), line 4 fits nowhere → null.
+const dose = (id: string, qty: number, extra = {}) => ({ dose_id: id, prescription_id: "rx", med: "m", drug_id: "d", quantity: qty, suggested_lot: null, on_hand: 8, dispensed: false, ...extra });
+const by = new Map([["d", [lot("small", "2026-10-20", 3), lot("big", "2027-01-01", 5)]]]);
+const plan = r.planLots([dose("1", 2), dose("2", 2), dose("3", 2), dose("4", 2), dose("5", 1, { dispensed: true }), dose("6", 1, { drug_id: null })], by, "2026-10-05");
+assert.deepEqual([...plan], [["1", "small"], ["2", "big"], ["3", "big"], ["4", null]]);
+// A chosen lot is honoured when it holds the line, refused (null) when it can't.
+assert.equal(r.planLots([dose("1", 2)], by, "2026-10-05", { "1": "big" }).get("1"), "big");
+assert.equal(r.planLots([dose("1", 4)], by, "2026-10-05", { "1": "small" }).get("1"), null);
+
+assert.equal(r.nextRound("09:12"), "10:00");
+assert.equal(r.nextRound("10:00"), "10:00");
+assert.equal(r.nextRound("23:30"), "23:00");
+console.log("pharmacy phase B rules: ok");
+EOF
+```
+
+Expected: `pharmacy phase B rules: ok`.
+
+- [ ] **Step 5: Keep the error body's extra keys (`web/src/lib/api.ts`), and map the new codes (`web/src/lib/pharmacyUi.ts`)**
+
+Replace the `ApiError` class:
+
+```ts
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    public code: string,
+    message: string,
+    /** The error body's other keys (api 1.12: 409 `insufficient_stock` adds `drug_id`). */
+    public extra: Record<string, unknown> = {},
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+```
+
+In `http()`, replace the `if (!res.ok) { … }` block:
+
+```ts
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { detail?: string; code?: string; [key: string]: unknown };
+    if (res.status === 401) handleUnauthorized(path, !!token, err.code);
+    const { detail, code, ...extra } = err;
+    throw new ApiError(res.status, code ?? "http_error", detail ?? res.statusText, extra);
+  }
+```
+
+In `web/src/lib/pharmacyUi.ts`, add these two entries to `BY_CODE`:
+
+```ts
+  insufficient_stock: "pharmacy.errInsufficientStock",
+  already_dispensed: "pharmacy.errAlreadyDispensed",
+```
+
+Then append:
+
+```ts
+/** The drug a 409 `insufficient_stock` names (its body carries `drug_id`), else null. */
+export function shortDrugId(err: unknown): string | null {
+  return err instanceof ApiError && err.code === "insufficient_stock" && typeof err.extra.drug_id === "string" ? err.extra.drug_id : null;
+}
+```
+
+(`bad_status`, `invalid` and `conflict` mean something else on the stock and dispensing screens. Those screens map them locally: see Tasks 10 and 11.)
+
+- [ ] **Step 6: Add the mock lots and the seeded delivery (`web/src/mocks/pharmacy.ts`)**
+
+Add these imports: `fefoLots` from `@/lib/pharmacy`; `tunisDate` from `@/lib/time`; and the types `Dispensation`, `DispensationLine`, `Dose`, `StockLot`. Then append:
+
+```ts
+/** A lot as the mock stores it; `expired`/`expiring` are computed when read. */
+export type MockLot = Omit<StockLot, "expired" | "expiring">;
+
+const RECEIVED = at("2026-09-01", "09:00");
+const mockLot = (n: number, drug_id: string, lot_number: string, expiry_date: string, quantity: number): MockLot => ({
+  id: `lot-${String(n).padStart(4, "0")}`,
+  drug_id,
+  lot_number,
+  expiry_date,
+  quantity,
+  received_at: RECEIVED,
+});
+
+/**
+ * One lot for every formulary drug, plus the spec §7 demo cases: Enoxaparin under min_stock (6 < 20), an
+ * Amoxicillin 1 g lot expiring in 10 days (FEFO serves it first), and an expired Paracetamol 500 mg lot.
+ */
+export const LOTS: MockLot[] = [
+  ...FORMULARY.map((d, i) => mockLot(i + 1, d.id, `L26-${String(i + 1).padStart(3, "0")}`, "2027-06-30", d.id === "d-0009" ? 6 : 200)),
+  mockLot(FORMULARY.length + 1, "d-0003", "L26-003B", "2026-10-15", 30),
+  mockLot(FORMULARY.length + 2, "d-0001", "L25-001X", "2026-09-30", 40),
+];
+
+/**
+ * The 10:00 Cardiology round, already sent at 07:45 (the nurse's "Confirm receipt" demo). The 20:00 round is
+ * left for the pharmacist's demo (spec §7, step 6). Marks those doses `pharmacy: "sent"`.
+ */
+export function seedDispensations(doses: Dose[], prescriptions: Prescription[], patients: Patient[], lots: MockLot[]): Dispensation[] {
+  const id = "disp-0001";
+  const lines: DispensationLine[] = doses
+    .filter((d) => d.time_of_day === "10:00" && tunisDate(d.scheduled_at) === TODAY)
+    .map((d, i) => {
+      const rx = prescriptions.find((r) => r.id === d.prescription_id);
+      const item = rx?.items.find((x) => x.med === d.meds[0]) ?? rx?.items[0];
+      const drugId = item?.drug_id ?? null;
+      const lot = drugId ? (fefoLots(lots.filter((l) => l.drug_id === drugId), TODAY)[0] ?? null) : null;
+      const p = patients.find((x) => x.id === d.patient_id);
+      d.pharmacy = "sent";
+      return {
+        id: `dl-${String(i + 1).padStart(6, "0")}`,
+        dose_id: d.id,
+        patient_id: d.patient_id,
+        patient_name: p ? `${p.first_name} ${p.last_name}` : null,
+        bed: p?.bed ?? null,
+        drug_id: drugId,
+        lot_id: lot?.id ?? null,
+        lot_number: lot?.lot_number ?? null,
+        quantity: item?.units_per_intake ?? 1,
+        med: d.meds.join(" + "),
+      };
+    });
+  return [
+    {
+      id,
+      ward: "Cardiology",
+      round_date: TODAY,
+      round_time: "10:00",
+      status: "sent",
+      prepared_by: USERS.pharmacist.id,
+      prepared_by_name: USERS.pharmacist.name,
+      prepared_at: at(TODAY, "07:45"),
+      received_by: null,
+      received_by_name: null,
+      received_at: null,
+      lines,
+    },
+  ];
+}
+```
+
+`web/src/mocks/index.ts`:
+- Import `LOTS`, `seedDispensations` and `type MockLot` from `./pharmacy`, and `Dispensation` from the types.
+- Re-export the type: `export type { MockLot } from "./pharmacy";`.
+- In `MockStore`, add:
+
+```ts
+  lots: MockLot[];
+  dispensations: Dispensation[];
+  seq: { rx: number; dose: number; note: number; user: number; drug: number; review: number; lot: number; disp: number; line: number };
+```
+
+In `createStore()`:
+- add `lots: LOTS,` and `dispensations: [],` to the cloned object;
+- add `lot: LOTS.length, disp: 0, line: 0` to `seq`;
+- before `return s;`, add:
+
+```ts
+  // Phase B: every dose starts "none"; the seeded 10:00 round marks its doses "sent".
+  for (const d of s.doses) d.pharmacy ??= "none";
+  s.dispensations = seedDispensations(s.doses, s.prescriptions, s.patients, s.lots);
+  s.seq.disp = s.dispensations.length;
+  s.seq.line = s.dispensations.reduce((n, d) => n + d.lines.length, 0);
+```
+
+- [ ] **Step 7: Add the Phase B API functions and mocks (`web/src/lib/api.ts`)**
+
+Update the imports:
+- add `type MockLot` to the `@/mocks` import;
+- add `expiryState`, `fefoLots`, `reorderQuantity` and `stockFlags` to the `./pharmacy` import;
+- add `CreateDispensationRequest`, `Dispensation`, `DispensingWard`, `PrescriptionItem`, `ReorderItem`, `StockAdjustmentRequest`, `StockItem`, `StockLot` and `StockReceiptRequest` to the type import.
+
+In `scheduleDoses`, add `pharmacy: "none",` to the pushed dose. Replace `dropFutureDoses`:
+
+```ts
+/** Deletes the future, not-yet-given doses of a prescription (reject, supersede). Mock only. */
+function dropFutureDoses(s: MockStore, rxId: string): void {
+  const t = now().getTime();
+  const gone = new Set(
+    s.doses.filter((d) => d.prescription_id === rxId && d.status === "scheduled" && Date.parse(d.scheduled_at) > t).map((d) => d.id),
+  );
+  s.doses = s.doses.filter((d) => !gone.has(d.id));
+  // A dispensed dose that is cancelled leaves its line with dose_id null (backend Contract decision 30).
+  for (const disp of s.dispensations) for (const line of disp.lines) if (line.dose_id && gone.has(line.dose_id)) line.dose_id = null;
+}
+```
+
+In the mock branch of `getPharmacySummary`, add `...stockSummary(s),` as the last key of the returned object.
+
+Append a new section after `getPharmacySummary`:
+
+```ts
+// ── Pharmacy Phase B: dispensing and stock (api 1.12 "Dispensing and stock") ─
+
+const tunisToday = (): string => tunisDate(iso(now()));
+
+function withFlags(l: MockLot, today: string): StockLot {
+  const state = expiryState(l.expiry_date, today);
+  return { ...l, expired: state === "expired", expiring: state === "expiring" };
+}
+
+/** GET /pharmacy/stock as the server computes it: active drugs, lots with stock only, on_hand without expired lots. */
+function stockItems(s: MockStore): StockItem[] {
+  const today = tunisToday();
+  return s.drugs
+    .filter((d) => d.active)
+    .map((d) => {
+      const lots = s.lots.filter((l) => l.drug_id === d.id && l.quantity > 0).sort((a, b) => a.expiry_date.localeCompare(b.expiry_date));
+      return { drug_id: d.id, dci: d.dci, strength: d.strength, form: d.form, min_stock: d.min_stock, lots: lots.map((l) => withFlags(l, today)), ...stockFlags(lots, d.min_stock, today) };
+    });
+}
+
+/** The summary's Phase B counts: drugs under min_stock, and lots with stock expiring within 30 days. */
+function stockSummary(s: MockStore): { low_stock: number; expiring: number } {
+  const items = stockItems(s);
+  return { low_stock: items.filter((i) => i.low).length, expiring: items.flatMap((i) => i.lots).filter((l) => l.expiring).length };
+}
+
+/** The prescription item a dose came from (matched on its med string). */
+function itemOfDose(s: MockStore, dose: Dose): { rx: Prescription | undefined; item: PrescriptionItem | undefined } {
+  const rx = s.prescriptions.find((r) => r.id === dose.prescription_id);
+  return { rx, item: rx?.items.find((i) => i.med === dose.meds[0]) ?? rx?.items[0] };
+}
+
+const dispensedDoseIds = (s: MockStore): Set<string> =>
+  new Set(s.dispensations.flatMap((d) => d.lines.map((l) => l.dose_id)).filter((x): x is string => !!x));
+
+/** GET /pharmacy/dispensing?date=&round=&ward=: per ward, per patient, the round's doses of active prescriptions. */
+export function getDispensing(q: { date: string; round: string; ward?: string }): Promise<DispensingWard[]> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const sent = dispensedDoseIds(s);
+      const wards = new Map<string, DispensingWard>();
+      for (const dose of s.doses) {
+        if (tunisDate(dose.scheduled_at) !== q.date || dose.time_of_day !== q.round) continue;
+        const { rx, item } = itemOfDose(s, dose);
+        if (!rx || !isRunning(rx)) continue;
+        const p = s.patients.find((x) => x.id === dose.patient_id);
+        if (!p?.ward || (q.ward && p.ward !== q.ward)) continue;
+        const drugId = item?.drug_id ?? null;
+        const quantity = item?.units_per_intake ?? 1;
+        const usable = drugId ? fefoLots(s.lots.filter((l) => l.drug_id === drugId), q.date) : [];
+        const lot = usable.find((l) => l.quantity >= quantity) ?? null;
+        const w = wards.get(p.ward) ?? { ward: p.ward, patients: [] };
+        wards.set(p.ward, w);
+        let row = w.patients.find((x) => x.id === p.id);
+        if (!row) {
+          row = { id: p.id, name: `${p.first_name} ${p.last_name}`, bed: p.bed, doses: [] };
+          w.patients.push(row);
+        }
+        row.doses.push({
+          dose_id: dose.id,
+          prescription_id: rx.id,
+          med: dose.meds.join(" + "),
+          drug_id: drugId,
+          quantity,
+          suggested_lot: lot ? { id: lot.id, lot_number: lot.lot_number, expiry_date: lot.expiry_date } : null,
+          on_hand: drugId ? usable.reduce((n, l) => n + l.quantity, 0) : null,
+          dispensed: sent.has(dose.id),
+        });
+      }
+      const byBed = (a: { bed: string | null }, b: { bed: string | null }) => (a.bed ?? "").localeCompare(b.bed ?? "", undefined, { numeric: true });
+      return [...wards.values()].map((w) => ({ ...w, patients: w.patients.sort(byBed) })).sort((a, b) => a.ward.localeCompare(b.ward));
+    });
+  const p = new URLSearchParams({ date: q.date, round: q.round });
+  if (q.ward) p.set("ward", q.ward);
+  return http<DispensingWard[]>("GET", `/pharmacy/dispensing?${p.toString()}`);
+}
+
+/**
+ * POST /pharmacy/dispensations → Dispensation (`sent`). One transaction on the server: every line is checked
+ * and planned first; a refused request writes nothing. One line takes ONE lot (FEFO when `lot_id` is missing).
+ * 404 unknown dose; 422 `invalid`; 409 `bad_status`, `already_dispensed`, `insufficient_stock` (+ `drug_id`).
+ */
+export function createDispensation(req: CreateDispensationRequest, opts: ActorOpts = {}): Promise<Dispensation> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      if (req.lines.length < 1 || req.lines.length > 200) throw new ApiError(422, "invalid", "1-200 lines");
+      const sent = dispensedDoseIds(s);
+      const seen = new Set<string>();
+      const left = new Map<string, number>(); // lot id → units left after the lines planned so far
+      const room = (l: MockLot) => left.get(l.id) ?? l.quantity;
+      const planned = req.lines.map((line) => {
+        const dose = s.doses.find((d) => d.id === line.dose_id) ?? notFound(`Dose ${line.dose_id}`);
+        const patient = s.patients.find((p) => p.id === dose.patient_id);
+        if (seen.has(dose.id) || patient?.ward !== req.ward || tunisDate(dose.scheduled_at) !== req.date || dose.time_of_day !== req.round_time)
+          throw new ApiError(422, "invalid", `dose ${dose.id} is not in this round, or is listed twice`);
+        seen.add(dose.id);
+        const { rx, item } = itemOfDose(s, dose);
+        if (!rx || !isRunning(rx)) throw new ApiError(409, "bad_status", `prescription ${dose.prescription_id} is not active`);
+        if (sent.has(dose.id)) throw new ApiError(409, "already_dispensed", `dose ${dose.id} is already dispensed`);
+        const drugId = item?.drug_id ?? null;
+        const quantity = item?.units_per_intake ?? 1;
+        if (!drugId) {
+          if (line.lot_id) throw new ApiError(422, "invalid", "a non-formulary dose takes no lot");
+          return { dose, patient, drugId, quantity, lot: null as MockLot | null };
+        }
+        let lot: MockLot | undefined;
+        if (line.lot_id) {
+          lot = s.lots.find((l) => l.id === line.lot_id);
+          if (!lot || lot.drug_id !== drugId || expiryState(lot.expiry_date, req.date) === "expired")
+            throw new ApiError(422, "invalid", `lot ${line.lot_id} can't serve dose ${dose.id}`);
+          if (room(lot) < quantity) lot = undefined;
+        } else {
+          lot = fefoLots(s.lots.filter((l) => l.drug_id === drugId), req.date).find((l) => room(l) >= quantity);
+        }
+        if (!lot) throw new ApiError(409, "insufficient_stock", `Not enough stock for ${drugId}`, { drug_id: drugId });
+        left.set(lot.id, room(lot) - quantity);
+        return { dose, patient, drugId, quantity, lot: lot as MockLot | null };
+      });
+      // Everything fits: write the lots, the dispensation and the dose flags.
+      for (const [lotId, quantity] of left) {
+        const l = s.lots.find((x) => x.id === lotId);
+        if (l) l.quantity = quantity;
+      }
+      s.seq.disp += 1;
+      const id = `disp-${String(s.seq.disp).padStart(4, "0")}`;
+      const by = opts.by ?? USERS.pharmacist.id;
+      const disp: Dispensation = {
+        id,
+        ward: req.ward,
+        round_date: req.date,
+        round_time: req.round_time,
+        status: "sent",
+        prepared_by: by,
+        prepared_by_name: userName(by) ?? by,
+        prepared_at: iso(now()),
+        received_by: null,
+        received_by_name: null,
+        received_at: null,
+        lines: planned.map((p) => {
+          s.seq.line += 1;
+          p.dose.pharmacy = "sent";
+          return {
+            id: `dl-${String(s.seq.line).padStart(6, "0")}`,
+            dose_id: p.dose.id,
+            patient_id: p.dose.patient_id,
+            patient_name: p.patient ? `${p.patient.first_name} ${p.patient.last_name}` : null,
+            bed: p.patient?.bed ?? null,
+            drug_id: p.drugId,
+            lot_id: p.lot?.id ?? null,
+            lot_number: p.lot?.lot_number ?? null,
+            quantity: p.quantity,
+            med: p.dose.meds.join(" + "),
+          };
+        }),
+      };
+      s.dispensations.push(disp);
+      return disp;
+    });
+  return http<Dispensation>("POST", "/pharmacy/dispensations", req);
+}
+
+/** GET /dispensations?ward=&date= (nurse: own ward only, another ward is 403; pharmacist). `date` defaults to today. */
+export function listDispensations(q: { ward?: string; date?: string } = {}): Promise<Dispensation[]> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const date = q.date ?? tunisToday();
+      return s.dispensations
+        .filter((d) => (!q.ward || d.ward === q.ward) && d.round_date === date)
+        .sort((a, b) => a.round_time.localeCompare(b.round_time));
+    });
+  const p = new URLSearchParams();
+  if (q.ward) p.set("ward", q.ward);
+  if (q.date) p.set("date", q.date);
+  const qs = p.toString();
+  return http<Dispensation[]>("GET", `/dispensations${qs ? `?${qs}` : ""}`);
+}
+
+/** POST /dispensations/{id}/receive (a nurse of that ward) → `received`. Idempotent: a second call returns it unchanged. */
+export function receiveDispensation(id: string, opts: ActorOpts = {}): Promise<Dispensation> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const d = s.dispensations.find((x) => x.id === id) ?? notFound(`Dispensation ${id}`);
+      if (d.status === "received") return d;
+      const by = opts.by ?? USERS.nurse.id;
+      Object.assign(d, { status: "received", received_by: by, received_by_name: userName(by) ?? by, received_at: iso(now()) });
+      for (const line of d.lines) {
+        const dose = line.dose_id ? s.doses.find((x) => x.id === line.dose_id) : undefined;
+        if (dose) dose.pharmacy = "received";
+      }
+      return d;
+    });
+  return http<Dispensation>("POST", `/dispensations/${enc(id)}/receive`, {});
+}
+
+/** GET /pharmacy/stock (pharmacist, admin) → one StockItem per active drug. */
+export function getStock(): Promise<StockItem[]> {
+  if (USE_MOCKS) return mock((s) => stockItems(s));
+  return http<StockItem[]>("GET", "/pharmacy/stock");
+}
+
+/**
+ * POST /pharmacy/stock/receipts → Lot. Tops up the lot when (drug_id, lot_number) exists; 409 `conflict` when
+ * it exists with another expiry; 422 when already expired or out of range; 404 unknown drug.
+ */
+export function receiveStock(req: StockReceiptRequest): Promise<StockLot> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      s.drugs.find((d) => d.id === req.drug_id) ?? notFound(`Drug ${req.drug_id}`);
+      const lotNumber = req.lot_number.trim();
+      if (!lotNumber || lotNumber.length > 40 || !Number.isInteger(req.quantity) || req.quantity < 1 || req.quantity > 100_000 || !/^\d{4}-\d{2}-\d{2}$/.test(req.expiry_date))
+        throw new ApiError(422, "validation_error", "lot_number 1-40, expiry_date YYYY-MM-DD, quantity 1-100000");
+      const today = tunisToday();
+      if (expiryState(req.expiry_date, today) === "expired") throw new ApiError(422, "validation_error", "this lot is already expired");
+      const existing = s.lots.find((l) => l.drug_id === req.drug_id && l.lot_number === lotNumber);
+      if (existing && existing.expiry_date !== req.expiry_date) throw new ApiError(409, "conflict", "this lot number exists with another expiry date");
+      if (existing) {
+        existing.quantity += req.quantity;
+        return withFlags(existing, today);
+      }
+      s.seq.lot += 1;
+      const lot: MockLot = { id: `lot-${String(s.seq.lot).padStart(4, "0")}`, drug_id: req.drug_id, lot_number: lotNumber, expiry_date: req.expiry_date, quantity: req.quantity, received_at: iso(now()) };
+      s.lots.push(lot);
+      return withFlags(lot, today);
+    });
+  return http<StockLot>("POST", "/pharmacy/stock/receipts", req);
+}
+
+/**
+ * POST /pharmacy/stock/adjustments → Lot. delta ≠ 0 (±100000), comment 1–500, `expired` needs a negative delta
+ * (422). Below zero: 409 `insufficient_stock` with `drug_id`.
+ */
+export function adjustStock(req: StockAdjustmentRequest): Promise<StockLot> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const lot = s.lots.find((l) => l.id === req.lot_id) ?? notFound(`Lot ${req.lot_id}`);
+      const comment = req.comment.trim();
+      if (!Number.isInteger(req.delta) || req.delta === 0 || Math.abs(req.delta) > 100_000 || !comment || [...comment].length > COMMENT_MAX)
+        throw new ApiError(422, "validation_error", "delta must be a non-zero integer (±100000) and the comment 1-500 characters");
+      if (req.reason === "expired" && req.delta > 0) throw new ApiError(422, "validation_error", "reason expired needs a negative delta");
+      if (lot.quantity + req.delta < 0) throw new ApiError(409, "insufficient_stock", "Stock can't go below zero", { drug_id: lot.drug_id });
+      lot.quantity += req.delta;
+      return withFlags(lot, tunisToday());
+    });
+  return http<StockLot>("POST", "/pharmacy/stock/adjustments", req);
+}
+
+/** GET /pharmacy/stock/reorder: drugs with on_hand < min_stock, suggested 2 × min_stock − on_hand. */
+export function getReorderList(): Promise<ReorderItem[]> {
+  if (USE_MOCKS)
+    return mock((s) =>
+      stockItems(s)
+        .filter((i) => i.low)
+        .map((i) => ({ drug_id: i.drug_id, dci: i.dci, strength: i.strength, form: i.form, on_hand: i.on_hand, min_stock: i.min_stock, suggested_quantity: reorderQuantity(i.min_stock, i.on_hand) })),
+    );
+  return http<ReorderItem[]>("GET", "/pharmacy/stock/reorder");
+}
+```
+
+`Dose` is already imported in `api.ts`. `stockSummary` is a function declaration, so `getPharmacySummary` may call it from above.
+
+- [ ] **Step 8: Run the type check, the mock build and the Phase A rules script again**
+
+Run: `npx tsc --noEmit`, then `NEXT_PUBLIC_USE_MOCKS=1 npm run build`, then the Task 1 Step 12 script again.
+Expected: all pass. The script prints `pharmacy rules: ok`, so the Phase A rules are untouched.
+
+- [ ] **Step 9: Run a regression in mock mode**
+
+- `npm run dev` → `/pharmacist`: the tiles and the badge are unchanged (the summary now also carries `low_stock: 1, expiring: 1`; Task 11 shows them).
+- `/nurse/meds`: unchanged (the `pharmacy` field is not rendered until Task 12).
+- Reject Omar's urgent Ibuprofen in `/pharmacist`: no crash (`dropFutureDoses` now also walks the dispensations).
+
+- [ ] **Step 10: Commit**
+
+```bash
+git add web/src/lib web/src/mocks web/src/i18n/messages/pharmacy.ts
+git commit -m "feat(web): pharmacy phase B data layer (FEFO rules, stock and dispensing api, mocks)"
+```
+
+---
+
+## Task 10: Dispensing page (date, round and ward → doses → FEFO lots → Prepare and send)
+
+**Files:**
+- Create: `web/src/components/pharmacist/DispensingView.tsx`, `web/src/app/pharmacist/dispensing/page.tsx`.
+- Modify:
+  - `web/src/components/pharmacist/usePharmacySummary.ts` (`refreshPharmacySummary`);
+  - `web/src/components/Sidebar.tsx` (nav);
+  - `web/src/components/pharmacist/Pharmacist.module.css`;
+  - `web/src/i18n/messages/pharmacy.ts`.
+
+**Interfaces:**
+- Consumes:
+  - from Task 9: `getDispensing`, `createDispensation`, `getStock`, `planLots`, `fefoLots`, `expiryState`, `nextRound`, `ROUND_TIMES`, `shortDrugId`, `ApiError`;
+  - `WARD_OPTIONS` from `@/components/admin/wards`; `describePharmacyError`.
+- Produces:
+  ```ts
+  export function refreshPharmacySummary(): void;   // usePharmacySummary.ts: re-fetch every mounted summary (badge, tiles)
+  export function DispensingView(): JSX.Element;
+  ```
+  `NAV.pharmacist` gains `{ key: "dispensing", href: "/pharmacist/dispensing" }`.
+
+- [ ] **Step 1: Add the i18n keys (append)**
+
+`en`:
+```ts
+    navDispensing: "Dispensing",
+    dispTitle: "Prepare a round",
+    dispSub: "The round’s doses with the first-expiring lot of each drug. One lot per line.",
+    fDate: "Date",
+    fRound: "Round",
+    fWard: "Ward",
+    allWards: "All wards",
+    dispEmpty: "No dose due in this round.",
+    dispLoadError: "Couldn’t load the round.",
+    colInclude: "Send",
+    colBed: "Bed",
+    colPatient: "Patient",
+    colMed: "Medicine",
+    colQty: "Qty",
+    colLot: "Lot",
+    colOnHand: "On hand",
+    includeDose: "Include {med} for {name}",
+    lotOption: "{lot} · exp. {date} · {qty} left",
+    lotOptionFefo: "{lot} · exp. {date} · {qty} left · first to expire",
+    noLot: "No lot holds this line",
+    nonFormularyLine: "Non-formulary · ward stock",
+    alreadySent: "Already sent",
+    prepareSend: "Prepare and send ({n})",
+    sentToast: "{ward}, {time} round sent: {n} doses.",
+    shortTitle: "Not enough stock for these doses. Untick them, pick another lot, or receive a delivery first:",
+    shortLine: "{bed} {name}: {med} × {qty}",
+```
+`fr`:
+```ts
+    navDispensing: "Dispensation",
+    dispTitle: "Préparer une tournée",
+    dispSub: "Les prises de la tournée avec le lot qui périme en premier pour chaque médicament. Un lot par ligne.",
+    fDate: "Date",
+    fRound: "Tournée",
+    fWard: "Service",
+    allWards: "Tous les services",
+    dispEmpty: "Aucune prise prévue pour cette tournée.",
+    dispLoadError: "Impossible de charger la tournée.",
+    colInclude: "Envoyer",
+    colBed: "Lit",
+    colPatient: "Patient",
+    colMed: "Médicament",
+    colQty: "Qté",
+    colLot: "Lot",
+    colOnHand: "En stock",
+    includeDose: "Inclure {med} pour {name}",
+    lotOption: "{lot} · exp. {date} · reste {qty}",
+    lotOptionFefo: "{lot} · exp. {date} · reste {qty} · périme en premier",
+    noLot: "Aucun lot ne couvre cette ligne",
+    nonFormularyLine: "Hors livret · stock du service",
+    alreadySent: "Déjà envoyé",
+    prepareSend: "Préparer et envoyer ({n})",
+    sentToast: "Tournée de {time}, {ward}, envoyée : {n} prises.",
+    shortTitle: "Stock insuffisant pour ces prises. Décochez-les, choisissez un autre lot ou réceptionnez une livraison d'abord :",
+    shortLine: "{bed} {name} : {med} × {qty}",
+```
+`ar`:
+```ts
+    navDispensing: "صرف الأدوية",
+    dispTitle: "تحضير جولة",
+    dispSub: "جرعات الجولة مع الدفعة الأقرب انتهاءً لكل دواء. دفعة واحدة لكل سطر.",
+    fDate: "التاريخ",
+    fRound: "الجولة",
+    fWard: "القسم",
+    allWards: "كل الأقسام",
+    dispEmpty: "لا جرعات مستحقة في هذه الجولة.",
+    dispLoadError: "تعذّر تحميل الجولة.",
+    colInclude: "إرسال",
+    colBed: "السرير",
+    colPatient: "المريض",
+    colMed: "الدواء",
+    colQty: "الكمية",
+    colLot: "الدفعة",
+    colOnHand: "المتوفر",
+    includeDose: "تضمين {med} لـ{name}",
+    lotOption: "{lot} · ينتهي {date} · متبقٍ {qty}",
+    lotOptionFefo: "{lot} · ينتهي {date} · متبقٍ {qty} · الأقرب انتهاءً",
+    noLot: "لا دفعة تكفي هذا السطر",
+    nonFormularyLine: "خارج الدليل · مخزون القسم",
+    alreadySent: "أُرسل سابقاً",
+    prepareSend: "تحضير وإرسال ({n})",
+    sentToast: "أُرسلت جولة {time} لقسم {ward}: {n} جرعات.",
+    shortTitle: "المخزون غير كافٍ لهذه الجرعات. ألغِ تحديدها أو اختر دفعة أخرى أو استلم شحنة أولاً:",
+    shortLine: "{bed} {name}: {med} × {qty}",
+```
+
+- [ ] **Step 2: Let the stock and dispensing screens refresh the badge (`usePharmacySummary.ts`)**
+
+No frame announces a stock change. So every mounted summary registers its reload, and a module-level function triggers them all. Above `usePharmacySummary`:
+
+```ts
+const reloaders = new Set<() => void>();
+
+/** Re-fetch every mounted summary (sidebar badge, tiles) after a stock or dispensing change: no frame carries those. */
+export function refreshPharmacySummary(): void {
+  for (const fn of [...reloaders]) fn();
+}
+```
+
+Inside `usePharmacySummary`, after `useLiveRefresh(…)`:
+
+```ts
+  useEffect(() => {
+    if (!enabled) return;
+    reloaders.add(load);
+    return () => {
+      reloaders.delete(load);
+    };
+  }, [enabled, load]);
+```
+
+- [ ] **Step 3: Create `web/src/components/pharmacist/DispensingView.tsx`**
+
+```tsx
+"use client";
+
+// Pharmacist / Dispensing (/pharmacist/dispensing). Pick a date, a round and a ward, and see the doses due
+// (active prescriptions only). Each formulary line gets ONE lot: by default the first-expiring lot that still
+// holds the whole line (FEFO, simulated with planLots exactly as the server does it); the pharmacist may pick
+// another lot. "Prepare and send" posts one dispensation per ward, with an explicit lot for every formulary line.
+// Shortages show before sending; the server re-checks (409 insufficient_stock: nothing written).
+import { useEffect, useMemo, useState } from "react";
+import { useT } from "@/i18n/I18nProvider";
+import page from "@/components/admin/AdminPage.module.css";
+import { WARD_OPTIONS } from "@/components/admin/wards";
+import { ErrorCard } from "@/components/shared/ErrorCard";
+import { Toast, useToast } from "@/components/Toast";
+import { ApiError, createDispensation, getDispensing, getStock } from "@/lib/api";
+import { expiryState, fefoLots, nextRound, planLots, ROUND_TIMES } from "@/lib/pharmacy";
+import { describePharmacyError, shortDrugId } from "@/lib/pharmacyUi";
+import { now, tunisDate, tunisTime } from "@/lib/time";
+import type { DispensingWard, RoundDose, StockItem, StockLot } from "@/lib/types";
+import { refreshPharmacySummary } from "./usePharmacySummary";
+import styles from "./Pharmacist.module.css";
+
+interface LotSelectProps {
+  dose: RoundDose;
+  /** The drug's lots (any order); only those usable on `date` that hold the whole line are offered. */
+  lots: readonly StockLot[];
+  date: string;
+  /** The planned lot, or null when none fits. */
+  value: string | null;
+  onChange: (lotId: string) => void;
+}
+
+/** FEFO lot choice for one dose: the first-expiring lot is listed first and marked; expiring lots are amber. */
+function LotSelect({ dose, lots, date, value, onChange }: LotSelectProps) {
+  const { t } = useT();
+  const usable = fefoLots(lots, date).filter((l) => l.quantity >= dose.quantity);
+  if (!usable.length || !value) return <span className={styles.error}>{t("pharmacy.noLot")}</span>;
+  const chosen = usable.find((l) => l.id === value) ?? usable[0];
+  return (
+    <span className={page.selectWrap}>
+      <select
+        aria-label={t("pharmacy.colLot")}
+        className={`${page.select} ${expiryState(chosen.expiry_date, date) === "expiring" ? styles.lotExpiring : ""}`}
+        value={chosen.id}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {usable.map((l, i) => (
+          <option key={l.id} value={l.id}>
+            {t(i === 0 ? "pharmacy.lotOptionFefo" : "pharmacy.lotOption", { lot: l.lot_number, date: l.expiry_date, qty: l.quantity })}
+          </option>
+        ))}
+      </select>
+    </span>
+  );
+}
+
+export function DispensingView() {
+  const { t } = useT();
+  const today = tunisDate(now().toISOString());
+  const [date, setDate] = useState(today);
+  const [round, setRound] = useState(() => nextRound(tunisTime(now().toISOString())));
+  const [ward, setWard] = useState("");
+  const [data, setData] = useState<DispensingWard[] | null>(null);
+  const [stock, setStock] = useState<StockItem[]>([]);
+  const [failed, setFailed] = useState(false);
+  const [reload, setReload] = useState(0);
+  const [chosen, setChosen] = useState<Record<string, string>>({});
+  const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set());
+  const [busyWard, setBusyWard] = useState<string | null>(null);
+  const [toast, showToast] = useToast<{ text: string; tone: "ok" | "warn" }>(5000);
+
+  useEffect(() => {
+    let alive = true;
+    setData(null);
+    setFailed(false);
+    setChosen({});
+    setSkipped(new Set());
+    Promise.all([getDispensing({ date, round, ...(ward ? { ward } : {}) }), getStock()]).then(
+      ([wards, items]) => {
+        if (!alive) return;
+        setData(wards);
+        setStock(items);
+      },
+      () => {
+        if (alive) setFailed(true);
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [date, round, ward, reload]);
+
+  const lotsByDrug = useMemo(() => new Map(stock.map((r) => [r.drug_id, r.lots])), [stock]);
+  const drugName = (id: string) => {
+    const r = stock.find((x) => x.drug_id === id);
+    return r ? `${r.dci} ${r.strength}` : id;
+  };
+  const wardLabel = (w: string) => {
+    const o = WARD_OPTIONS.find((x) => x.ward === w);
+    return o ? t(o.label) : w;
+  };
+  const selected = (w: DispensingWard): RoundDose[] =>
+    w.patients.flatMap((p) => p.doses).filter((d) => !d.dispensed && !skipped.has(d.dose_id));
+
+  async function send(w: DispensingWard, plan: Map<string, string | null>) {
+    const doses = selected(w);
+    if (!doses.length || busyWard) return;
+    setBusyWard(w.ward);
+    try {
+      const disp = await createDispensation({
+        ward: w.ward,
+        date,
+        round_time: round,
+        // An explicit lot for every formulary line: the server then does exactly what the screen showed.
+        lines: doses.map((d) => {
+          const lot = d.drug_id ? plan.get(d.dose_id) : null;
+          return lot ? { dose_id: d.dose_id, lot_id: lot } : { dose_id: d.dose_id };
+        }),
+      });
+      showToast({ tone: "ok", text: t("pharmacy.sentToast", { ward: wardLabel(w.ward), time: round, n: disp.lines.length }) });
+      refreshPharmacySummary();
+    } catch (err) {
+      const short = shortDrugId(err);
+      const text = short
+        ? t("pharmacy.errInsufficientStockOf", { drug: drugName(short) })
+        : err instanceof ApiError && (err.code === "bad_status" || err.code === "invalid")
+          ? t("pharmacy.errRoundChanged")
+          : t(describePharmacyError(err));
+      showToast({ tone: "warn", text });
+    } finally {
+      setBusyWard(null);
+      setReload((n) => n + 1); // every outcome reloads: sent rows, new stock, or the changed round
+    }
+  }
+
+  function toggle(doseId: string, on: boolean) {
+    setSkipped((s) => {
+      const next = new Set(s);
+      if (on) next.delete(doseId);
+      else next.add(doseId);
+      return next;
+    });
+  }
+
+  return (
+    <div className={page.page}>
+      <div className={page.head}>
+        <div className={page.titles}>
+          <h2 className={page.h2}>{t("pharmacy.dispTitle")}</h2>
+          <span className={page.sub}>{t("pharmacy.dispSub")}</span>
+        </div>
+      </div>
+
+      <div className={styles.filters}>
+        <label className={`${page.field} ${styles.filterField}`}>
+          <span className={page.fieldLabel}>{t("pharmacy.fDate")}</span>
+          <input type="date" dir="ltr" className={page.input} value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />
+        </label>
+        <label className={`${page.field} ${styles.filterField}`}>
+          <span className={page.fieldLabel}>{t("pharmacy.fRound")}</span>
+          <span className={page.selectWrap}>
+            <select dir="ltr" className={page.select} value={round} onChange={(e) => setRound(e.target.value)}>
+              {ROUND_TIMES.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </span>
+        </label>
+        <label className={`${page.field} ${styles.filterField}`}>
+          <span className={page.fieldLabel}>{t("pharmacy.fWard")}</span>
+          <span className={page.selectWrap}>
+            <select className={page.select} value={ward} onChange={(e) => setWard(e.target.value)}>
+              <option value="">{t("pharmacy.allWards")}</option>
+              {WARD_OPTIONS.map((w) => (
+                <option key={w.ward} value={w.ward}>
+                  {t(w.label)}
+                </option>
+              ))}
+            </select>
+          </span>
+        </label>
+      </div>
+
+      {failed ? (
+        <ErrorCard title={t("pharmacy.dispLoadError")} onRetry={() => setReload((n) => n + 1)} secondaryLabel={null} />
+      ) : !data ? (
+        <div className="ward-skeleton" style={{ height: 220 }} aria-busy="true" />
+      ) : data.length === 0 ? (
+        <p className={styles.empty}>{t("pharmacy.dispEmpty")}</p>
+      ) : (
+        data.map((w) => {
+          const toSend = selected(w);
+          const plan = planLots(toSend, lotsByDrug, date, chosen);
+          const short = w.patients.flatMap((p) =>
+            p.doses.filter((d) => d.drug_id && plan.has(d.dose_id) && plan.get(d.dose_id) === null).map((d) => ({ p, d })),
+          );
+          return (
+            <section key={w.ward} className={styles.wardBlock} aria-labelledby={`ward-${w.ward}`}>
+              <div className={styles.wardHead}>
+                <h3 id={`ward-${w.ward}`} className={styles.wardName}>
+                  {wardLabel(w.ward)}
+                </h3>
+                <button
+                  type="button"
+                  className={page.btnPrimary}
+                  disabled={!toSend.length || short.length > 0 || busyWard !== null}
+                  onClick={() => void send(w, plan)}
+                >
+                  {t("pharmacy.prepareSend", { n: toSend.length })}
+                </button>
+              </div>
+              {short.length ? (
+                <div role="alert" className={styles.shortBox}>
+                  <b>{t("pharmacy.shortTitle")}</b>
+                  {short.map(({ p, d }) => (
+                    <span key={d.dose_id} dir="auto">
+                      {t("pharmacy.shortLine", { bed: p.bed ?? "", name: p.name, med: d.med, qty: d.quantity })}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <div role="table" aria-labelledby={`ward-${w.ward}`} className={styles.roundTable}>
+                <div role="row" className={`${styles.doseGrid} ${page.th}`}>
+                  <span role="columnheader">{t("pharmacy.colInclude")}</span>
+                  <span role="columnheader">{t("pharmacy.colBed")}</span>
+                  <span role="columnheader">{t("pharmacy.colPatient")}</span>
+                  <span role="columnheader">{t("pharmacy.colMed")}</span>
+                  <span role="columnheader">{t("pharmacy.colQty")}</span>
+                  <span role="columnheader">{t("pharmacy.colLot")}</span>
+                  <span role="columnheader">{t("pharmacy.colOnHand")}</span>
+                </div>
+                {w.patients.flatMap((p) =>
+                  p.doses.map((d) => (
+                    <div key={d.dose_id} role="row" className={`${styles.doseGrid} ${page.tr} ${d.dispensed ? styles.sentRow : ""}`}>
+                      <span role="cell">
+                        {d.dispensed ? null : (
+                          <input
+                            type="checkbox"
+                            aria-label={t("pharmacy.includeDose", { med: d.med, name: p.name })}
+                            checked={!skipped.has(d.dose_id)}
+                            onChange={(e) => toggle(d.dose_id, e.target.checked)}
+                          />
+                        )}
+                      </span>
+                      <span role="cell" dir="ltr">
+                        {p.bed ?? "—"}
+                      </span>
+                      <span role="cell" dir="auto">
+                        {p.name}
+                      </span>
+                      <span role="cell" dir="auto">
+                        {d.med}
+                      </span>
+                      <span role="cell" className={styles.num}>
+                        {d.quantity}
+                      </span>
+                      <span role="cell">
+                        {d.dispensed ? (
+                          <span className={styles.muted}>{t("pharmacy.alreadySent")}</span>
+                        ) : !d.drug_id ? (
+                          <span className={styles.muted}>{t("pharmacy.nonFormularyLine")}</span>
+                        ) : skipped.has(d.dose_id) ? (
+                          <span className={styles.muted}>—</span>
+                        ) : (
+                          <LotSelect
+                            dose={d}
+                            lots={lotsByDrug.get(d.drug_id) ?? []}
+                            date={date}
+                            value={plan.get(d.dose_id) ?? null}
+                            onChange={(id) => setChosen((c) => ({ ...c, [d.dose_id]: id }))}
+                          />
+                        )}
+                      </span>
+                      <span role="cell" className={`${styles.num} ${d.on_hand !== null && d.on_hand < d.quantity ? styles.lowNum : ""}`}>
+                        {d.on_hand ?? "—"}
+                      </span>
+                    </div>
+                  )),
+                )}
+              </div>
+            </section>
+          );
+        })
+      )}
+      {toast ? <Toast tone={toast.tone}>{toast.text}</Toast> : null}
+    </div>
+  );
+}
+
+export default DispensingView;
+```
+
+- [ ] **Step 4: Add the page, nav entry and styles**
+
+`web/src/app/pharmacist/dispensing/page.tsx`:
+
+```tsx
+import { DispensingView } from "@/components/pharmacist/DispensingView";
+import { getT } from "@/i18n/server";
+
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: `${t("pharmacy.dispTitle")} · Ward` };
+}
+
+export default function PharmacistDispensingPage() {
+  return <DispensingView />;
+}
+```
+
+`Sidebar.tsx`, `NAV.pharmacist`: insert after `catalogue`:
+
+```ts
+    { key: "dispensing", label: "pharmacy.navDispensing", href: "/pharmacist/dispensing" },
+```
+
+Append to `Pharmacist.module.css`:
+
+```css
+/* ── Dispensing (Task 10) ───────────────────────────────────────────────── */
+.filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
+.filterField { min-width: 170px; }
+.wardBlock { display: flex; flex-direction: column; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
+.wardHead { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.wardName { flex: 1; margin: 0; font: 600 22px/1.2 var(--serif); color: var(--ink); }
+.roundTable { overflow-x: auto; }
+.doseGrid { display: grid; grid-template-columns: 56px 70px minmax(140px, 1.2fr) minmax(150px, 1.3fr) 56px minmax(260px, 1.8fr) 80px; gap: 12px; align-items: center; min-width: 960px; }
+.sentRow { color: var(--muted); background: var(--canvas); }
+.shortBox { display: flex; flex-direction: column; gap: 4px; margin: 12px 20px 0; padding: 10px 12px; border-radius: 10px; background: var(--danger-bg); border: 1px solid var(--danger-line); color: var(--danger-ink); font-size: 14px; }
+.num { font-variant-numeric: tabular-nums; }
+.lowNum { color: var(--danger); font-weight: 600; }
+.lotExpiring { color: var(--warn-ink); font-weight: 600; }
+.lotExpired { color: var(--danger); font-weight: 600; }
+```
+
+- [ ] **Step 5: Run the type check and the mock build**
+
+Run: `npx tsc --noEmit`, then `NEXT_PUBLIC_USE_MOCKS=1 npm run build`.
+Expected: both pass, and the routes include `/pharmacist/dispensing`.
+
+- [ ] **Step 6: Run the mock-mode scenarios (`npm run dev`, `/pharmacist/dispensing`)**
+
+1. **Defaults.** Today, round `10:00` (the next round after 09:12), all wards. The Cardiology block lists Omar's Furosemide 40 mg, Hédi's Furosemide 20 mg and Lina's Salbutamol, all "Already sent" (the seeded delivery). The button reads "Prepare and send (0)" and is disabled.
+2. **Prepare the 20:00 round (spec §7 step 6).** Pick `20:00`. The rows are:
+   - Amira: Paracetamol 500mg, lot `L26-001` (the expired `L25-001X` is **not** offered), and Warfarin;
+   - Omar: Enoxaparin, `L26-009`, on hand 6; and Ibuprofen (urgent pending: it is listed, because urgent counts as active).
+
+   Click "Prepare and send (4)": the toast reads "Cardiology, 20:00 round sent: 4 doses." The rows turn "Already sent". Then:
+   - `/pharmacist/stock` (Task 11) or the badge: the stock went down.
+3. **FEFO.** Pick `14:00` and Amira's Amoxicillin 1g: the lot select shows `L26-003B · exp. 2026-10-15 · 30 left · first to expire` first (amber), then `L26-003`. Pick `L26-003`: the plan keeps the pick.
+4. **Shortage.** Untick nothing. Temporarily set the Enoxaparin fixture to `0` in `LOTS` (`d.id === "d-0009" ? 0 : 200`), reload and pick `20:00`:
+   - Omar's Enoxaparin shows "No lot holds this line";
+   - the red box lists "C-16 Omar Jaziri: Enoxaparin 40mg × 1", and Send is disabled;
+   - untick that dose: Send is enabled again for the 3 others.
+
+   **Revert the fixture.**
+5. **Server-side refusal (mock parity, Review Focus 4).** Temporarily make `planLots` return a plan that names a lot that doesn't exist (`return new Map(doses.filter((d) => d.drug_id && !d.dispensed).map((d) => [d.dose_id, "lot-9999"]))` before the loop). Reload, `20:00`, Send:
+   - the toast reads "This round changed… Nothing was written" (422 `invalid`);
+   - the rows are still unsent after the reload.
+
+   **Revert.**
+6. **Arabic.** In العربية, the table reads right-to-left, while `20:00`, lot numbers and dates keep their order.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add web/src/components/pharmacist web/src/app/pharmacist/dispensing web/src/components/Sidebar.tsx web/src/i18n/messages/pharmacy.ts
+git commit -m "feat(web): pharmacist dispensing page with FEFO lots per line"
+```
+
+---
+
+## Task 11: Stock page (on hand, flags, receipts, adjustments, reorder list) and the stock badge
+
+**Files:**
+- Create:
+  - `web/src/components/pharmacist/StockView.tsx`, `ReceiptForm.tsx`, `AdjustDialog.tsx`;
+  - `web/src/app/pharmacist/stock/page.tsx`.
+- Modify:
+  - `web/src/components/Sidebar.tsx` (nav + stock count);
+  - `web/src/components/pharmacist/SummaryStrip.tsx`, `Pharmacist.module.css`;
+  - `web/src/i18n/messages/pharmacy.ts`.
+
+**Interfaces:**
+- Consumes:
+  - from Task 9: `getStock`, `getReorderList`, `receiveStock`, `adjustStock`, `expiryState`, `ApiError`;
+  - from Task 10: `refreshPharmacySummary`;
+  - from Task 4: `FORM_KEY`; `describePharmacyError`, `COMMENT_MAX`.
+- Produces:
+  ```ts
+  export interface ReceiptFormProps { items: StockItem[]; onDone: (message: string) => void }
+  export function ReceiptForm(props: ReceiptFormProps): JSX.Element;
+  export interface AdjustDialogProps { lot: StockLot; drug: string; onClose: () => void; onDone: (message: string) => void }
+  export function AdjustDialog(props: AdjustDialogProps): JSX.Element;
+  export function StockView(): JSX.Element;
+  ```
+  The sidebar gets a `stock` key whose count is `low_stock + expiring`, in the teal "hot" pill.
+
+- [ ] **Step 1: Add the i18n keys (append)**
+
+`en`:
+```ts
+    navStock: "Stock",
+    stockTitle: "Stock",
+    stockSub: "On hand, expiry dates, deliveries and the reorder list. These alerts are for the pharmacy only.",
+    stockAttention: "{n} stock alerts",
+    tileLow: "Drugs below minimum stock",
+    tileExpiringLots: "Lots expiring within 30 days",
+    tileExpired: "Drugs with an expired lot",
+    flagLow: "Low",
+    flagExpiring: "Expiring",
+    flagExpired: "Expired lot",
+    colStock: "On hand / min",
+    colLots: "Lots",
+    lotLine: "{lot} · exp. {date} · {qty}",
+    adjust: "Adjust",
+    receiptTitle: "Receive a delivery",
+    fDrug: "Drug",
+    pickDrugOption: "Choose a drug",
+    fLot: "Lot number",
+    fExpiry: "Expiry date",
+    fQty: "Quantity",
+    receive: "Add to stock",
+    receiptSaved: "Lot {lot} added to stock.",
+    adjustTitle: "Adjust lot {lot}",
+    fDelta: "Change (+ or −)",
+    fReason: "Reason",
+    reasonAdjustment: "Count correction",
+    reasonExpired: "Expired, destroyed",
+    reasonReturn: "Returned from a ward",
+    fComment: "Comment",
+    adjustSaved: "Stock updated.",
+    reorderTitle: "To reorder",
+    reorderLine: "{drug}: order {n} ({on_hand} / {min})",
+    reorderNone: "Nothing below minimum stock.",
+    stockLoadError: "Couldn’t load the stock.",
+    errStockForm: "Fill in every field: a lot number, an expiry date from today on, and a whole quantity from 1 to 100000.",
+    errAdjustForm: "Use a whole, non-zero change (at most 100000) and write a comment.",
+    errExpiredDelta: "An expired lot can only go down: use a negative change.",
+    errBelowZero: "Stock can’t go below zero.",
+```
+`fr`:
+```ts
+    navStock: "Stock",
+    stockTitle: "Stock",
+    stockSub: "Stock, péremptions, livraisons et liste à commander. Ces alertes sont réservées à la pharmacie.",
+    stockAttention: "{n} alertes de stock",
+    tileLow: "Médicaments sous le stock minimum",
+    tileExpiringLots: "Lots périmant sous 30 jours",
+    tileExpired: "Médicaments avec un lot périmé",
+    flagLow: "Bas",
+    flagExpiring: "Bientôt périmé",
+    flagExpired: "Lot périmé",
+    colStock: "En stock / min",
+    colLots: "Lots",
+    lotLine: "{lot} · exp. {date} · {qty}",
+    adjust: "Ajuster",
+    receiptTitle: "Réceptionner une livraison",
+    fDrug: "Médicament",
+    pickDrugOption: "Choisir un médicament",
+    fLot: "N° de lot",
+    fExpiry: "Date de péremption",
+    fQty: "Quantité",
+    receive: "Ajouter au stock",
+    receiptSaved: "Lot {lot} ajouté au stock.",
+    adjustTitle: "Ajuster le lot {lot}",
+    fDelta: "Variation (+ ou −)",
+    fReason: "Motif",
+    reasonAdjustment: "Correction d'inventaire",
+    reasonExpired: "Périmé, détruit",
+    reasonReturn: "Retour d'un service",
+    fComment: "Commentaire",
+    adjustSaved: "Stock mis à jour.",
+    reorderTitle: "À commander",
+    reorderLine: "{drug} : commander {n} ({on_hand} / {min})",
+    reorderNone: "Rien sous le stock minimum.",
+    stockLoadError: "Impossible de charger le stock.",
+    errStockForm: "Remplissez tous les champs : un n° de lot, une date de péremption à partir d'aujourd'hui et une quantité entière de 1 à 100000.",
+    errAdjustForm: "Indiquez une variation entière non nulle (100000 au maximum) et un commentaire.",
+    errExpiredDelta: "Un lot périmé ne peut que diminuer : utilisez une variation négative.",
+    errBelowZero: "Le stock ne peut pas devenir négatif.",
+```
+`ar`:
+```ts
+    navStock: "المخزون",
+    stockTitle: "المخزون",
+    stockSub: "المتوفر وتواريخ الانتهاء والشحنات وقائمة الطلب. هذه التنبيهات خاصة بالصيدلية.",
+    stockAttention: "{n} تنبيهات مخزون",
+    tileLow: "أدوية تحت الحد الأدنى",
+    tileExpiringLots: "دفعات تنتهي خلال 30 يوماً",
+    tileExpired: "أدوية بدفعة منتهية الصلاحية",
+    flagLow: "منخفض",
+    flagExpiring: "قريب الانتهاء",
+    flagExpired: "دفعة منتهية",
+    colStock: "المتوفر / الأدنى",
+    colLots: "الدفعات",
+    lotLine: "{lot} · ينتهي {date} · {qty}",
+    adjust: "تعديل",
+    receiptTitle: "استلام شحنة",
+    fDrug: "الدواء",
+    pickDrugOption: "اختر دواءً",
+    fLot: "رقم الدفعة",
+    fExpiry: "تاريخ انتهاء الصلاحية",
+    fQty: "الكمية",
+    receive: "إضافة إلى المخزون",
+    receiptSaved: "أُضيفت الدفعة {lot} إلى المخزون.",
+    adjustTitle: "تعديل الدفعة {lot}",
+    fDelta: "التغيير (+ أو −)",
+    fReason: "السبب",
+    reasonAdjustment: "تصحيح الجرد",
+    reasonExpired: "منتهية الصلاحية، أُتلفت",
+    reasonReturn: "مُرجعة من قسم",
+    fComment: "تعليق",
+    adjustSaved: "تم تحديث المخزون.",
+    reorderTitle: "للطلب",
+    reorderLine: "{drug}: اطلب {n} ({on_hand} / {min})",
+    reorderNone: "لا شيء تحت الحد الأدنى.",
+    stockLoadError: "تعذّر تحميل المخزون.",
+    errStockForm: "املأ كل الحقول: رقم دفعة وتاريخ انتهاء ابتداءً من اليوم وكمية صحيحة من 1 إلى 100000.",
+    errAdjustForm: "أدخل تغييراً صحيحاً غير صفري (100000 كحد أقصى) واكتب تعليقاً.",
+    errExpiredDelta: "الدفعة المنتهية لا يمكن إلا أن تنقص: استعمل تغييراً سالباً.",
+    errBelowZero: "لا يمكن أن يصبح المخزون أقل من صفر.",
+```
+
+- [ ] **Step 2: Create `web/src/components/pharmacist/ReceiptForm.tsx`**
+
+```tsx
+"use client";
+
+// "Receive a delivery": POST /pharmacy/stock/receipts. A known (drug, lot number) is topped up. The same lot
+// number with another expiry is 409 `conflict`; a past expiry is refused here first (the server says 422).
+import { useState, type FormEvent } from "react";
+import { useT } from "@/i18n/I18nProvider";
+import type { Key } from "@/i18n/messages";
+import page from "@/components/admin/AdminPage.module.css";
+import { ApiError, receiveStock } from "@/lib/api";
+import { describePharmacyError } from "@/lib/pharmacyUi";
+import { now, tunisDate } from "@/lib/time";
+import type { StockItem } from "@/lib/types";
+import styles from "./Pharmacist.module.css";
+
+export interface ReceiptFormProps {
+  /** The drugs to choose from (GET /pharmacy/stock: every active drug). */
+  items: StockItem[];
+  onDone: (message: string) => void;
+}
+
+export function ReceiptForm({ items, onDone }: ReceiptFormProps) {
+  const { t } = useT();
+  const [f, setF] = useState({ drug: "", lot: "", expiry: "", qty: "" });
+  const [error, setError] = useState<Key | null>(null);
+  const [busy, setBusy] = useState(false);
+  const set = (k: keyof typeof f) => (v: string) => setF((s) => ({ ...s, [k]: v }));
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (busy) return;
+    const qty = Number(f.qty.trim());
+    const today = tunisDate(now().toISOString());
+    const lot = f.lot.trim();
+    if (!f.drug || !lot || lot.length > 40 || !/^\d{4}-\d{2}-\d{2}$/.test(f.expiry) || f.expiry < today || !Number.isInteger(qty) || qty < 1 || qty > 100_000) {
+      setError("pharmacy.errStockForm");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const saved = await receiveStock({ drug_id: f.drug, lot_number: lot, expiry_date: f.expiry, quantity: qty });
+      setF((s) => ({ ...s, lot: "", expiry: "", qty: "" }));
+      onDone(t("pharmacy.receiptSaved", { lot: saved.lot_number }));
+    } catch (err) {
+      setError(err instanceof ApiError && err.code === "conflict" ? "pharmacy.errLotExpiryConflict" : describePharmacyError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className={styles.card} onSubmit={submit} noValidate aria-labelledby="receipt-title">
+      <h3 id="receipt-title" className={styles.cardTitle}>
+        {t("pharmacy.receiptTitle")}
+      </h3>
+      <label className={page.field}>
+        <span className={page.fieldLabel}>{t("pharmacy.fDrug")}</span>
+        <span className={page.selectWrap}>
+          <select className={page.select} value={f.drug} onChange={(e) => set("drug")(e.target.value)}>
+            <option value="">{t("pharmacy.pickDrugOption")}</option>
+            {items.map((r) => (
+              <option key={r.drug_id} value={r.drug_id}>
+                {`${r.dci} ${r.strength}`}
+              </option>
+            ))}
+          </select>
+        </span>
+      </label>
+      <label className={page.field}>
+        <span className={page.fieldLabel}>{t("pharmacy.fLot")}</span>
+        <input dir="ltr" maxLength={40} className={page.input} value={f.lot} onChange={(e) => set("lot")(e.target.value)} />
+      </label>
+      <div className={styles.pair}>
+        <label className={page.field}>
+          <span className={page.fieldLabel}>{t("pharmacy.fExpiry")}</span>
+          <input type="date" dir="ltr" className={page.input} value={f.expiry} onChange={(e) => set("expiry")(e.target.value)} />
+        </label>
+        <label className={page.field}>
+          <span className={page.fieldLabel}>{t("pharmacy.fQty")}</span>
+          <input dir="ltr" inputMode="numeric" className={page.input} value={f.qty} onChange={(e) => set("qty")(e.target.value)} />
+        </label>
+      </div>
+      {error ? (
+        <span role="alert" className={styles.error}>
+          {t(error)}
+        </span>
+      ) : null}
+      <button type="submit" className={page.btnPrimary} disabled={busy}>
+        {t("pharmacy.receive")}
+      </button>
+    </form>
+  );
+}
+
+export default ReceiptForm;
+```
+
+- [ ] **Step 3: Create `web/src/components/pharmacist/AdjustDialog.tsx`**
+
+```tsx
+"use client";
+
+// Adjust one lot: POST /pharmacy/stock/adjustments {lot_id, delta, reason, comment}. The delta is a whole
+// number ≠ 0 (±100000); "expired" needs a negative delta (choosing it pre-fills −quantity); the comment is
+// 1–500 characters. Below zero, the server answers 409 insufficient_stock: no client pre-check hides that path.
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useT } from "@/i18n/I18nProvider";
+import type { Key } from "@/i18n/messages";
+import page from "@/components/admin/AdminPage.module.css";
+import { adjustStock, ApiError } from "@/lib/api";
+import { COMMENT_MAX } from "@/lib/pharmacy";
+import { describePharmacyError } from "@/lib/pharmacyUi";
+import type { AdjustmentReason, StockLot } from "@/lib/types";
+import styles from "./Pharmacist.module.css";
+
+const REASONS: [AdjustmentReason, Key][] = [
+  ["adjustment", "pharmacy.reasonAdjustment"],
+  ["expired", "pharmacy.reasonExpired"],
+  ["return", "pharmacy.reasonReturn"],
+];
+
+export interface AdjustDialogProps {
+  lot: StockLot;
+  /** "Enoxaparin 40 mg", for the dialog's subtitle. */
+  drug: string;
+  onClose: () => void;
+  onDone: (message: string) => void;
+}
+
+export function AdjustDialog({ lot, drug, onClose, onDone }: AdjustDialogProps) {
+  const { t } = useT();
+  const [delta, setDelta] = useState("");
+  const [reason, setReason] = useState<AdjustmentReason>("adjustment");
+  const [comment, setComment] = useState("");
+  const [error, setError] = useState<Key | null>(null);
+  const [busy, setBusy] = useState(false);
+  const first = useRef<HTMLInputElement>(null);
+  const close = useRef(onClose);
+
+  useEffect(() => {
+    close.current = onClose;
+  });
+  useEffect(() => {
+    first.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (busy) return;
+    const n = Number(delta.trim().replace("−", "-")); // accept the typographic minus
+    const text = comment.trim();
+    if (!Number.isInteger(n) || n === 0 || Math.abs(n) > 100_000 || !text || [...text].length > COMMENT_MAX) {
+      setError("pharmacy.errAdjustForm");
+      return;
+    }
+    if (reason === "expired" && n > 0) {
+      setError("pharmacy.errExpiredDelta");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await adjustStock({ lot_id: lot.id, delta: n, reason, comment: text });
+      onDone(t("pharmacy.adjustSaved"));
+    } catch (err) {
+      setError(err instanceof ApiError && err.code === "insufficient_stock" ? "pharmacy.errBelowZero" : describePharmacyError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className={styles.overlay}>
+      <form role="dialog" aria-modal="true" aria-labelledby="adjust-title" className={styles.dialog} onSubmit={submit} noValidate>
+        <h2 id="adjust-title" className={styles.dialogTitle}>
+          {t("pharmacy.adjustTitle", { lot: lot.lot_number })}
+        </h2>
+        <p dir="auto" className={styles.muted}>
+          {drug} · {t("pharmacy.lotLine", { lot: lot.lot_number, date: lot.expiry_date, qty: lot.quantity })}
+        </p>
+        <label className={page.field}>
+          <span className={page.fieldLabel}>{t("pharmacy.fReason")}</span>
+          <span className={page.selectWrap}>
+            <select
+              className={page.select}
+              value={reason}
+              onChange={(e) => {
+                const r = e.target.value as AdjustmentReason;
+                setReason(r);
+                if (r === "expired") setDelta(String(-lot.quantity));
+              }}
+            >
+              {REASONS.map(([r, k]) => (
+                <option key={r} value={r}>
+                  {t(k)}
+                </option>
+              ))}
+            </select>
+          </span>
+        </label>
+        <label className={page.field}>
+          <span className={page.fieldLabel}>{t("pharmacy.fDelta")}</span>
+          <input ref={first} dir="ltr" className={page.input} value={delta} onChange={(e) => setDelta(e.target.value)} />
+        </label>
+        <label className={page.field}>
+          <span className={page.fieldLabel}>{t("pharmacy.fComment")}</span>
+          <textarea dir="auto" rows={2} maxLength={COMMENT_MAX} className={styles.textarea} value={comment} onChange={(e) => setComment(e.target.value)} />
+        </label>
+        {error ? (
+          <span role="alert" className={styles.error}>
+            {t(error)}
+          </span>
+        ) : null}
+        <div className={styles.dialogActions}>
+          <button type="button" className={page.btn} disabled={busy} onClick={onClose}>
+            {t("pharmacy.cancel")}
+          </button>
+          <button type="submit" className={page.btnPrimary} disabled={busy}>
+            {t("pharmacy.save")}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+export default AdjustDialog;
+```
+
+- [ ] **Step 4: Create `web/src/components/pharmacist/StockView.tsx`**
+
+```tsx
+"use client";
+
+// Pharmacist / Stock (/pharmacist/stock). On hand vs minimum per drug (expired lots don't count), the lots
+// with their expiry flags (from the server: expired before today; expiring within 30 days, today included),
+// receiving a delivery, adjusting a lot, and the reorder list (2 × min − on hand). Every change refreshes
+// the sidebar badge and the tiles. The alerts stay in the pharmacy: they are not sent to the wards (spec §5).
+import { useEffect, useState } from "react";
+import { useT } from "@/i18n/I18nProvider";
+import type { Key } from "@/i18n/messages";
+import page from "@/components/admin/AdminPage.module.css";
+import { ErrorCard } from "@/components/shared/ErrorCard";
+import { Toast, useToast } from "@/components/Toast";
+import { getReorderList, getStock } from "@/lib/api";
+import { FORM_KEY } from "@/lib/pharmacy";
+import type { ReorderItem, StockItem, StockLot } from "@/lib/types";
+import { AdjustDialog } from "./AdjustDialog";
+import { ReceiptForm } from "./ReceiptForm";
+import { refreshPharmacySummary } from "./usePharmacySummary";
+import styles from "./Pharmacist.module.css";
+
+export function StockView() {
+  const { t } = useT();
+  const [items, setItems] = useState<StockItem[] | null>(null);
+  const [reorder, setReorder] = useState<ReorderItem[]>([]);
+  const [failed, setFailed] = useState(false);
+  const [reload, setReload] = useState(0);
+  const [adjusting, setAdjusting] = useState<{ lot: StockLot; drug: string } | null>(null);
+  const [toast, showToast] = useToast<string>(4500);
+
+  useEffect(() => {
+    let alive = true;
+    setFailed(false);
+    Promise.all([getStock(), getReorderList()]).then(
+      ([stock, list]) => {
+        if (!alive) return;
+        setItems(stock);
+        setReorder(list);
+      },
+      () => {
+        if (alive) setFailed(true);
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [reload]);
+
+  function changed(message: string) {
+    showToast(message);
+    setReload((n) => n + 1);
+    refreshPharmacySummary();
+  }
+
+  const tiles: { key: string; label: Key; n: number | undefined; danger?: boolean }[] = [
+    { key: "low", label: "pharmacy.tileLow", n: items?.filter((i) => i.low).length, danger: true },
+    { key: "expiring", label: "pharmacy.tileExpiringLots", n: items?.flatMap((i) => i.lots).filter((l) => l.expiring).length },
+    { key: "expired", label: "pharmacy.tileExpired", n: items?.filter((i) => i.expired).length, danger: true },
+  ];
+
+  return (
+    <div className={page.page}>
+      <div className={page.head}>
+        <div className={page.titles}>
+          <h2 className={page.h2}>{t("pharmacy.stockTitle")}</h2>
+          <span className={page.sub}>{t("pharmacy.stockSub")}</span>
+        </div>
+      </div>
+
+      <dl className={styles.tiles}>
+        {tiles.map((x) => (
+          <div key={x.key} className={`${styles.tile} ${x.danger && (x.n ?? 0) > 0 ? styles.tileDanger : ""}`}>
+            <dt className={styles.tileLabel}>{t(x.label)}</dt>
+            <dd className={styles.tileNum}>{x.n ?? "–"}</dd>
+          </div>
+        ))}
+      </dl>
+
+      {failed && !items ? (
+        <ErrorCard title={t("pharmacy.stockLoadError")} onRetry={() => setReload((n) => n + 1)} secondaryLabel={null} />
+      ) : !items ? (
+        <div className="ward-skeleton" style={{ height: 260 }} aria-busy="true" />
+      ) : (
+        <div className={styles.stockLayout}>
+          <div className={styles.table} role="table" aria-label={t("pharmacy.stockTitle")}>
+            <div role="row" className={`${styles.stockGrid} ${page.th}`}>
+              <span role="columnheader">{t("pharmacy.colDci")}</span>
+              <span role="columnheader">{t("pharmacy.colStock")}</span>
+              <span role="columnheader">{t("pharmacy.colStatus")}</span>
+              <span role="columnheader">{t("pharmacy.colLots")}</span>
+            </div>
+            {items.map((r) => (
+              <div key={r.drug_id} role="row" className={`${styles.stockGrid} ${page.tr}`}>
+                <span role="cell">
+                  <span dir="auto" className={styles.cellMain}>
+                    {r.dci}
+                  </span>
+                  <span className={styles.cellSub}>
+                    {t(FORM_KEY[r.form] ?? "pharmacy.formOther")} · <span dir="ltr">{r.strength}</span>
+                  </span>
+                </span>
+                <span role="cell" dir="ltr" className={`${styles.num} ${r.low ? styles.lowNum : ""}`}>
+                  {r.on_hand} / {r.min_stock}
+                </span>
+                <span role="cell" className={styles.tags}>
+                  {r.low ? <span className={`${styles.flag} ${styles.flagDanger}`}>{t("pharmacy.flagLow")}</span> : null}
+                  {r.expiring ? <span className={styles.flag}>{t("pharmacy.flagExpiring")}</span> : null}
+                  {r.expired ? <span className={`${styles.flag} ${styles.flagDanger}`}>{t("pharmacy.flagExpired")}</span> : null}
+                </span>
+                <span role="cell">
+                  <ul className={styles.lots}>
+                    {r.lots.map((l) => (
+                      <li key={l.id} className={styles.lotRow}>
+                        <span className={l.expired ? styles.lotExpired : l.expiring ? styles.lotExpiring : undefined}>
+                          {t("pharmacy.lotLine", { lot: l.lot_number, date: l.expiry_date, qty: l.quantity })}
+                        </span>
+                        <button type="button" className={styles.linkBtn} onClick={() => setAdjusting({ lot: l, drug: `${r.dci} ${r.strength}` })}>
+                          {t("pharmacy.adjust")}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className={styles.side}>
+            <ReceiptForm items={items} onDone={changed} />
+            <section className={styles.card} aria-labelledby="reorder-title">
+              <h3 id="reorder-title" className={styles.cardTitle}>
+                {t("pharmacy.reorderTitle")}
+              </h3>
+              {reorder.length === 0 ? (
+                <p className={styles.muted}>{t("pharmacy.reorderNone")}</p>
+              ) : (
+                <ul className={styles.lots}>
+                  {reorder.map((r) => (
+                    <li key={r.drug_id} dir="auto" className={styles.reorderRow}>
+                      {t("pharmacy.reorderLine", { drug: `${r.dci} ${r.strength}`, n: r.suggested_quantity, on_hand: r.on_hand, min: r.min_stock })}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
+        </div>
+      )}
+
+      {adjusting ? (
+        <AdjustDialog
+          lot={adjusting.lot}
+          drug={adjusting.drug}
+          onClose={() => setAdjusting(null)}
+          onDone={(message) => {
+            setAdjusting(null);
+            changed(message);
+          }}
+        />
+      ) : null}
+      {toast ? <Toast>{toast}</Toast> : null}
+    </div>
+  );
+}
+
+export default StockView;
+```
+
+- [ ] **Step 5: Add the page, the nav entry with its count, the summary tiles and styles**
+
+`web/src/app/pharmacist/stock/page.tsx`:
+
+```tsx
+import { StockView } from "@/components/pharmacist/StockView";
+import { getT } from "@/i18n/server";
+
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: `${t("pharmacy.stockTitle")} · Ward` };
+}
+
+export default function PharmacistStockPage() {
+  return <StockView />;
+}
+```
+
+`Sidebar.tsx`, `NAV.pharmacist`: insert after `dispensing`:
+
+```ts
+    { key: "stock", label: "pharmacy.navStock", href: "/pharmacist/stock", hot: true },
+```
+
+Then replace the `merged` and `critical` lines (Task 2) with:
+
+```ts
+  const stockAlerts = summary && (summary.low_stock !== undefined || summary.expiring !== undefined) ? (summary.low_stock ?? 0) + (summary.expiring ?? 0) : null;
+  const merged: Partial<Record<string, string | number>> = {
+    ...(summary ? { worklist: summary.pending } : {}),
+    ...(stockAlerts !== null ? { stock: stockAlerts } : {}),
+    ...counts,
+  };
+  const critical = new Set<string>(summary && summary.critical_pending > 0 ? ["worklist"] : []);
+```
+
+On the pill's `title`, also cover the stock entry:
+
+```tsx
+                  title={
+                    crit && summary
+                      ? t("pharmacy.criticalWaiting", { n: summary.critical_pending })
+                      : n.key === "stock" && stockAlerts
+                        ? t("pharmacy.stockAttention", { n: stockAlerts })
+                        : undefined
+                  }
+```
+
+`SummaryStrip.tsx`: after the four Phase A tiles, append the stock tiles when the summary carries them:
+
+```ts
+    ...(s?.low_stock !== undefined ? [{ key: "low", label: "pharmacy.tileLow" as Key, n: s.low_stock, danger: true }] : []),
+    ...(s?.expiring !== undefined ? [{ key: "expiring", label: "pharmacy.tileExpiringLots" as Key, n: s.expiring }] : []),
+```
+
+Append to `Pharmacist.module.css`:
+
+```css
+/* ── Stock (Task 11) ────────────────────────────────────────────────────── */
+.stockLayout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; align-items: start; }
+
+@media (max-width: 1200px) {
+  .stockLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.stockGrid { display: grid; grid-template-columns: minmax(170px, 1.3fr) 110px 170px minmax(260px, 2fr); gap: 12px; align-items: start; min-width: 760px; }
+.side { display: flex; flex-direction: column; gap: 16px; }
+.card { display: flex; flex-direction: column; gap: 12px; padding: 20px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
+.cardTitle { margin: 0; font: 600 20px/1.2 var(--serif); color: var(--ink); }
+.lots { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.lotRow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 14px; }
+.reorderRow { padding: 6px 0; border-bottom: 1px solid var(--line-soft); font-size: 15px; }
+```
+
+- [ ] **Step 6: Run the type check and the mock build**
+
+Run: `npx tsc --noEmit`, then `NEXT_PUBLIC_USE_MOCKS=1 npm run build`.
+Expected: both pass, and the routes include `/pharmacist/stock`.
+
+- [ ] **Step 7: Run the mock-mode scenarios (`npm run dev`)**
+
+1. **The badge.** `/pharmacist`: the sidebar "Stock" pill reads `2` in teal (1 drug low + 1 lot expiring), and its tooltip reads "2 stock alerts". The home tiles add "Drugs below minimum stock 1" (red) and "Lots expiring within 30 days 1".
+2. **The stock page.** `/pharmacist/stock` shows the tiles low 1, expiring 1, expired 1:
+   - Enoxaparin reads `6 / 20` in red with "Low";
+   - Amoxicillin 1 g reads "Expiring", with `L26-003B` in amber;
+   - Paracetamol 500 mg reads "Expired lot", with `L25-001X` in red and on hand `200 / 20` (the expired 40 don't count).
+   - The reorder list reads "Enoxaparin 40 mg: order 34 (6 / 20)".
+3. **Receipt.**
+   - Enoxaparin, lot `L26-009`, expiry `2027-06-30`, 30. The toast reads "Lot L26-009 added to stock."; then `36 / 20`, no "Low", the reorder list is empty, and the sidebar pill drops to `1` at once (`refreshPharmacySummary`).
+   - The same lot number with expiry `2027-12-31`: "This lot number already exists with another expiry date."
+   - An expiry of yesterday: the form error, with no request sent.
+4. **Adjust.**
+   - `L25-001X`, reason "Expired, destroyed": the delta pre-fills `-40`. Add a comment and Save: "Stock updated.", and the "Expired lot" flag disappears (lots with no stock are not listed).
+   - On `L26-009`, `-1000` with a comment: "Stock can’t go below zero." (the 409 `insufficient_stock` path).
+   - `+5` with reason Expired: "An expired lot can only go down…".
+   - An empty comment: the form error.
+5. **After dispensing.** Prepare the 20:00 round (Task 10), then come back: Enoxaparin went down by 1.
+6. **Arabic.** In العربية, the side column sits on the left (inline-end), the table reads right-to-left, and `6 / 20` keeps its order.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add web/src/components/pharmacist web/src/app/pharmacist/stock web/src/components/Sidebar.tsx web/src/i18n/messages/pharmacy.ts
+git commit -m "feat(web): pharmacy stock page with receipts, adjustments, reorder list and stock badge"
+```
+
+---
+
+## Task 12: Nurse "Pharmacy deliveries", the dose `pharmacy` note, and the Phase B gate
+
+**Files:**
+- Create: `web/src/components/nurse/PharmacyDeliveries.tsx`, `web/src/components/nurse/PharmacyDeliveries.module.css`.
+- Modify:
+  - `web/src/components/nurse/nurse.ts`;
+  - `web/src/components/nurse/PharmacyBadge.tsx`, `PharmacyBadge.module.css`;
+  - `web/src/components/nurse/MedRound.tsx`, `web/src/components/nurse/NursePatientDetail.tsx`;
+  - `web/src/i18n/messages/pharmacy.ts`.
+
+**Interfaces:**
+- Consumes:
+  - from Task 9: `listDispensations`, `receiveDispensation`, `Dose.pharmacy`, `PharmacyDelivery`;
+  - from Task 2: `useLiveRefresh`;
+  - `fmtWhen`, `NURSE_ID`.
+- Produces:
+  ```ts
+  // nurse.ts: DoseView gains
+  pharmacy: PharmacyDelivery | null;          // null when the server sends no field (Phase A backend)
+  // nurse/PharmacyBadge.tsx
+  export function DosePharmacyNote(props: { state: PharmacyDelivery | null; canGive: boolean }): JSX.Element | null;
+  // nurse/PharmacyDeliveries.tsx
+  export interface PharmacyDeliveriesProps { ward: string; date: string; onReceived: () => void }
+  export function PharmacyDeliveries(props: PharmacyDeliveriesProps): JSX.Element | null;
+  ```
+
+- [ ] **Step 1: Add the i18n keys (append)**
+
+`en`:
+```ts
+    deliveriesTitle: "Pharmacy deliveries",
+    deliveriesNone: "No delivery for this ward today.",
+    deliveriesLoadError: "Couldn’t load the pharmacy deliveries.",
+    deliveryLine: "{time} round · {n} doses · sent at {sent}",
+    deliveryShow: "Show the doses",
+    deliveryItem: "{who}: {med} × {qty}",
+    confirmReceipt: "Confirm receipt",
+    receivedAt: "Received {when} by {name}",
+    receiveFailed: "Couldn’t confirm the receipt. Try again.",
+    pharmacySent: "Sent by the pharmacy",
+    pharmacyReceived: "From the pharmacy",
+    notFromPharmacy: "Not from the pharmacy (ward stock)",
+```
+`fr`:
+```ts
+    deliveriesTitle: "Livraisons de la pharmacie",
+    deliveriesNone: "Aucune livraison pour ce service aujourd'hui.",
+    deliveriesLoadError: "Impossible de charger les livraisons de la pharmacie.",
+    deliveryLine: "Tournée de {time} · {n} prises · envoyée à {sent}",
+    deliveryShow: "Voir les prises",
+    deliveryItem: "{who} : {med} × {qty}",
+    confirmReceipt: "Confirmer la réception",
+    receivedAt: "Reçue {when} par {name}",
+    receiveFailed: "Impossible de confirmer la réception. Réessayez.",
+    pharmacySent: "Envoyé par la pharmacie",
+    pharmacyReceived: "Reçu de la pharmacie",
+    notFromPharmacy: "Hors pharmacie (stock du service)",
+```
+`ar`:
+```ts
+    deliveriesTitle: "تسليمات الصيدلية",
+    deliveriesNone: "لا تسليمات لهذا القسم اليوم.",
+    deliveriesLoadError: "تعذّر تحميل تسليمات الصيدلية.",
+    deliveryLine: "جولة {time} · {n} جرعات · أُرسلت الساعة {sent}",
+    deliveryShow: "عرض الجرعات",
+    deliveryItem: "{who}: {med} × {qty}",
+    confirmReceipt: "تأكيد الاستلام",
+    receivedAt: "استُلمت {when} من {name}",
+    receiveFailed: "تعذّر تأكيد الاستلام. أعد المحاولة.",
+    pharmacySent: "أرسلته الصيدلية",
+    pharmacyReceived: "من الصيدلية",
+    notFromPharmacy: "ليس من الصيدلية (مخزون القسم)",
+```
+
+- [ ] **Step 2: Carry the field into the dose view (`web/src/components/nurse/nurse.ts`)**
+
+Add `PharmacyDelivery` to the `@/lib/types` import. In `interface DoseView`, after `pendingReview`:
+
+```ts
+  /** Phase B: delivery from the pharmacy; null when the server doesn't send the field. */
+  pharmacy: PharmacyDelivery | null;
+```
+
+In `doseView()`'s returned object, after `pendingReview`:
+
+```ts
+    pharmacy: dose.pharmacy ?? null,
+```
+
+- [ ] **Step 3: Add the dose note (`web/src/components/nurse/PharmacyBadge.tsx`)**
+
+Add `import type { PharmacyDelivery } from "@/lib/types";` and append:
+
+```tsx
+/**
+ * Phase B: where the dose comes from. "Not from the pharmacy" shows only while the dose can still be given:
+ * the nurse may give it from ward stock (spec §5).
+ */
+export function DosePharmacyNote({ state, canGive }: { state: PharmacyDelivery | null; canGive: boolean }) {
+  const { t } = useT();
+  if (state === "sent") return <span className={`${styles.badge} ${styles.sent}`}>{t("pharmacy.pharmacySent")}</span>;
+  if (state === "received") return <span className={`${styles.badge} ${styles.received}`}>{t("pharmacy.pharmacyReceived")}</span>;
+  if (state === "none" && canGive) return <span className={styles.note}>{t("pharmacy.notFromPharmacy")}</span>;
+  return null;
+}
+```
+
+Append to `PharmacyBadge.module.css`:
+
+```css
+.sent { background: var(--ai-bg); color: var(--ai); }
+.received { background: var(--news-normal-bg); color: var(--news-normal-fg); }
+.note { font-size: 12px; color: var(--muted); }
+```
+
+- [ ] **Step 4: Create the deliveries panel (`web/src/components/nurse/PharmacyDeliveries.tsx`)**
+
+```tsx
+"use client";
+
+// Nurse "Pharmacy deliveries" (med round): today's dispensations for the ward. A sent one gets "Confirm receipt"
+// (POST /dispensations/{id}/receive: idempotent, own ward only). It polls every 15 s, because no frame announces a
+// delivery. A 403 (another ward) hides the panel instead of showing an error.
+import { useCallback, useEffect, useState } from "react";
+import { useT } from "@/i18n/I18nProvider";
+import { ErrorCard } from "@/components/shared/ErrorCard";
+import { Toast, useToast } from "@/components/Toast";
+import { fmtWhen } from "@/lib/accountsUi";
+import { ApiError, listDispensations, receiveDispensation } from "@/lib/api";
+import { useLiveRefresh } from "@/lib/live";
+import { tunisTime } from "@/lib/time";
+import type { Dispensation } from "@/lib/types";
+import { NURSE_ID } from "./nurse";
+import styles from "./PharmacyDeliveries.module.css";
+
+export interface PharmacyDeliveriesProps {
+  ward: string;
+  /** YYYY-MM-DD (Tunis). */
+  date: string;
+  /** After a receipt: the round reloads, so the doses show "From the pharmacy". */
+  onReceived: () => void;
+}
+
+export function PharmacyDeliveries({ ward, date, onReceived }: PharmacyDeliveriesProps) {
+  const { t, lang } = useT();
+  const [list, setList] = useState<Dispensation[] | null>(null);
+  const [state, setState] = useState<"ok" | "failed" | "hidden">("ok");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [notice, showNotice] = useToast<string>();
+
+  const load = useCallback(() => {
+    listDispensations({ ward, date }).then(
+      (d) => {
+        setList(d);
+        setState("ok");
+      },
+      (err) => setState(err instanceof ApiError && err.status === 403 ? "hidden" : "failed"),
+    );
+  }, [ward, date]);
+  useEffect(load, [load]);
+  useLiveRefresh(load, [], { poll: "always" });
+
+  async function receive(d: Dispensation) {
+    if (busy) return;
+    setBusy(d.id);
+    try {
+      await receiveDispensation(d.id, { by: NURSE_ID });
+      onReceived();
+    } catch {
+      showNotice(t("pharmacy.receiveFailed"));
+    } finally {
+      setBusy(null);
+      load();
+    }
+  }
+
+  if (state === "hidden") return null;
+  if (state === "failed" && !list) return <ErrorCard variant="box" title={t("pharmacy.deliveriesLoadError")} onRetry={load} />;
+  if (!list) return null;
+
+  return (
+    <section className={styles.card} aria-labelledby="deliveries-title">
+      <h3 id="deliveries-title" className={styles.title}>
+        {t("pharmacy.deliveriesTitle")}
+      </h3>
+      {list.length === 0 ? <p className={styles.none}>{t("pharmacy.deliveriesNone")}</p> : null}
+      {list.map((d) => (
+        <div key={d.id} className={styles.row}>
+          <div className={styles.main}>
+            <span className={styles.line}>{t("pharmacy.deliveryLine", { time: d.round_time, n: d.lines.length, sent: tunisTime(d.prepared_at) })}</span>
+            <details className={styles.details}>
+              <summary>{t("pharmacy.deliveryShow")}</summary>
+              <ul className={styles.lines}>
+                {d.lines.map((l) => (
+                  <li key={l.id} dir="auto">
+                    {t("pharmacy.deliveryItem", { who: [l.bed, l.patient_name].filter(Boolean).join(" "), med: l.med, qty: l.quantity })}
+                    {l.lot_number ? (
+                      <span dir="ltr" className={styles.lot}>
+                        {l.lot_number}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </div>
+          {d.status === "sent" ? (
+            <button type="button" className={styles.confirm} disabled={busy === d.id} aria-busy={busy === d.id || undefined} onClick={() => void receive(d)}>
+              {t("pharmacy.confirmReceipt")}
+            </button>
+          ) : (
+            <span className={styles.received}>
+              {t("pharmacy.receivedAt", { when: fmtWhen(d.received_at ?? d.prepared_at, lang), name: d.received_by_name ?? d.received_by ?? "" })}
+            </span>
+          )}
+        </div>
+      ))}
+      {notice ? <Toast tone="warn">{notice}</Toast> : null}
+    </section>
+  );
+}
+
+export default PharmacyDeliveries;
+```
+
+`web/src/components/nurse/PharmacyDeliveries.module.css`:
+
+```css
+.card { display: flex; flex-direction: column; gap: 10px; padding: 18px 20px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
+.title { margin: 0; font: 600 20px/1.2 var(--serif); color: var(--ink); }
+.none { margin: 0; font-size: 15px; color: var(--muted); }
+.row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 16px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
+.main { flex: 1 1 260px; display: flex; flex-direction: column; gap: 4px; }
+.line { font-size: 16px; font-weight: 600; color: var(--ink); }
+.details { font-size: 14px; color: var(--text); }
+.details summary { cursor: pointer; color: var(--teal); font-weight: 600; }
+.lines { margin: 6px 0 0; padding-inline-start: 18px; display: flex; flex-direction: column; gap: 2px; }
+.lot { margin-inline-start: 8px; font-family: var(--mono); font-size: 13px; color: var(--muted); }
+.confirm { min-height: 44px; padding: 0 16px; border: none; border-radius: 8px; background: var(--ink); color: var(--paper); font: 600 15px/1 var(--sans); cursor: pointer; }
+.confirm:hover { background: var(--ink-hover); }
+.received { font-size: 14px; color: var(--news-normal-fg); }
+```
+
+- [ ] **Step 5: Wire the panel and the note into the med round and the nurse's patient page**
+
+`MedRound.tsx`:
+- Import `PharmacyDeliveries` from `./PharmacyDeliveries`, `DosePharmacyNote` (next to `PendingReviewBadge`) from `./PharmacyBadge`, and add `tunisDate` to the `@/lib/time` import.
+- After `const ward = wardLabel(…)`:
+
+```ts
+  // The ward of the round's patients (the nurse's ward): the deliveries panel lists its dispensations.
+  const roundWard = data?.groups.find((g) => g.patient.ward)?.patient.ward ?? null;
+  const today = tunisDate(refIso);
+```
+
+Right after the closing `</div>` of `styles.head`:
+
+```tsx
+      {roundWard && state === null ? <PharmacyDeliveries ward={roundWard} date={today} onReceived={load} /> : null}
+```
+
+Inside `<div className={styles.medCol}>`, after the `PendingReviewBadge` line:
+
+```tsx
+                        <DosePharmacyNote state={v.pharmacy} canGive={v.canGive} />
+```
+
+`NursePatientDetail.tsx`: import `DosePharmacyNote`. Inside `<div className={styles.doseMed}>`, after the `PendingReviewBadge` line, add the same `<DosePharmacyNote state={v.pharmacy} canGive={v.canGive} />`.
+
+- [ ] **Step 6: Run the type check and the mock build**
+
+Run: `npx tsc --noEmit`, then `NEXT_PUBLIC_USE_MOCKS=1 npm run build`.
+Expected: both pass.
+
+- [ ] **Step 7: Run the mock-mode scenarios (`npm run dev`)**
+
+1. **The panel.** `/nurse/meds` shows "Pharmacy deliveries": "10:00 round · 3 doses · sent at 07:45" with "Confirm receipt". "Show the doses" lists "C-16 Omar Jaziri: Furosemide 40mg × 1 L26-011", and so on.
+2. **The notes.** The 10:00 doses of Omar, Hédi and Lina read "Sent by the pharmacy". Every other dose that can still be given reads "Not from the pharmacy (ward stock)". Taken and missed doses show no note.
+3. **Confirm receipt.** Click it: the row reads "Received Today 09:12 by Nurse Ines", and the three 10:00 doses switch to "From the pharmacy". A second click is impossible (no button), and the API is idempotent anyway.
+4. **The demo path (spec §7 step 6).**
+   - In `/pharmacist/dispensing`, send the Cardiology 20:00 round.
+   - Back on `/nurse/meds` (app links; the mock store lives in the tab): a second delivery "20:00 round · 4 doses" with "Confirm receipt". Confirm it.
+   - `/pharmacist/stock`: Enoxaparin reads `5 / 20`, and the sidebar Stock pill still flags low stock.
+5. **Arabic.** In العربية, the panel is right-aligned and the list bullets are on the right (`padding-inline-start`); lot numbers stay LTR.
+
+- [ ] **Step 8: Run the Phase B gate (the same checks as Task 8, over every file)**
+
+Run from `web/`:
+
+1. `rm -rf .next && npx tsc --noEmit && NEXT_PUBLIC_USE_MOCKS=1 npm run build`. Expected: both pass, and the routes include `/pharmacist/dispensing` and `/pharmacist/stock`.
+2. The Task 8 Step 2 placeholder script. Expected: `problems: 0`.
+3. The Task 1 Step 12 and Task 9 Step 4 rule scripts. Expected: both print `ok`.
+4. The physical-property grep, now including the new CSS:
+   ```bash
+   grep -nE "(margin|padding|border)-(left|right)|(^|[^-])(left|right):|text-align: (left|right)" src/components/pharmacist/*.css src/components/shared/Pharmacy.module.css src/components/nurse/PharmacyBadge.module.css src/components/nurse/PharmacyDeliveries.module.css src/components/doctor/Prescriptions.module.css
+   ```
+   Expected: no output.
+5. The privacy grep of Task 8 Step 4. Expected: no output. The dispensing view shows only the name, the bed and the meds that `GET /pharmacy/dispensing` returns.
+6. The JSX-literal grep of Task 8 Step 5, adding `src/components/nurse/PharmacyDeliveries.tsx`. Expected: no output.
+7. **Real mode (only if the backend Phase B is running; otherwise say so in the report):**
+   - the pharmacist sends the 20:00 Cardiology round;
+   - a nurse of Cardiology sees it within 15 s and confirms;
+   - a nurse of another ward doesn't see the panel (403 hides it);
+   - the stock page shows the decrement;
+   - the summary's `low_stock` and `expiring` match the tiles.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add web/src/components/nurse web/src/i18n/messages/pharmacy.ts
+git commit -m "feat(web): nurse pharmacy deliveries with confirm receipt and dose delivery notes"
+```
+
+---
+
+## Contract decisions
+
+The backend plan's "Contract decisions" (`docs/superpowers/plans/2026-10-10-pharmacy-backend.md`, items 1–31) and its api.md 1.12 text are **binding** for field names, error codes and semantics. This list does not repeat them. It records what the web adds on top, and the places where Tasks 1–8 (written before that list existed, and frozen) still differ from it.
+
+**Web-side decisions**
+
+1. **Live updates.** One shared `WS /ws?token=` per tab, ref-counted (`lib/live.ts`), with the frames sent to an in-tab bus (`lib/frames.ts`).
+   - Screens refresh on `prescription_status`, and poll every 15 s while no socket is open.
+   - Mock mode publishes the frames its mutations would cause.
+   - Close codes 4401/4403 stop the reconnects.
+   - Stock and deliveries have no frame: the stock badge refreshes on the pharmacist's own changes (`refreshPharmacySummary`) and on the poll; the nurse's deliveries panel always polls every 15 s.
+2. **Frame shape.** The `prescription_status` frame uses the existing envelope `{type, data: {prescription_id, patient_id, status, urgent}}` (backend decision 21).
+3. **The doctor's list** (`doctorRows`) hides `stopped` and `superseded` versions, and any non-running version that has a successor. Its order is: changes requested, pending, running, rejected.
+4. **The nurse's prescription card** shows running prescriptions only (`isRunning`). Its "pending pharmacy review" badge joins `prescription_id` to the prescriptions list (backend decision 24).
+5. **Check texts** are translated from `code` + `params`. When the code is unknown or a needed param is missing, the server's English `message` is shown, never a raw `{placeholder}`.
+6. **Comment and override lengths** are counted in Unicode code points, like the server (1–500).
+7. **Decisions in 3 steps or fewer.**
+   - Validate takes 1 click, or a tick plus a click when there is any check (`info` included, backend decision 15).
+   - Request changes and Reject take: open, type, Send.
+   - After a decision the panel opens the next row.
+8. **The validate comment** exists in the API but is not offered in the UI. Keeping Validate at 1–2 steps matters more.
+9. **Dispensing.** The web runs the server's FEFO (`planLots`: one lot per line, the earliest-expiring usable lot that holds the whole line; ties broken by the oldest receipt, then the id) before sending.
+   - It then sends an **explicit `lot_id` for every formulary line**, so the server writes exactly what the screen showed.
+   - Lines that no lot can serve are shown as shortages, and Send is disabled until they are unticked.
+   - A server refusal shows a localized message and reloads. Nothing is written on a refusal (backend decision 26).
+10. **Error codes reused on the stock and dispensing screens are mapped locally.** `bad_status` and `invalid` on a dispensation become "round changed"; `conflict` on a receipt becomes "lot exists with another expiry"; `insufficient_stock` on an adjustment becomes "below zero". The shared `pharmacyUi` mapping keeps its prescription meanings.
+11. **The `drug_id` extra key** of 409 `insufficient_stock` (backend decision 23) is kept on `ApiError.extra` and turned into the drug's name.
+12. **The sidebar's Stock count** is `low_stock + expiring`: drugs plus lots, a sum of "things to look at". The tiles show the two numbers separately.
+13. **The nurse's deliveries panel** uses the ward of the round's patients, and hides itself on a 403.
+14. **Not built** (no §6 requirement): a doctor "Stop" button (`PATCH {active:false}` exists in the API); an admin read-only stock page (the API allows the admin to read it).
+
+**Mismatches in Tasks 1–8 with the backend decisions** (not edited here because Tasks 1–8 are frozen; each needs a small follow-up commit before real-mode use)
+
+- **A. Decision 3:** the drugs list's `active` filter. The backend takes `true` (the default), `false` or `all`. The web omits the parameter for "Show inactive drugs" and its mock treats that as "both", so in real mode inactive drugs never appear.
+  - Fix: `listDrugs({ active?: boolean | "all" })`, the catalogue sends `"all"`, and the mock follows suit.
+- **B. Decision 5:** catalogue duplicates return 409 `conflict`, which `describePharmacyError` maps to the *prescription* version-conflict text.
+  - The backend also accepts an empty `atc_code`, but the web form requires one.
+  - Fix: a catalogue-specific conflict key, and an optional ATC field.
+- **C. Decision 6:** 422 `unknown_drug` has no key, so it shows the generic error. Fix: add `unknown_drug` to `BY_CODE`.
+- **D. Check params (backend api.md table)** differ from the web's `CHECK_TEXT`:
+  - `interaction` uses `with_med` and `groups[2]`, where the web expects `other`, `group_a` and `group_b`;
+  - `max_daily_dose` uses `max_daily_mg`, where the web expects `max_mg`;
+  - `duplicate_therapy` uses `with_med`, where the web expects `other`.
+
+  In real mode those three fall back to the English `message`. Fix `CHECK_TEXT`, the i18n placeholders and `mockChecks` to the backend names.
+- **E. Item `days`** is 1–60 on the server; the doctor's stepper allows up to 90 (422 above 60). Fix: cap the stepper at 60.
+- **F. Mock-only divergences** (no effect in real mode):
+  - decision 8: a replaced never-run version is superseded at save, and an urgent v2 supersedes v1 at once;
+  - decision 19: `history` covers the whole chain;
+  - decision 18: there is no weight (the optional `weight_kg` is harmless);
+  - the seed pharmacist is `u-0008`, while the mock user is `u-0012`.
