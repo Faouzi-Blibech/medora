@@ -18,6 +18,7 @@ const ROLE_LABEL: Record<Role, Key> = {
   nurse: "shared.roleNurse",
   admin: "shared.roleAdmin",
   patient: "shared.rolePatient",
+  pharmacist: "pharmacy.rolePharmacist",
 };
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
