@@ -7,7 +7,7 @@ A few additive fields from the api.md 1.5 proposals are included where they cost
 from datetime import UTC, date, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, StringConstraints, field_validator, model_validator
 
 
 def iso(dt: datetime | None) -> str | None:
@@ -236,3 +236,24 @@ class ValidateIn(BaseModel):
 
 class CommentIn(BaseModel):
     comment: Comment  # 1–500 characters after trimming
+
+
+class ReceiptIn(BaseModel):
+    drug_id: str = Field(max_length=20)
+    lot_number: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)]
+    expiry_date: date
+    quantity: int = Field(ge=1, le=100000)
+
+
+class AdjustmentIn(BaseModel):
+    lot_id: str = Field(max_length=20)
+    delta: int = Field(ge=-100000, le=100000)
+    reason: Literal["adjustment", "expired", "return"]
+    comment: Comment
+
+    @field_validator("delta")
+    @classmethod
+    def _nonzero(cls, v: int) -> int:
+        if v == 0:
+            raise ValueError("delta must not be 0")
+        return v

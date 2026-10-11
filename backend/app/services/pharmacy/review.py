@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.models import Admission, Patient, Prescription, PrescriptionReview, User
 from app.schemas import iso
 from app.services import schedule
+from app.services.pharmacy import stock as S
 from app.services.pharmacy import workflow as W
 from app.services.pharmacy.checks import SEVERITY_RANK
 
@@ -91,4 +92,4 @@ def summary(db: Session) -> dict:
                         .where(Prescription.status == "changes_requested"))
     return {"pending": len(pending), "urgent_pending": sum(1 for r in pending if r.urgent),
             "critical_pending": sum(1 for r in pending if max_severity(r.checks or []) == "critical"),
-            "changes_requested": changes or 0}
+            "changes_requested": changes or 0, **S.alert_counts(db, schedule.today_local())}
