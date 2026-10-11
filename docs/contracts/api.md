@@ -1,6 +1,6 @@
 # REST + WebSocket contract — v1.0
 
-> **Version:** 1.11 (2026-10-10) · **Owners:** Wali (core, IoT, alerts), Faouzi (appointments, AI, integrations, exams, notebook)
+> **Version:** 1.14 (2026-10-10) · **Owners:** Wali (core, IoT, alerts), Faouzi (appointments, AI, integrations, exams, notebook)
 > Any change: open a PR that bumps the version above, add a changelog line, and announce it in the team chat.
 
 ## Conventions
@@ -8,7 +8,7 @@
 - Base URL: `http://localhost:8000` (backend container `api`). The web app reads it from `NEXT_PUBLIC_API_URL`.
 - JSON everywhere.
 - Auth: `Authorization: Bearer <jwt>`. JWT claims: `sub` (user id), `role` (`doctor|nurse|admin|patient`), `patient_id` (only for the patient role), `exp` (8 h).
-- IDs are prefixed strings: `u-0001` user, `p-0001` patient, `a-0001` appointment, `rx-0001` prescription, `d-000001` dose, `al-0001` alert, `adm-0001` admission, `ex-0001` exam order, `er-0001` exam result, `nb-0001` notebook entry, `bsu-001` device.
+- IDs are prefixed strings: `u-0001` user, `p-0001` patient, `a-0001` appointment, `rx-0001` prescription, `d-000001` dose, `al-0001` alert, `adm-0001` admission, `ex-0001` exam order, `er-0001` exam result, `nb-0001` notebook entry, `he-0001` health event, `bsu-001` device.
 - Timestamps are ISO-8601 UTC strings (`2026-10-08T09:30:00Z`). (MQTT uses epoch seconds; the backend converts.)
 - Errors: `{"detail": "human readable", "code": "snake_case_code"}` with the right HTTP status (400, 401, 403, 404, 409, 422, 423, 429).
 - **Every read of a patient record** (`GET /patients/{id}` and every `GET /patients/{id}/*`) writes an `audit_log` row.
@@ -200,6 +200,14 @@ Codes (`reset-code`):
 
 `source` is `"model"` (a trained model decided), `"rules"` (deterministic rules only) or `"llm"` (the optional open LLM wrote the text) on every AI response, so the UI can show a badge.
 
+## Health watch (Faouzi)
+
+| Method + path | Who | Body / response |
+|---|---|---|
+| `GET /health-watch` | doctor, nurse, admin | `{"city","available","demo","days":[{date,tmax,tmin,apparent_max,precip,gusts,uv,dust_max,pm10_max,aqi_max}],"alerts":[{id,date,severity,value,groups[],title,staff,patient,at_risk[],at_risk_count}],"news":[{title,link,source,published,lang}],"updated_at"}`. Texts are `{en,fr,ar}`. `at_risk`: the patients this user can access whose age or history puts them in a group (audited `health_watch`); admin gets counts only. |
+| `GET /health-watch/me` | patient | Same forecast; alerts carry `patient` advice and `concerns_me`, no staff text, no news. |
+| `GET /integrations/n8n/health-watch` | n8n (`X-N8N-Secret`) | `{"city","demo","alerts":[{..., "staff","patient","at_risk_count"}]}`: no names. |
+
 ## Integrations (n8n callbacks — Faouzi)
 
 All are authenticated with the header `X-N8N-Secret: ${N8N_CALLBACK_SECRET}` (no JWT). See `n8n-webhooks.md`.
@@ -210,6 +218,56 @@ All are authenticated with the header `X-N8N-Secret: ${N8N_CALLBACK_SECRET}` (no
 | `POST /integrations/n8n/backfill-accept` | `{"appointment_id","slot_at"}` → `{"status":"confirmed"}` · 409 `slot_taken` / `not_waiting` |
 | `GET /integrations/n8n/daily-digest[?doctor_id=]` | → `[{"doctor":{"id","name","email"},"patients":[{"name","bed","news2","summary"}]}]` |
 | `POST /integrations/n8n/follow-up` | `{"patient_id","days"}` → `{"appointment_id","status":"requested"}` |
+| `GET /integrations/n8n/health-events/due` | events with `announced_at IS NULL` and `starts_on - notify_days_before <= today <= ends_on` → list of the `health_event.upcoming` payloads (see `n8n-webhooks.md`) |
+| `POST /integrations/n8n/health-events/{id}/announced` | sets `announced_at` (idempotent) → `{"status":"announced"}` |
+
+## Health calendar (1.13 — Wali)
+
+Dated public-health events in Tunisia (Octobre Rose, flu campaign, HPV vaccination, world health days). Everyone sees every event; push goes only to active users who match the event `audience` and follow its category. Categories: `screening`, `vaccination`, `chronic_disease`, `infectious_disease`, `lifestyle`, `mental_health`, `blood_donation`. Event ids are `he-0001`.
+
+`HealthEvent` (out):
+```json
+{"id":"he-0001","title":{"en":"…","fr":"…","ar":"…"},"description":{"en":"…","fr":"…","ar":"…"},
+ "category":"screening","starts_on":"2026-09-30","ends_on":"2026-10-30",
+ "audience":{"roles":["patient","doctor","nurse","admin"],"sex":"F","min_age":40,"max_age":null},
+ "notify_days_before":3,"organizer":"ONFP","source_url":"https://…","announced_at":null,
+ "matches_me":true,"following":true}
+```
+
+| Endpoint | Who | Notes |
+|---|---|---|
+| `GET /health-events?from=YYYY-MM-DD&to=YYYY-MM-DD` | any active user | events overlapping `[from,to]`, sorted by `starts_on`; default window today → today+365. `matches_me`/`following` for the caller |
+| `POST /health-events` | admin | body = HealthEvent without `id`, `announced_at`, `matches_me`, `following` → 201 HealthEvent. 422 `bad_dates` if `ends_on < starts_on` |
+| `PATCH /health-events/{id}` | admin | partial; changing `starts_on` clears `announced_at` |
+| `DELETE /health-events/{id}` | admin | 204; prefs are per category so nothing cascades |
+| `POST /health-events/{id}/notify` | admin | emits `health_event.upcoming` now (after commit), sets `announced_at`, → `{"recipients": n}` |
+| `GET /me/health-prefs` | any active user | `{"following": {"screening":true, …all 7}}` |
+| `PUT /me/health-prefs` | any active user | same body (partial allowed) → same shape |
+
+Unknown id → 404 `not_found`; non-admin writes → 403. No patient data is read by these endpoints except the caller's own sex/date of birth for `matches_me`, so no `audit_log` row (the rule covers reads of a patient record). The admin "Notify now" writes `audit_log` (`action: "notify"`, `resource: "health_event"`).
+
+## Radiograph reading (1.14 — Wali)
+
+An AI draft report per radiograph image (JPEG/PNG of exam codes `chest_xray`, `xray`, `xray_outside`). The model only drafts; a doctor edits and confirms. Images are read by a local vision model only (`VISION_PROVIDER=local`); with none, the status is `unavailable` and the doctor writes the report. Statuses: `queued`, `running`, `ready`, `unavailable`, `failed`. Reading ids are `rr-0001`.
+
+`RadiographReading` (doctor view):
+```json
+{"id":"rr-0001","exam_result_id":"er-0901","patient_id":"p-0001","status":"ready","hint":"Chest X-ray",
+ "ai_suggested":{"source":"llm","model":"qwen3-vl:4b","region":"chest","projection":"PA","quality":"adequate",
+   "findings":["Clear lung fields"],"impression":"No acute abnormality seen.",
+   "possible_conditions":[{"name":"No acute cardiopulmonary disease","likelihood":"high","evidence":"normal lungs, heart size"}],
+   "urgent_flags":[],"recommendation":"","draft_text":"Technique : …","disclaimer":"AI draft from a prototype, not a diagnosis and not clinically validated. A doctor must review it."},
+ "final_text":null,"human_confirmed_by":null,"confirmed_by_name":null,"confirmed_at":null,
+ "created_at":"2026-10-10T09:00:00Z","finished_at":"2026-10-10T09:00:40Z"}
+```
+
+| Endpoint | Who | Notes |
+|---|---|---|
+| `GET /exam-results/{result_id}/reading` | doctor, nurse with result access | doctor: full reading (audit `read radiograph_reading`); nurse: `{id, exam_result_id, status}`; 404 when the result has no reading |
+| `PUT /exam-results/{result_id}/reading` | doctor with result access (not a sharing grant) | `{"final_text": "1..20000 chars"}` → sets `final_text`, `human_confirmed_by`, `confirmed_at`; copies the text into `exam_results.report_text`; audit `update`; re-confirming edits it. Allowed in any status (a doctor may write before the AI finishes; the worker never overwrites `final_text`). A read-only sharing grant cannot confirm (403): write access is the attending doctor, the orderer or the appointment's booked doctor |
+| `POST /patients/{patient_id}/radiographs` | doctor with write access | multipart `file` (JPEG/PNG ≤ 15 MB), `title` (default "Outside X-ray") → creates a done `Imaging` exam `xray_outside` + result + queued reading → `ExamOrder` (201) |
+
+`ExamOrder.results[]` gains `reading: {"id","status","confirmed"} | null`. New exam codes `xray` and `xray_outside` (department `Imaging`); `chest_xray` is also read. Uploading a radiograph through `POST /exams/{id}/results` enqueues a reading.
 
 ## Health
 
@@ -225,6 +283,7 @@ All are authenticated with the header `X-N8N-Secret: ${N8N_CALLBACK_SECRET}` (no
 { "type": "call_nurse",    "data": { "patient_id": "p-0001", "device_id": "bsu-001", "bed": "C-12", "ts": "..." } }
 { "type": "dose_event",    "data": { "patient_id": "p-0001", "dose_id": "d-000123", "status": "dispensed|taken|missed", "method": "ir|button", "ts": "..." } }
 { "type": "device_status", "data": { "device_id": "bsu-001", "online": false, "ts": "..." } }
+{ "type": "radiograph_reading", "reading_id": "rr-0001", "exam_result_id": "er-0901", "patient_id": "p-0001", "status": "ready" }
 ```
 
 Filtering: a nurse receives frames for their ward, a doctor for their own patients, an admin only `device_status`. Patients do not connect.
@@ -360,6 +419,9 @@ Still proposed: `GET /offers/{id}`, `POST /offers/{id}/accept` and `GET /patient
 
 ## Changelog
 
+- **1.14** (2026-10-10): radiograph reading — `GET/PUT /exam-results/{id}/reading`, `POST /patients/{id}/radiographs`, `results[].reading`, exam codes `xray`/`xray_outside`, WS frame `radiograph_reading`.
+- **1.13** (2026-10-10): health calendar — `GET/POST /health-events`, `PATCH/DELETE /health-events/{id}`, `POST /health-events/{id}/notify`, `GET/PUT /me/health-prefs`, n8n callbacks `GET /integrations/n8n/health-events/due` and `POST /integrations/n8n/health-events/{id}/announced`.
+- **1.12** (2026-10-10): health watch (`/health-watch`, `/health-watch/me`, `/integrations/n8n/health-watch`). Owner: Faouzi.
 - **1.11** (2026-10-10): staff AI assistant conversations (`/ai/conversations*`), stored server-side. Owner: Faouzi.
 - **1.10** (2026-10-10): `POST /ai/chat` (role assistants over one patient's record, any language, cited) and `POST /patients/{id}/reports` (doctor attaches a report). Owner: Faouzi.
 - **1.9** (2026-10-10): accounts — sign-up with a requested role and doctor (`role` required on register), `GET /hospital`, reset/change-password, doctor directory, account approval (/users*) that links or creates the patient record, `GET /patients?unlinked=`, doctor team, patient sharing; no enrollment codes (reset codes only); login error codes and length limits; JWT exp 8 h; logout; disabled accounts lose WebSockets and notifications

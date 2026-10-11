@@ -40,7 +40,8 @@ interface Data {
   /** GET /appointments/waitlist failed (not built yet in real mode): the tiles say so instead of failing the page. */
   waitlistFailed: boolean;
   devices: Device[];
-  alerts: Alert[];
+  /** null in real mode: GET /alerts is nurse/doctor only, so the tile says so instead of showing a false 0. */
+  alerts: Alert[] | null;
   /** "Ward C" (mock) or the wards of the device patients (real), null when unknown. */
   ward: string | null;
 }
@@ -69,14 +70,14 @@ const urgencyOf = (a: Appointment) => a.urgency_final ?? a.urgency_ai;
 function buildKpis({ waitlist, waitlistFailed, devices, alerts, ward }: Data, t: TFn): Kpi[] {
   const assigned = devices.filter((d) => d.patient_id).length;
   const free = devices.length - assigned;
-  const crit = alerts.filter((a) => a.severity === "critical");
+  const crit = (alerts ?? []).filter((a) => a.severity === "critical");
   const veryUrgent = waitlist.filter((a) => urgencyOf(a) === 5).length;
   const online = devices.filter((d) => d.online).length;
   const offline = devices.find((d) => !d.online);
   return [
     {
       label: t("admin.dashAdmitted"),
-      value: "42",
+      value: USE_MOCKS ? "42" : assigned,
       of: "",
       note: t("admin.dashAdmittedNote", {
         place: ward ?? t("admin.beds"),
@@ -88,9 +89,11 @@ function buildKpis({ waitlist, waitlistFailed, devices, alerts, ward }: Data, t:
     },
     {
       label: t("admin.dashOpenAlerts"),
-      value: alerts.length,
+      value: alerts ? alerts.length : "—",
       of: "",
-      note: `${t("admin.dashCritical", { n: crit.length })}${crit[0]?.bed ? ` · ${t("admin.bedN", { bed: crit[0].bed })}` : ""}`,
+      note: alerts
+        ? `${t("admin.dashCritical", { n: crit.length })}${crit[0]?.bed ? ` · ${t("admin.bedN", { bed: crit[0].bed })}` : ""}`
+        : t("admin.dashAlertsClinical"),
       noteFg: crit.length ? "var(--danger)" : "var(--muted)",
       href: "/nurse/alerts",
     },
@@ -186,7 +189,7 @@ export function Dashboard() {
       setFailed(false);
       setData(null);
     }
-    // GET /alerts is nurse/doctor only in api.md: without it the alert figures read 0 instead of failing the page.
+    // GET /alerts is nurse/doctor only in api.md: real mode does not ask (the tile shows "—"), mock mode shows them.
     // The waitlist is optional too: a failure empties it and notes it on the tile; devices still decide the page.
     let waitlistFailed = false;
     Promise.all([
@@ -195,7 +198,7 @@ export function Dashboard() {
         return [];
       }),
       getDevices(),
-      getAlerts({ status: "open" }).catch((): Alert[] => []),
+      USE_MOCKS ? getAlerts({ status: "open" }).catch((): Alert[] => []) : Promise.resolve(null),
     ])
       .then(([waitlist, devices, alerts]) => {
         setData({ waitlist, waitlistFailed, devices, alerts });

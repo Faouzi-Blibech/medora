@@ -106,7 +106,9 @@ def build(db: Session, p: Patient, role: str) -> list[Source]:
                                              MedDose.scheduled_at < local_to_utc(day + timedelta(days=1), "00:00"))
                        .order_by(MedDose.scheduled_at)).all()
     if doses:
-        text = " ".join(f"{d.time_of_day} {', '.join(d.meds)}: {d.status}." for d in doses)
+        text = " ".join(f"{d.time_of_day} {', '.join(d.meds)}: {d.status}"
+                        + (" (time already passed)" if d.status == "scheduled" and d.scheduled_at <= now else "") + "."
+                        for d in doses)
         out.append(Source("doses:today", "doses", "Today's doses (Tunis time)", _iso(now), text))
 
     since = now - timedelta(hours=24)

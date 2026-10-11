@@ -29,7 +29,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "// Contract: docs/contracts/n8n-webhooks.md v1.0. Unknown events or a bad secret are dropped.\nconst SECRET = $env.N8N_EVENT_SECRET;\nconst ROUTES = {\n  'alert.critical': 0,\n  'dose.missed': 1,\n  'appointment.confirmed': 2,\n  'appointment.cancelled': 3,\n  'patient.discharged': 4,\n};\nconst out = [];\nfor (const item of $input.all()) {\n  const headers = item.json.headers || {};\n  const body = item.json.body || {};\n  if (!SECRET || headers['x-ward-secret'] !== SECRET) continue;\n  if (!(body.event in ROUTES)) continue;\n  out.push({ json: { event: body.event, ts: body.ts, data: body.data || {}, route: ROUTES[body.event] } });\n}\nreturn out;"
+        "jsCode": "// Contract: docs/contracts/n8n-webhooks.md v1.0. Unknown events or a bad secret are dropped.\nconst SECRET = $env.N8N_EVENT_SECRET;\nconst ROUTES = {\n  'alert.critical': 0,\n  'dose.missed': 1,\n  'appointment.confirmed': 2,\n  'appointment.cancelled': 3,\n  'patient.discharged': 4,\n  'health_event.upcoming': 5,\n};\nconst out = [];\nfor (const item of $input.all()) {\n  const headers = item.json.headers || {};\n  const body = item.json.body || {};\n  if (!SECRET || headers['x-ward-secret'] !== SECRET) continue;\n  if (!(body.event in ROUTES)) continue;\n  out.push({ json: { event: body.event, ts: body.ts, data: body.data || {}, route: ROUTES[body.event] } });\n}\nreturn out;"
       }
     },
     {
@@ -43,7 +43,7 @@
       ],
       "parameters": {
         "mode": "expression",
-        "numberOutputs": 5,
+        "numberOutputs": 6,
         "output": "={{ $json.route }}"
       }
     },
@@ -151,6 +151,27 @@
           "waitForSubWorkflow": false
         }
       }
+    },
+    {
+      "id": "4f0c2a8e-1b1a-4c55-9d0e-000000000009",
+      "name": "W9 health calendar",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        760,
+        500
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "wardHealthCalW9x"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
     }
   ],
   "connections": {
@@ -209,6 +230,13 @@
         [
           {
             "node": "W6 discharge follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "W9 health calendar",
             "type": "main",
             "index": 0
           }

@@ -1,6 +1,6 @@
 # n8n contract — v1.0
 
-> **Version:** 1.3 (2026-10-09) · **Owners:** Faouzi (workflows + callbacks), Wali (event emitter in the backend)
+> **Version:** 1.4 (2026-10-10) · **Owners:** Faouzi (workflows + callbacks), Wali (event emitter in the backend)
 > Any change: open a PR that bumps the version above, add a changelog line, and announce it in the team chat.
 
 ## Rules (locked)
@@ -9,7 +9,7 @@
 - The backend → n8n direction carries **events**. The n8n → backend direction carries **callbacks** to `/integrations/n8n/*` with the header `X-N8N-Secret`.
 - On-device medication reminders never go through n8n.
 - Event posting is fire-and-forget: 3 s timeout, failures are logged, and the API never fails because n8n is down.
-- Demo channels: **Telegram** (bot token in n8n credentials) and **email** (SMTP, e.g. a Gmail app password). SMS is out of scope.
+- Demo channels: **Telegram** (bot token in n8n credentials), **WhatsApp** (self-hosted WAHA gateway, `waha` service; see `n8n/README.md`) and **email** (SMTP, e.g. a Gmail app password). SMS is out of scope.
 - Payloads carry **first names only**, never national IDs or full records.
 - Every workflow is exported as JSON to `n8n/workflows/W<n>-<slug>.json` (credentials are NOT exported; recreate them from `n8n/README.md`).
 
@@ -45,6 +45,7 @@ def emit(event: str, data: dict) -> None:
 | `patient.discharged` | `POST /admissions/{id}/discharge` | `{patient_id, patient_first_name, patient_email, patient_telegram_chat_id, doctor_id, discharged_at}` | W6 |
 | `exam.ordered` | `POST /appointments/{id}/exams/order` or `POST /exams` | `{appointment_id, patient_first_name, patient_telegram_chat_id, patient_email, exams:[{label, department}]}` | W7 tells the patient where to go |
 | `exam.results_ready` | the last ordered exam of an appointment gets its result | `{appointment_id, patient_first_name, doctor_id, doctor_name, doctor_email, doctor_chat_id}` | W8 tells the ordering doctor |
+| `health_event.upcoming` | `POST /health-events/{id}/notify` (Notify now), and each item returned by `GET /integrations/n8n/health-events/due` | `{event_id, title:{en,fr,ar}, category, starts_on, ends_on, organizer, source_url, web_url, recipients:[{first_name, role, email, lang}], recipient_count}`. `web_url` = `${WEB_URL}/calendar`; first names only; `lang` defaults to `fr` (no per-user language stored server-side yet) | W9 |
 
 W5 (daily digest) is cron-driven inside n8n and pulls from `GET /integrations/n8n/daily-digest`.
 
@@ -58,6 +59,8 @@ n8n's public base URL (used in W2's accept links, which phones open) comes from 
 | `POST /integrations/n8n/backfill-accept` | W2 | `{"appointment_id","slot_at"}` → 200 `{"status":"confirmed"}`, or 409 `{"code":"slot_taken"}` if the slot was filled meanwhile, or 409 `{"code":"not_waiting"}` if the appointment is no longer `requested` |
 | `GET /integrations/n8n/daily-digest[?doctor_id=]` | W5 | → `[{"doctor":{"id","name","email"},"patients":[{"name","bed","news2","summary"}]}]`: one entry per doctor with at least one admitted patient; `doctor_id` filters to that doctor (still a list) |
 | `POST /integrations/n8n/follow-up` | W6 | `{"patient_id","days":14}` → `{"appointment_id","status":"requested"}`. Creates a `requested` appointment with `referral_text: "Post-discharge follow-up in {days} days"` that goes through normal triage; an admin confirms the date (which then triggers W1) |
+| `GET /integrations/n8n/health-events/due` | W9 (trigger B) | → list of `health_event.upcoming` payloads for events with `announced_at IS NULL` and `starts_on - notify_days_before <= today <= ends_on` |
+| `POST /integrations/n8n/health-events/{id}/announced` | W9 (trigger B only; Notify now already sets it) | → `{"status":"announced"}`, idempotent; sets `announced_at` |
 
 The backend base URL from inside Docker is `http://api:8000`.
 
@@ -73,8 +76,11 @@ The backend base URL from inside Docker is `http://api:8000`.
 | W6 | Discharge follow-up | stretch | event `patient.discharged` → callback `follow-up` (14 days) → Telegram + email to the patient: "your follow-up visit has been requested; the hospital will confirm the date" |
 | W7 | Exams ordered | core for the single-visit demo | event `exam.ordered` → Telegram + email to the patient: "Before your visit, please do: {label} ({department}) …" |
 | W8 | Results ready | core for the single-visit demo | event `exam.results_ready` → Telegram + email to the doctor: "{patient_first_name}'s results are in; the visit can be booked" |
+| W9 | Health calendar | core for the calendar demo | `W9-health-calendar.json` (id `wardHealthCalW9x`). Trigger A: called by the W0 router on `health_event.upcoming`. Trigger B: Cron 08:00 Africa/Tunis → `GET /due` → split items. Both → one WhatsApp text to `WARD_WHATSAPP_PATIENT` and `WARD_WHATSAPP_STAFF` ("📅 {title.fr} · {dates} · {organizer} — {web_url}") → one email per recipient (`ward-smtp`) → `POST /announced` (trigger B only). `onError: continueRegularOutput` on every send node; W0 gets one more Switch branch |
 
 ## Changelog
+
+- **1.4** (2026-10-10): `health_event.upcoming` event, health-events due/announced callbacks, W9 health calendar (daily cron + Notify now).
 
 - **1.3** (2026-10-09): adds `exam.ordered` and `exam.results_ready` with W7/W8. Emitter: the exams router (Faouzi's lane); the emit helper stays Wali's.
 

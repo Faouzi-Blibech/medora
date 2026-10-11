@@ -164,7 +164,7 @@ export function PatientDetail({ id }: { id: string }) {
                 />
               ) : null}
               <PatientAiCard patientId={id} role="doctor" canUpload={!shared} />
-              <ExamsPanel patientId={id} />
+              <ExamsPanel patientId={id} role="doctor" readOnly={shared} />
               <DailySummary readOnly={shared} patientId={id} aiFallback={flags.aiFallback} actorId={DOCTOR_ID} />
               <DosesTimeline doses={data.doses} now={now()} />
               <NotesPanel readOnly={shared} notes={data.notes} onAdd={onAddNote} now={now()} />

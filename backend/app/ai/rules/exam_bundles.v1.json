@@ -12,6 +12,7 @@
     "hba1c": {"label": "HbA1c", "department": "Laboratory"},
     "creatinine": {"label": "Creatinine", "department": "Laboratory"},
     "chest_xray": {"label": "Chest X-ray", "department": "Imaging"},
+    "xray": {"label": "X-ray (other region)", "department": "Imaging"},
     "brain_ct": {"label": "Brain CT scan", "department": "Imaging"},
     "leg_doppler": {"label": "Leg venous Doppler", "department": "Imaging"}
   },
