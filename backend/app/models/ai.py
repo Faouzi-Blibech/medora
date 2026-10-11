@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -45,4 +45,16 @@ class ChatMessage(Base):
     text: Mapped[str] = mapped_column(Text)
     patient_id: Mapped[str | None] = mapped_column(ForeignKey("patients.id"))
     meta: Mapped[dict | None] = mapped_column(JSONB)  # assistant: {citations, source, unverified}
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Handover(Base):
+    """A nurse shift handover (SBAR) the outgoing nurse confirmed: the draft as shown, and who confirmed it."""
+    __tablename__ = "handovers"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"), index=True)
+    ward: Mapped[str | None] = mapped_column(String)
+    window_hours: Mapped[int] = mapped_column(Integer)
+    ai_suggested: Mapped[dict] = mapped_column(JSONB)  # the SBAR draft incl. narrative and source (rules | llm)
+    human_confirmed_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -1,6 +1,6 @@
 # REST + WebSocket contract — v1.0
 
-> **Version:** 1.13 (2026-10-10) · **Owners:** Wali (core, IoT, alerts), Faouzi (appointments, AI, integrations, exams, notebook)
+> **Version:** 1.15 (2026-10-11) · **Owners:** Wali (core, IoT, alerts), Faouzi (appointments, AI, integrations, exams, notebook)
 > Any change: open a PR that bumps the version above, add a changelog line, and announce it in the team chat.
 
 ## Conventions
@@ -8,7 +8,7 @@
 - Base URL: `http://localhost:8000` (backend container `api`). The web app reads it from `NEXT_PUBLIC_API_URL`.
 - JSON everywhere.
 - Auth: `Authorization: Bearer <jwt>`. JWT claims: `sub` (user id), `role` (`doctor|nurse|admin|patient`), `patient_id` (only for the patient role), `exp` (8 h).
-- IDs are prefixed strings: `u-0001` user, `p-0001` patient, `a-0001` appointment, `rx-0001` prescription, `d-000001` dose, `al-0001` alert, `adm-0001` admission, `ex-0001` exam order, `er-0001` exam result, `nb-0001` notebook entry, `he-0001` health event, `bsu-001` device.
+- IDs are prefixed strings: `u-0001` user, `p-0001` patient, `a-0001` appointment, `rx-0001` prescription, `d-000001` dose, `al-0001` alert, `adm-0001` admission, `ex-0001` exam order, `er-0001` exam result, `nb-0001` notebook entry, `he-0001` health event, `ho-0001` handover, `bsu-001` device.
 - Timestamps are ISO-8601 UTC strings (`2026-10-08T09:30:00Z`). (MQTT uses epoch seconds; the backend converts.)
 - Errors: `{"detail": "human readable", "code": "snake_case_code"}` with the right HTTP status (400, 401, 403, 404, 409, 422, 423, 429).
 - **Every read of a patient record** (`GET /patients/{id}` and every `GET /patients/{id}/*`) writes an `audit_log` row.
@@ -199,6 +199,17 @@ Codes (`reset-code`):
 | `POST /ai/assistant` *(stretch)* | patient | `{"question"}` → `{"answer","sources[]","intent","source"}`, scoped to the caller's own record |
 
 `source` is `"model"` (a trained model decided), `"rules"` (deterministic rules only) or `"llm"` (the optional open LLM wrote the text) on every AI response, so the UI can show a badge.
+
+## Shift handover (1.15 — Faouzi)
+
+| Method & path | Roles | Notes |
+|---|---|---|
+| `GET /handover?ward=&hours=12&lang=` | nurse (her ward, plus her supervisor doctor's patients; another `ward` is 403 like `GET /patients`), doctor (his patients) | `hours` is 8, 12 or 24 (anything else falls back to 12); `lang` (`en`\|`fr`\|`ar`, optional) only steers the optional LLM narrative. → `{"window_hours","generated_at","items":[Handover]}`, highest NEWS2 first. Items: patients with an active admission, plus patients in scope with vitals, notes, alerts or doses in the window. Each item is an audited read (`handover`). |
+| `POST /handover/{patient_id}/confirm` | nurse (write access to the patient) | `{"hours"?: 12, "lang"?}` → `Handover` with `confirmation` set. The outgoing nurse read the draft: it is stored in `handovers` (`ai_suggested` = the draft, `human_confirmed_by` = the nurse). Audited (`handover`, `update`). |
+
+`Handover`: `{"patient":{"id","first_name","last_name","ward","bed","age","sex"}, "window":{"hours","from","to"}, "situation":{"bed","ward","reason","admitted_at","latest_news2","news2_trend":"rising"|"falling"|"stable"|null,"latest_vital_at"}, "background":{"allergies[]","meds":[{"med","times[]"}],"care_plans[]"}, "assessment":{"vitals":{"count","hr","spo2","temp","news2"} (each `{"min","max","latest","trend"}` or null), "alerts":{"raised","acked","open":[{"id","kind","severity","message","created_at"}]}, "doses":{"given","missed":[Dose]}, "notes":[{"text","author_name","created_at"}] (last 5), "notes_count"}, "recommendations":[{"code","params"}], "upcoming_doses":[Dose], "narrative", "source":"rules"|"llm", "generated_at", "confirmation":null|{"id","human_confirmed_by","human_confirmed_by_name","confirmed_at","window_hours","source"}}` with `Dose` = `{"id","scheduled_at","time","meds[]","status"}` (`time` is HH:MM Africa/Tunis).
+
+Recommendation `code`s (rules in `backend/app/ai/rules/handover.v1.json`; the UI translates them): `news2_high {score}`, `news2_rising {from,to}`, `open_alert {kind,severity,time,at}`, `missed_dose {time,meds}` (status `missed`, or still scheduled/dispensed 60 min after its time), `no_vitals {hours}`, `pending_exam {label}` (exam `ordered`), `next_dose {time,meds}` (next 4 h), `routine {}` (nothing else). The structured sections always come from rules; with an LLM configured only `narrative` may be rewritten (kept only if it adds or changes no number). `confirmation` is the latest confirmation within the window.
 
 ## Health watch (Faouzi)
 
@@ -395,6 +406,7 @@ Still proposed: `GET /offers/{id}`, `POST /offers/{id}/accept` and `GET /patient
 
 ## Changelog
 
+- **1.15** (2026-10-11): nurse shift handover — `GET /handover` (rules-based SBAR draft per patient, optional LLM narrative) and `POST /handover/{patient_id}/confirm` (the outgoing nurse confirms; stored in `handovers`, data-model 1.8). Owner: Faouzi.
 - **1.13** (2026-10-10): health calendar — `GET/POST /health-events`, `PATCH/DELETE /health-events/{id}`, `POST /health-events/{id}/notify`, `GET/PUT /me/health-prefs`, n8n callbacks `GET /integrations/n8n/health-events/due` and `POST /integrations/n8n/health-events/{id}/announced`.
 - **1.12** (2026-10-10): health watch (`/health-watch`, `/health-watch/me`, `/integrations/n8n/health-watch`). Owner: Faouzi.
 - **1.11** (2026-10-10): staff AI assistant conversations (`/ai/conversations*`), stored server-side. Owner: Faouzi.

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "note": "Thresholds for the nurse shift handover (SBAR) draft. Rules only, not clinically validated: the outgoing nurse reads and confirms every draft.",
+  "windows_hours": [8, 12, 24],
+  "default_window_hours": 12,
+  "news2_rising_delta": 2,
+  "news2_high": 5,
+  "vital_trend_pct": 0.05,
+  "dose_overdue_after_min": 60,
+  "upcoming_dose_hours": 4,
+  "max_notes": 5
+}
