@@ -1,4 +1,4 @@
-"""Business rules for appointments (plans/FAOUZI.md Task 6), independent of the DB.
+"""Business rules for appointments independent of the DB.
 
 Fakes carry the exact attribute names of docs/contracts/data-model.md, so Wali's ORM rows drop in at link time.
 """

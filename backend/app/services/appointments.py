@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime
 
 from app.ai.triage import triage
 
-try:  # Hedi's no-show module (plans/HEDI.md Task 9); identical behaviour until it lands
+try:  # Hedi's no-show module; identical behaviour until it lands
     from app.ai.no_show import predict_no_show, rank_backfill
 except ImportError:
     def predict_no_show(features: dict) -> float:

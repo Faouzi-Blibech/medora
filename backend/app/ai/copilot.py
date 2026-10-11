@@ -2,7 +2,7 @@
 
 Interactions come from a curated rule list, never from the LLM.
 
-`summarize` is DB-free; `daily_summary(db, patient_id)` wraps it once the models exist (plans/FAOUZI.md Task 7).
+`summarize` is DB-free; `daily_summary(db, patient_id)` wraps it with the database models.
 """
 
 import json

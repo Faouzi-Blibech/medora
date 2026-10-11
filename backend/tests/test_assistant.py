@@ -1,4 +1,4 @@
-"""Patient assistant (plans/FAOUZI.md Task 11): answers from the caller's own record only, never diagnoses."""
+"""Patient assistant: answers from the caller's own record only, never diagnoses."""
 
 from datetime import UTC, datetime
 from types import SimpleNamespace as NS

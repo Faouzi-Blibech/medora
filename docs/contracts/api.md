@@ -1,6 +1,6 @@
 # REST + WebSocket contract — v1.0
 
-> **Version:** 1.18 (2026-10-11) · **Owners:** Wali (core, IoT, alerts), Faouzi (appointments, AI, integrations, exams, notebook), Hedi (pharmacy)
+> **Version:** 1.19 (2026-10-11) · **Owners:** Wali (core, IoT, alerts), Faouzi (appointments, AI, integrations, exams, notebook), Hedi (pharmacy)
 > Any change: open a PR that bumps the version above, add a changelog line, and announce it in the team chat.
 
 ## Conventions
@@ -25,7 +25,7 @@ Seed accounts (password `ward1234` for all): `doctor@medora.tn`, `nurse@medora.t
 
 ## Accounts and access
 
-Added in 1.9 (spec `docs/superpowers/specs/2026-10-10-accounts-and-access-design.md`). Existing endpoints keep their shapes. Error envelope and status-code conventions are unchanged.
+Added in 1.9. Existing endpoints keep their shapes. Error envelope and status-code conventions are unchanged.
 
 | Method and path | Who | Notes |
 |---|---|---|
@@ -123,7 +123,7 @@ Codes (`reset-code`):
 
 ## Prescriptions → pharmacy review → schedule
 
-Changed in 1.15 (spec `docs/superpowers/specs/2026-10-10-hospital-pharmacy-design.md`). A new prescription waits for the pharmacist: it has no dose until it is validated, unless the doctor ticks `urgent`.
+Changed in 1.15. A new prescription waits for the pharmacist: it has no dose until it is validated, unless the doctor ticks `urgent`.
 
 | Method & path | Roles | Notes |
 |---|---|---|
@@ -567,6 +567,7 @@ Still proposed: `GET /offers/{id}`, `POST /offers/{id}/accept` and `GET /patient
 
 ## Changelog
 
+- **1.19** (2026-10-11): documentation only: removes links to the development specs, which are no longer in the repository. No endpoint or payload changes.
 - **1.18** (2026-10-11): `GET /admin/impact?days=` pilot impact indicators (admin, aggregates only). Owner: Faouzi; router in the backend area (Wali).
 - **1.17** (2026-10-11): nurse shift handover — `GET /handover` (rules-based SBAR draft per patient, optional LLM narrative) and `POST /handover/{patient_id}/confirm` (the outgoing nurse confirms; stored in `handovers`, data-model 1.10). Owner: Faouzi.
 - **1.16** (2026-10-11): `POST /patients/{id}/vitals`: a reading taken by hand on a nurse round (source `manual`), so vitals have a real collection path besides the simulated bedside feed. Owner: Faouzi (route in Wali's `patients.py`).

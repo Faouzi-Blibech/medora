@@ -1,4 +1,4 @@
-// Medora bedside unit — scaffold. Modules (sensors, net, schedule, ui, carousel, rfid) are added per plans/HEDI.md.
+// Medora bedside unit — scaffold. Modules (sensors, net, schedule, ui, carousel, rfid) are added one per file.
 #include <Arduino.h>
 
 void setup() {

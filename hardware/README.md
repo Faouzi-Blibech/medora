@@ -37,9 +37,9 @@ Wokwi needs none of these. Tick the boxes on Day 0 only if the real board is pla
 
 ## Nurse Wrist Pager (proposal)
 
-> **Status:** proposal, not on the golden demo path yet. Build it only after the path works (CLAUDE.md, "Demo first").
+> **Status:** proposal, not on the golden demo path yet. Build it only after the path works.
 > Before writing firmware, bump `docs/contracts/mqtt-topics.md` to v1.2 with the `hospital/pager/` topics below, and
-> add the firmware folder (`pager/`, proposed owner Wali) to the ownership table in `CLAUDE.md`.
+> add the firmware folder (`pager/`, proposed owner Wali).
 
 ### Why
 
