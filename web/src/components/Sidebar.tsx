@@ -53,6 +53,7 @@ export const NAV: Record<StaffRole, NavItem[]> = {
     { key: "board", label: "shared.navWardBoard", href: "/nurse", count: NAV_COUNTS.nurse.board },
     { key: "alerts", label: "shared.navAlerts", href: "/nurse/alerts", count: NAV_COUNTS.nurse.alerts, hot: true },
     { key: "meds", label: "shared.navMedRound", href: "/nurse/meds", count: NAV_COUNTS.nurse.meds },
+    { key: "handover", label: "nurse.navHandover", href: "/nurse/handover" },
     { key: "exams", label: "shared.navExams", href: "/nurse/exams" },
     { key: "patients", label: "shared.navPatients", href: "/nurse/patients", count: NAV_COUNTS.nurse.patients },
     { key: "assistant", label: "shared.navAssistant", href: "/nurse/assistant" },

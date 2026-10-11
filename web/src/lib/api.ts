@@ -6,7 +6,7 @@
 // Real mode: calls NEXT_PUBLIC_API_URL with the paths of docs/contracts/api.md.
 // Paths marked NOT IN CONTRACT have no api.md 1.4 endpoint yet (see the Task 1 report).
 import { createStore, generateCode, MOCK_CODES, EXAM_CATALOGUE, mockAssistant, USERS, userName, type AssistantContext, type MockStore } from "@/mocks";
-import { now, tunisDate, USE_MOCKS } from "./time";
+import { now, tunisDate, tunisTime, USE_MOCKS } from "./time";
 import { HEALTH_CATEGORIES } from "./types";
 import type {
   AccountStatus,
@@ -34,6 +34,11 @@ import type {
   HealthEvent,
   HealthEventInput,
   HealthPrefs,
+  Handover,
+  HandoverDose,
+  HandoverList,
+  HandoverRange,
+  HandoverRecommendation,
   Hospital,
   LoginResponse,
   Me,
@@ -1236,4 +1241,101 @@ export function setHealthPrefs(following: Partial<Record<HealthCategory, boolean
       return mockPrefs(s, role);
     });
   return http<HealthPrefs>("PUT", "/me/health-prefs", { following });
+}
+
+// ── Nurse shift handover (api.md 1.15) ──────────────────────────────────────
+
+/** Mock confirmations: patient id → confirmation (lives until a full page reload). */
+const mockHandoverConfirms = new Map<string, Handover["confirmation"]>();
+
+function mockRange(vals: number[]): HandoverRange | null {
+  if (!vals.length) return null;
+  const first = vals[0];
+  const last = vals[vals.length - 1];
+  const change = first ? (last - first) / Math.abs(first) : 0;
+  return { min: Math.min(...vals), max: Math.max(...vals), latest: last, trend: change > 0.05 ? "rising" : change < -0.05 ? "falling" : "stable" };
+}
+
+/** A simplified version of the backend rules (backend/app/ai/handover.py), enough to render the page offline. */
+function mockHandover(s: MockStore, p: Patient, hours: number): Handover {
+  const ref = now();
+  const since = ref.getTime() - hours * 3_600_000;
+  const soon = ref.getTime() + 4 * 3_600_000;
+  const vitals = (s.vitals[p.id] ?? []).filter((v) => Date.parse(v.ts) >= since && Date.parse(v.ts) <= ref.getTime()).sort((a, b) => a.ts.localeCompare(b.ts));
+  const pick = (k: "hr" | "spo2" | "temp" | "news2") => vitals.map((v) => v[k]).filter((x): x is number => x != null);
+  const news2 = pick("news2");
+  const n2 = mockRange(news2);
+  const n2Trend = news2.length < 2 ? (news2.length ? "stable" : null) : news2[news2.length - 1] - news2[0] >= 2 ? "rising" : news2[0] - news2[news2.length - 1] >= 2 ? "falling" : "stable";
+  if (n2) n2.trend = n2Trend ?? "stable";
+  const doseOut = (d: Dose): HandoverDose => ({ id: d.id, scheduled_at: d.scheduled_at, time: d.time_of_day, meds: d.meds, status: d.status });
+  const doses = s.doses.filter((d) => d.patient_id === p.id);
+  const past = doses.filter((d) => Date.parse(d.scheduled_at) >= since && Date.parse(d.scheduled_at) <= ref.getTime());
+  const missed = past.filter((d) => d.status === "missed" || ((d.status === "scheduled" || d.status === "dispensed") && Date.parse(d.scheduled_at) < ref.getTime() - 3_600_000));
+  const upcoming = doses
+    .filter((d) => Date.parse(d.scheduled_at) > ref.getTime() && Date.parse(d.scheduled_at) <= soon && d.status !== "taken")
+    .sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
+  const alerts = s.alerts.filter((a) => a.patient_id === p.id);
+  const raised = alerts.filter((a) => Date.parse(a.created_at) >= since);
+  const open = alerts.filter((a) => !a.acked_at);
+  const notes = (s.notes[p.id] ?? []).filter((n) => Date.parse(n.created_at) >= since);
+  const rx = s.prescriptions.filter((r) => r.patient_id === p.id && r.active);
+  const exams = s.exams.filter((e) => e.patient_id === p.id && e.status === "ordered");
+  const latest = news2.length ? news2[news2.length - 1] : null;
+  const recs: HandoverRecommendation[] = [];
+  if (latest != null && latest >= 5) recs.push({ code: "news2_high", params: { score: latest } });
+  if (n2Trend === "rising") recs.push({ code: "news2_rising", params: { from: news2[0], to: latest ?? 0 } });
+  for (const a of open) recs.push({ code: "open_alert", params: { kind: a.kind, severity: a.severity, time: tunisTime(a.created_at), at: a.created_at } });
+  for (const d of missed) recs.push({ code: "missed_dose", params: { time: d.time_of_day, meds: d.meds.join(", ") } });
+  if (!vitals.length) recs.push({ code: "no_vitals", params: { hours } });
+  for (const e of exams) recs.push({ code: "pending_exam", params: { label: e.label } });
+  for (const d of upcoming) recs.push({ code: "next_dose", params: { time: d.time_of_day, meds: d.meds.join(", ") } });
+  if (!recs.length) recs.push({ code: "routine", params: {} });
+  return {
+    patient: { id: p.id, first_name: p.first_name, last_name: p.last_name, ward: p.ward, bed: p.bed, age: p.age, sex: p.sex },
+    window: { hours, from: iso(new Date(since)), to: iso(ref) },
+    situation: { bed: p.bed, ward: p.ward, reason: p.history, admitted_at: p.admitted_at ?? null, latest_news2: latest, news2_trend: n2Trend, latest_vital_at: vitals.length ? vitals[vitals.length - 1].ts : null },
+    background: { allergies: p.allergies, meds: rx.flatMap((r) => r.items.map((i) => ({ med: i.med, times: i.times }))), care_plans: rx.map((r) => r.care_plan).filter(Boolean) },
+    assessment: {
+      vitals: { count: vitals.length, hr: mockRange(pick("hr")), spo2: mockRange(pick("spo2")), temp: mockRange(pick("temp")), news2: n2 },
+      alerts: { raised: raised.length, acked: raised.filter((a) => a.acked_at).length, open: open.map((a) => ({ id: a.id, kind: a.kind, severity: a.severity, message: a.message, created_at: a.created_at })) },
+      doses: { given: past.filter((d) => d.status === "taken").length, missed: missed.map(doseOut) },
+      notes: notes.slice(-5).map((n) => ({ text: n.text, author_name: n.author_name ?? null, created_at: n.created_at })),
+      notes_count: notes.length,
+    },
+    recommendations: recs,
+    upcoming_doses: upcoming.map(doseOut),
+    narrative: "",
+    source: "rules",
+    generated_at: iso(ref),
+    confirmation: mockHandoverConfirms.get(p.id) ?? null,
+  };
+}
+
+/** GET /handover?hours= → one SBAR draft per patient (nurse: own ward; doctor: own patients). */
+export function getHandovers(hours: number = 12, opts: { ward?: string; lang?: string } = {}): Promise<HandoverList> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const ward = opts.ward ?? DEFAULT_WARD;
+      const items = s.patients
+        .filter((p) => p.ward === ward && p.bed)
+        .map((p) => mockHandover(s, p, hours))
+        .sort((a, b) => (b.situation.latest_news2 ?? -1) - (a.situation.latest_news2 ?? -1));
+      return { window_hours: hours, generated_at: iso(now()), items };
+    });
+  const q = new URLSearchParams({ hours: String(hours) });
+  if (opts.ward) q.set("ward", opts.ward);
+  if (opts.lang) q.set("lang", opts.lang);
+  return http<HandoverList>("GET", `/handover?${q}`);
+}
+
+/** POST /handover/{patient_id}/confirm (nurse) → the handover with `confirmation` set. */
+export function confirmHandover(patientId: string, hours: number = 12, opts: ActorOpts & { lang?: string } = {}): Promise<Handover> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const p = s.patients.find((x) => x.id === patientId) ?? notFound(`Patient ${patientId}`);
+      const by = opts.by ?? USERS.nurse.id;
+      mockHandoverConfirms.set(p.id, { id: `ho-${String(mockHandoverConfirms.size + 1).padStart(4, "0")}`, human_confirmed_by: by, human_confirmed_by_name: userName(by) ?? by, confirmed_at: iso(now()), window_hours: hours, source: "rules" });
+      return mockHandover(s, p, hours);
+    });
+  return http<Handover>("POST", `/handover/${enc(patientId)}/confirm`, { hours, ...(opts.lang ? { lang: opts.lang } : {}) });
 }
