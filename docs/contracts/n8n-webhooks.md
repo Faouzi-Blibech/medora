@@ -1,6 +1,6 @@
 # n8n contract — v1.0
 
-> **Version:** 1.4 (2026-10-10) · **Owners:** Faouzi (workflows + callbacks), Wali (event emitter in the backend)
+> **Version:** 1.5 (2026-10-11) · **Owners:** Faouzi (workflows + callbacks), Wali (event emitter in the backend)
 > Any change: open a PR that bumps the version above, add a changelog line, and announce it in the team chat.
 
 ## Rules (locked)
@@ -46,6 +46,7 @@ def emit(event: str, data: dict) -> None:
 | `exam.ordered` | `POST /appointments/{id}/exams/order` or `POST /exams` | `{appointment_id, patient_first_name, patient_telegram_chat_id, patient_email, exams:[{label, department}]}` | W7 tells the patient where to go |
 | `exam.results_ready` | the last ordered exam of an appointment gets its result | `{appointment_id, patient_first_name, doctor_id, doctor_name, doctor_email, doctor_chat_id}` | W8 tells the ordering doctor |
 | `health_event.upcoming` | `POST /health-events/{id}/notify` (Notify now), and each item returned by `GET /integrations/n8n/health-events/due` | `{event_id, title:{en,fr,ar}, category, starts_on, ends_on, organizer, source_url, web_url, recipients:[{first_name, role, email, lang}], recipient_count}`. `web_url` = `${WEB_URL}/calendar`; first names only; `lang` defaults to `fr` (no per-user language stored server-side yet) | W9 |
+| `prescription.review` | a pharmacist validates, requests changes on or rejects a prescription | `{prescription_id, patient_id, decision, comment, doctor_email, doctor_chat_id}`; `decision` is `validated` \| `changes_requested` \| `rejected`; `comment` null when empty; `doctor_email`/`doctor_chat_id` null when the doctor's account is not active or has no chat id. Emitted only after the decision commits. | W10 (optional) |
 
 W5 (daily digest) is cron-driven inside n8n and pulls from `GET /integrations/n8n/daily-digest`.
 
@@ -77,9 +78,11 @@ The backend base URL from inside Docker is `http://api:8000`.
 | W7 | Exams ordered | core for the single-visit demo | event `exam.ordered` → Telegram + email to the patient: "Before your visit, please do: {label} ({department}) …" |
 | W8 | Results ready | core for the single-visit demo | event `exam.results_ready` → Telegram + email to the doctor: "{patient_first_name}'s results are in; the visit can be booked" |
 | W9 | Health calendar | core for the calendar demo | `W9-health-calendar.json` (id `wardHealthCalW9x`). Trigger A: called by the W0 router on `health_event.upcoming`. Trigger B: Cron 08:00 Africa/Tunis → `GET /due` → split items. Both → one WhatsApp text to `WARD_WHATSAPP_PATIENT` and `WARD_WHATSAPP_STAFF` ("📅 {title.fr} · {dates} · {organizer} — {web_url}") → one email per recipient (`ward-smtp`) → `POST /announced` (trigger B only). `onError: continueRegularOutput` on every send node; W0 gets one more Switch branch |
+| W10 | Prescription review notice | optional (Faouzi) | event `prescription.review` → Telegram (`doctor_chat_id`) + email (`doctor_email`) to the prescribing doctor: "Pharmacy: {decision} for {prescription_id}: {comment}" |
 
 ## Changelog
 
+- **1.5** (2026-10-11): adds `prescription.review` (hospital pharmacy) and optional W10 (W9 is the health calendar). Emitter: `app/services/pharmacy/workflow.py`. Owner: Hedi; workflow: Faouzi.
 - **1.4** (2026-10-10): `health_event.upcoming` event, health-events due/announced callbacks, W9 health calendar (daily cron + Notify now).
 
 - **1.3** (2026-10-09): adds `exam.ordered` and `exam.results_ready` with W7/W8. Emitter: the exams router (Faouzi's lane); the emit helper stays Wali's.
