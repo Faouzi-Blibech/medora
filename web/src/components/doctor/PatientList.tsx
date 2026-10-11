@@ -40,11 +40,14 @@ export function PatientList() {
   const list = useMemo(() => (state == null ? (patients ?? []) : []), [state, patients]);
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return list.filter(
-      (p) =>
-        (filter === "all" || needsAttention(p)) &&
-        (!q || `${p.first_name} ${p.last_name}`.toLowerCase().includes(q) || (p.bed ?? "").toLowerCase().includes(q)),
-    );
+    // Patients in a bed first (highest NEWS2 first, as the API sorts), then those without one (discharged).
+    return list
+      .filter(
+        (p) =>
+          (filter === "all" || needsAttention(p)) &&
+          (!q || `${p.first_name} ${p.last_name}`.toLowerCase().includes(q) || (p.bed ?? "").toLowerCase().includes(q)),
+      )
+      .sort((a, b) => Number(!a.bed) - Number(!b.bed));
   }, [list, query, filter]);
 
   const ward = patients?.[0]?.ward ?? "Cardiology";
