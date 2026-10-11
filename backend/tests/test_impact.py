@@ -143,3 +143,38 @@ def test_admin_only(client):
         assert client.get("/admin/impact", headers=login(client, email)).status_code == 403
     assert client.get("/admin/impact").status_code == 401
     assert client.get("/admin/impact?days=0", headers=login(client, "admin@ward.tn")).status_code == 422
+
+
+def test_demo_history_fills_the_dashboard_and_is_idempotent(client, seeded):
+    from app.demo_history import generate, reset
+
+    added = generate(seeded, 60)
+    assert all(v > 0 for v in added.values()), added
+    again = generate(seeded, 60)
+    assert not any(again.values())  # a second run adds nothing
+
+    # nothing in the last two days, nothing open, never the live demo patients
+    recent = datetime.now(UTC) - 2 * DAY
+    assert seeded.scalar(select(Alert.id).where(Alert.id.like("al-h%"), Alert.created_at >= recent)) is None
+    assert seeded.scalar(select(Alert.id).where(Alert.id.like("al-h%"), Alert.acked_at.is_(None))) is None
+    assert seeded.scalar(select(Alert.id).where(Alert.id.like("al-h%"), Alert.patient_id.is_not(None))) is None
+    nurse = client.get("/alerts", headers=login(client, "nurse@ward.tn")).json()
+    assert not [a for a in nurse if a["id"].startswith("al-h")]  # history stays out of the clinical feeds
+    assert seeded.scalar(select(MedDose.id).where(MedDose.id.like("d-h%"), MedDose.scheduled_at >= recent)) is None
+    assert seeded.scalar(select(Appointment.id).where(Appointment.id.like("a-h%"),
+                                                      Appointment.status == "requested")) is None
+    assert seeded.scalar(select(Admission.id).where(Admission.id.like("adm-h%"),
+                                                    Admission.patient_id.in_(["p-0001", "p-0005"]))) is None
+
+    r = client.get("/admin/impact?days=30", headers=login(client, "admin@ward.tn"))
+    ind = _by_id(r.json())
+    for key in ("alerts_total", "ack_median_min", "ack_p90_min", "ack_within_5min_pct", "doses_taken_pct",
+                "doses_missed_pct", "doses_on_time_pct", "missed_per_patient_day", "requests_received",
+                "request_to_slot_days", "backfill_refills", "vitals_per_patient_day", "vitals_automated_pct",
+                "news2_medium_high_pct", "nurse_notes_per_shift", "ai_reviewed_pct"):
+        assert ind[key]["value"] is not None and ind[key]["previous"] is not None, key
+    assert ind["backfill_refills"]["value"] > 0
+
+    removed = reset(seeded)
+    assert removed["admissions"] == added["admissions"] and removed["alerts"] == added["alerts"]
+    assert seeded.get(Admission, "adm-0001") is not None  # the seed's own rows stay

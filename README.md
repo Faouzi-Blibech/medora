@@ -77,6 +77,7 @@ git clone https://github.com/Faouzi-Blibech/smarty-hospital-.git && cd smarty-ho
 cp .env.example .env
 docker compose -f infra/docker-compose.yml --env-file .env up --build
 docker compose -f infra/docker-compose.yml --env-file .env exec api python -m app.seed   # synthetic data, safe to re-run
+docker compose -f infra/docker-compose.yml --env-file .env exec api python -m app.demo_history --days 60   # optional: past ward history for Pilot impact (--reset removes it)
 ```
 
 | Service | URL |
