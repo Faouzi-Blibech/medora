@@ -11,7 +11,7 @@ def _n8n() -> dict:
 
 def _free_slot(client) -> None:
     """a-0001 booked with Dr Trabelsi, then cancelled: SLOT is free again."""
-    admin = login(client, "admin@ward.tn")
+    admin = login(client, "admin@medora.tn")
     client.post("/appointments/a-0001/confirm", headers=admin, json={"slot_at": SLOT, "doctor_id": "u-0001"})
     client.post("/appointments/a-0001/cancel", headers=admin)
 
@@ -20,7 +20,7 @@ def test_callbacks_need_the_secret(client):
     assert client.get("/integrations/n8n/daily-digest").status_code == 401
     r = client.get("/integrations/n8n/daily-digest", headers={"X-N8N-Secret": "wrong"})
     assert r.status_code == 401 and r.json()["code"] == "unauthorized"
-    jwt = login(client, "admin@ward.tn")
+    jwt = login(client, "admin@medora.tn")
     assert client.post("/integrations/n8n/follow-up", headers=jwt, json={"patient_id": "p-0001"}).status_code == 401
 
 
@@ -41,7 +41,7 @@ def test_backfill_accept(client, db):
 
 
 def test_appointment_reply(client, db, emitted):
-    admin = login(client, "admin@ward.tn")
+    admin = login(client, "admin@medora.tn")
     client.post("/appointments/a-0001/confirm", headers=admin, json={"slot_at": SLOT, "doctor_id": "u-0001"})
     r = client.post("/integrations/n8n/appointment-reply", headers=_n8n(),
                     json={"appointment_id": "a-0001", "reply": "confirm"})
@@ -57,13 +57,13 @@ def test_appointment_reply(client, db, emitted):
 
 def test_daily_digest(client):
     rows = client.get("/integrations/n8n/daily-digest", headers=_n8n()).json()
-    assert len(rows) == 1 and rows[0]["doctor"] == {"id": "u-0001", "name": "Dr Trabelsi", "email": "doctor@ward.tn"}
-    # Amira (p-0001) and Youssef (p-0005, patient2@ward.tn) are the admitted cardiology patients
+    assert len(rows) == 1 and rows[0]["doctor"] == {"id": "u-0001", "name": "Dr Trabelsi", "email": "doctor@medora.tn"}
+    # Amira (p-0001) and Youssef (p-0005, patient2@medora.tn) are the admitted cardiology patients
     assert sorted(x["name"] for x in rows[0]["patients"]) == ["Amira", "Youssef"]
     p = next(x for x in rows[0]["patients"] if x["name"] == "Amira")
     # First name only; an unreviewed AI summary never leaves the server.
     assert p["name"] == "Amira" and p["bed"] == "C-12" and p["news2"] == 0
-    assert p["summary"] == "Summary not reviewed yet. Open Ward to review it."
+    assert p["summary"] == "Summary not reviewed yet. Open Medora to review it."
     assert client.get("/integrations/n8n/daily-digest?doctor_id=u-0001", headers=_n8n()).json() == rows
     assert client.get("/integrations/n8n/daily-digest?doctor_id=u-0002", headers=_n8n()).json() == []
 

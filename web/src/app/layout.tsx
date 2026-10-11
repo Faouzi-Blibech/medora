@@ -31,8 +31,8 @@ const notoArabic = Noto_Sans_Arabic({
 });
 
 export const metadata: Metadata = {
-  title: "Ward",
-  description: "Ward — the connected patient process",
+  title: "Medora",
+  description: "Medora — the connected patient process",
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {

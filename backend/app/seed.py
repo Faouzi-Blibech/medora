@@ -1,4 +1,4 @@
-"""Synthetic demo dataset (data-model.md → "Seed data"). Idempotent: exits early if doctor@ward.tn exists.
+"""Synthetic demo dataset (data-model.md → "Seed data"). Idempotent: exits early if doctor@medora.tn exists.
 
 The seed also holds the pharmacist and the pharmacy demo (a pending critical prescription).
 Run inside the stack: `docker compose -f infra/docker-compose.yml exec api python -m app.seed`.
@@ -8,7 +8,7 @@ Every name, phone and history below is invented. Never put real patients here.
 import math
 from datetime import UTC, date, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.auth.security import hash_password
@@ -42,20 +42,20 @@ from app.services.schedule import local_to_utc, rebuild_doses, today_local
 
 # (id, email, name, role, ward, rfid)
 STAFF = [
-    ("u-0001", "doctor@ward.tn", "Dr Trabelsi", "doctor", "Cardiology", None),
-    ("u-0002", "nurse@ward.tn", "Nurse Ines", "nurse", "Cardiology", "04A1B2C3"),
-    ("u-0003", "nurse2@ward.tn", "Nurse Sami", "nurse", "Internal Medicine", None),
-    ("u-0004", "admin@ward.tn", "Hela Mejri", "admin", None, None),
-    ("u-0006", "imaging@ward.tn", "Nurse Rania", "nurse", "Imaging", None),
-    ("u-0007", "lab@ward.tn", "Nurse Karim", "nurse", "Laboratory", None),
-    ("u-0008", "pharmacist@ward.tn", "Pharm. Salma", "pharmacist", None, None),
+    ("u-0001", "doctor@medora.tn", "Dr Trabelsi", "doctor", "Cardiology", None),
+    ("u-0002", "nurse@medora.tn", "Nurse Ines", "nurse", "Cardiology", "04A1B2C3"),
+    ("u-0003", "nurse2@medora.tn", "Nurse Sami", "nurse", "Internal Medicine", None),
+    ("u-0004", "admin@medora.tn", "Hela Mejri", "admin", None, None),
+    ("u-0006", "imaging@medora.tn", "Nurse Rania", "nurse", "Imaging", None),
+    ("u-0007", "lab@medora.tn", "Nurse Karim", "nurse", "Laboratory", None),
+    ("u-0008", "pharmacist@medora.tn", "Pharm. Salma", "pharmacist", None, None),
 ]
 PHARMACIST_ID = "u-0008"
 
 
 def _pharmacist(db: Session) -> str | None:
-    """The seed pharmacist's id: u-0008, or whatever id pharmacist@ward.tn got when u-0008 was already taken."""
-    return db.scalar(select(User.id).where(User.email == "pharmacist@ward.tn"))
+    """The seed pharmacist's id: u-0008, or whatever id pharmacist@medora.tn got when u-0008 was already taken."""
+    return db.scalar(select(User.id).where(User.email == "pharmacist@medora.tn"))
 STAFF_ROW_ROLES = ("doctor", "nurse")  # only these have a ward or supervisor
 
 # (first, last, dob, sex, allergies, history)
@@ -109,11 +109,11 @@ def _upsert_missing_staff(db: Session, pw: str) -> None:
 
 
 # The second patient account (the desktop patient platform demo): Youssef Khelifi, Cardiology.
-PATIENT2 = ("patient2@ward.tn", "Youssef Khelifi", "p-0005", "C-08")
+PATIENT2 = ("patient2@medora.tn", "Youssef Khelifi", "p-0005", "C-08")
 
 
 def _upsert_second_patient(db: Session, pw: str) -> None:
-    """patient2@ward.tn, linked to p-0005 and admitted to bed C-08 with no bedside unit (nurse-given doses).
+    """patient2@medora.tn, linked to p-0005 and admitted to bed C-08 with no bedside unit (nurse-given doses).
     Adds only what is missing, so it also runs on an already-seeded database."""
     email, name, pid, bed = PATIENT2
     if db.get(Patient, pid) is None or db.scalar(select(User).where(User.email == email)):
@@ -146,7 +146,13 @@ def _upsert_second_patient(db: Session, pw: str) -> None:
 def seed(db: Session) -> bool:
     """Create the dataset in `db` (caller commits). Returns False if it was already seeded."""
     pw = hash_password(get_settings().seed_password)
-    if db.scalar(select(User).where(User.email == "doctor@ward.tn")):
+    # Rename upgrade: the product was called Ward and its seed emails ended in @ward.tn. An existing DB keeps its
+    # users, so rewrite those emails to @medora.tn first (idempotent; the check below then sees doctor@medora.tn).
+    if db.scalar(select(User.id).where(User.email == "doctor@ward.tn")):
+        db.execute(update(User).where(User.email.like("%@ward.tn"))
+                   .values(email=func.replace(User.email, "@ward.tn", "@medora.tn")))
+        db.flush()
+    if db.scalar(select(User).where(User.email == "doctor@medora.tn")):
         _upsert_missing_staff(db, pw)
         _upsert_second_patient(db, pw)
         _pharmacy(db, datetime.now(UTC).replace(second=0, microsecond=0))
@@ -169,7 +175,7 @@ def seed(db: Session) -> bool:
     for uid, _, _, role, ward, rfid in STAFF:
         if role in STAFF_ROW_ROLES:
             db.add(Staff(user_id=uid, ward=ward, rfid_uid=rfid))
-    db.add(User(id="u-0005", email="patient@ward.tn", name="Amira Ben Salah", role="patient",
+    db.add(User(id="u-0005", email="patient@medora.tn", name="Amira Ben Salah", role="patient",
                 patient_id="p-0001", password_hash=pw))
 
     if db.get(Device, "bsu-001") is None:  # the worker may have registered it from its retained status

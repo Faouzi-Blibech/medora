@@ -3,7 +3,7 @@ import { getT } from "@/i18n/server";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("accounts.pendingTitle")} · Ward` };
+  return { title: `${t("accounts.pendingTitle")} · Medora` };
 }
 
 export default function AdminPendingPage() {

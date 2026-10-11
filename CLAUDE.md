@@ -1,10 +1,10 @@
-# CLAUDE.md — Ward (HackCure @ ESEN)
+# CLAUDE.md — Medora (HackCure @ ESEN)
 
 Shared conventions for every teammate's Claude Code session. Read this file, then your own `plans/<NAME>.md`.
 
 ## Project in one paragraph
 
-**Ward** (وَرد, "rose" in Arabic and "hospital ward" in English) is a connected smart-hospital prototype. Patient, nurse,
+**Medora** is a connected smart-hospital prototype. Patient, nurse,
 doctor and admin share one patient record. A bedside unit (ESP32 + OLED + servo + RTC, developed in Wokwi)
 listens over MQTT, fires dose reminders offline and turns a servo to the pill slot; a simulator sends the vitals. A FastAPI backend stores everything in PostgreSQL/TimescaleDB,
 scores urgency and early warnings with AI (a human always confirms), and drives n8n for Telegram/email follow-ups.

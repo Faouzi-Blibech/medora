@@ -64,7 +64,7 @@ def test_trend_alert_when_news2_quiet(db, seeded):
 
 def test_list_and_ack(client, db):
     ingest.handle(db, "bsu-001", "vitals", vital(9, spo2=88))
-    h = login(client, "nurse@ward.tn")
+    h = login(client, "nurse@medora.tn")
     rows = client.get("/alerts?status=open", headers=h).json()
     assert len(rows) == 1 and {"id", "patient_id", "device_id", "kind", "severity", "news2", "message",
                                "created_at", "acked_by", "acked_at"} <= set(rows[0])
@@ -77,17 +77,17 @@ def test_list_and_ack(client, db):
 def test_ack_other_ward_forbidden(client, db):
     ingest.handle(db, "bsu-001", "vitals", vital(10, spo2=88))
     aid = db.query(Alert).one().id
-    assert client.post(f"/alerts/{aid}/ack", headers=login(client, "nurse2@ward.tn")).status_code == 403
-    assert client.get("/alerts", headers=login(client, "nurse2@ward.tn")).json() == []
+    assert client.post(f"/alerts/{aid}/ack", headers=login(client, "nurse2@medora.tn")).status_code == 403
+    assert client.get("/alerts", headers=login(client, "nurse2@medora.tn")).json() == []
 
 
 def test_ack_broadcasts_update(client, db, published):
     ingest.handle(db, "bsu-001", "vitals", vital(11, spo2=88))
     aid = db.query(Alert).one().id
-    client.post(f"/alerts/{aid}/ack", headers=login(client, "doctor@ward.tn"))
+    client.post(f"/alerts/{aid}/ack", headers=login(client, "doctor@medora.tn"))
     topic, f, _, _ = published[-1]
     assert topic == "ward/internal/ws" and f["type"] == "alert" and f["data"]["acked_by"] == "u-0001"
 
 
 def test_admin_cannot_list_alerts(client):
-    assert client.get("/alerts", headers=login(client, "admin@ward.tn")).status_code == 403
+    assert client.get("/alerts", headers=login(client, "admin@medora.tn")).status_code == 403

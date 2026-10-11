@@ -4,7 +4,7 @@ import { NursePatientDetail } from "@/components/nurse/NursePatientDetail";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("nurse.metaPatient")} · Ward` };
+  return { title: `${t("nurse.metaPatient")} · Medora` };
 }
 
 export default async function NursePatientPage({ params }: { params: Promise<{ id: string }> }) {

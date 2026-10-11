@@ -10,7 +10,7 @@ def _schedules(published):
 
 
 def test_prescribe_publishes_schedule(client, published):
-    r = client.post("/prescriptions", headers=login(client, "doctor@ward.tn"), json=dict(RX, urgent=True))
+    r = client.post("/prescriptions", headers=login(client, "doctor@medora.tn"), json=dict(RX, urgent=True))
     assert r.status_code == 201, r.text
     body = r.json()
     assert body["id"].startswith("rx-") and body["doctor_id"] == "u-0001" and body["active"] is True
@@ -22,22 +22,22 @@ def test_prescribe_publishes_schedule(client, published):
 
 
 def test_prescribe_patient_without_device(client, published):
-    r = client.post("/prescriptions", headers=login(client, "doctor@ward.tn"),
+    r = client.post("/prescriptions", headers=login(client, "doctor@medora.tn"),
                     json=dict(RX, patient_id="p-0002", urgent=True))
     assert r.status_code == 201 and r.json()["published_to_device"] is False
     assert _schedules(published) == []
 
 
 def test_prescribe_rules(client):
-    h = login(client, "doctor@ward.tn")
+    h = login(client, "doctor@medora.tn")
     assert client.post("/prescriptions", headers=h, json=dict(RX, patient_id="p-0007")).status_code == 403
-    assert client.post("/prescriptions", headers=login(client, "nurse@ward.tn"), json=RX).status_code == 403
+    assert client.post("/prescriptions", headers=login(client, "nurse@medora.tn"), json=RX).status_code == 403
     bad = dict(RX, items=[{"med": "X", "times": ["25:00"], "slot": 1, "days": 1}])
     assert client.post("/prescriptions", headers=h, json=bad).status_code == 422
 
 
 def test_stop_prescription(client, db, published):
-    h = login(client, "doctor@ward.tn")
+    h = login(client, "doctor@medora.tn")
     rx = client.post("/prescriptions", headers=h, json=dict(RX, urgent=True)).json()
     r = client.patch(f"/prescriptions/{rx['id']}", headers=h, json={"active": False})
     assert r.status_code == 200 and r.json()["active"] is False and r.json()["schedule_version"] == 2
@@ -46,15 +46,15 @@ def test_stop_prescription(client, db, published):
 
 
 def test_devices_list(client):
-    rows = client.get("/devices", headers=login(client, "nurse@ward.tn")).json()
+    rows = client.get("/devices", headers=login(client, "nurse@medora.tn")).json()
     d = next(r for r in rows if r["id"] == "bsu-001")
     assert d["patient_id"] == "p-0001" and d["bed"] == "C-12" and d["admission_id"] == "adm-0001"
     assert {"online", "fw_version", "last_seen"} <= set(d)
-    assert client.get("/devices", headers=login(client, "doctor@ward.tn")).status_code == 403
+    assert client.get("/devices", headers=login(client, "doctor@medora.tn")).status_code == 403
 
 
 def test_assign_and_discharge(client, db, published, emitted):
-    admin = login(client, "admin@ward.tn")
+    admin = login(client, "admin@medora.tn")
     r = client.post("/admissions/adm-0001/discharge", headers=admin)
     assert r.status_code == 200 and r.json()["discharged_at"]
     topic, payload, _, _ = published[-1]
@@ -71,19 +71,19 @@ def test_assign_and_discharge(client, db, published, emitted):
 
 
 def test_assign_busy_device(client):
-    r = client.post("/devices/bsu-001/assign", headers=login(client, "admin@ward.tn"),
+    r = client.post("/devices/bsu-001/assign", headers=login(client, "admin@medora.tn"),
                     json={"patient_id": "p-0002", "bed": "C-14"})
     assert r.status_code == 409 and r.json()["code"] == "device_busy"
 
 
 def test_assign_requires_admin(client):
-    r = client.post("/devices/bsu-001/assign", headers=login(client, "nurse@ward.tn"),
+    r = client.post("/devices/bsu-001/assign", headers=login(client, "nurse@medora.tn"),
                     json={"patient_id": "p-0002", "bed": "C-14"})
     assert r.status_code == 403
 
 
 def test_command(client, published):
-    h = login(client, "nurse@ward.tn")
+    h = login(client, "nurse@medora.tn")
     r = client.post("/devices/bsu-001/command", headers=h, json={"type": "alert", "text": "Nurse is on the way"})
     assert r.status_code == 200
     assert published[-1][:2] == ("hospital/device/bsu-001/command", {"type": "alert", "text": "Nurse is on the way"})
@@ -92,7 +92,7 @@ def test_command(client, published):
 
 
 def test_doses_today_and_given(client, db, published):
-    h = login(client, "nurse@ward.tn")
+    h = login(client, "nurse@medora.tn")
     rows = client.get("/patients/p-0001/doses", headers=h).json()
     assert rows and rows[0]["scheduled_at"] <= rows[-1]["scheduled_at"]
     assert {"id", "prescription_id", "patient_id", "scheduled_at", "time_of_day", "meds", "slot", "status",
@@ -101,14 +101,14 @@ def test_doses_today_and_given(client, db, published):
     assert r.status_code == 200 and r.json()["status"] == "taken" and r.json()["given_by"] == "u-0002"
     assert db.get(MedDose, rows[0]["id"]).status == "taken"
     assert published[-1][1]["type"] == "dose_event"
-    assert client.post(f"/doses/{rows[1]['id']}/given", headers=login(client, "nurse2@ward.tn")).status_code == 403
+    assert client.post(f"/doses/{rows[1]['id']}/given", headers=login(client, "nurse2@medora.tn")).status_code == 403
 
 
 def test_doses_by_date_patient_self(client):
-    rows = client.get("/patients/p-0001/doses?date=2020-01-01", headers=login(client, "patient@ward.tn")).json()
+    rows = client.get("/patients/p-0001/doses?date=2020-01-01", headers=login(client, "patient@medora.tn")).json()
     assert rows == []
 
 
 def test_patient_record_untouched_by_discharge(client, db):
-    client.post("/admissions/adm-0001/discharge", headers=login(client, "doctor@ward.tn"))
+    client.post("/admissions/adm-0001/discharge", headers=login(client, "doctor@medora.tn"))
     assert db.get(Patient, "p-0001") is not None

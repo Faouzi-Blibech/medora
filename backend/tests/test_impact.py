@@ -17,7 +17,7 @@ def _user(db, email: str) -> User:
 
 
 def _populate(db):
-    doctor, nurse = _user(db, "doctor@ward.tn"), _user(db, "nurse@ward.tn")
+    doctor, nurse = _user(db, "doctor@medora.tn"), _user(db, "nurse@medora.tn")
     p = make_patient(db, attending=doctor.id)
     db.add(Admission(id="adm-t001", patient_id=p.id, bed="T-1", admitted_at=NOW - 10 * DAY))
 
@@ -126,7 +126,7 @@ def test_no_show_rate_once_attendance_is_recorded(seeded):
     p = seeded.scalar(select(Appointment.patient_id).where(Appointment.id == "a-t001"))
     for i, status in enumerate(["done", "done", "done", "no_show"]):
         seeded.add(Appointment(id=f"a-t1{i}", patient_id=p, status=status, urgency_ai=3, created_at=NOW - 9 * DAY,
-                               slot_at=NOW - 3 * DAY, confirmed_by=_user(seeded, "doctor@ward.tn").id))
+                               slot_at=NOW - 3 * DAY, confirmed_by=_user(seeded, "doctor@medora.tn").id))
     seeded.flush()
     ind = _by_id(impact(seeded, 7, now=NOW))
     assert ind["no_show_rate_pct"]["status"] == "ok"
@@ -134,15 +134,15 @@ def test_no_show_rate_once_attendance_is_recorded(seeded):
 
 
 def test_admin_only(client):
-    r = client.get("/admin/impact?days=7", headers=login(client, "admin@ward.tn"))
+    r = client.get("/admin/impact?days=7", headers=login(client, "admin@medora.tn"))
     assert r.status_code == 200
     body = r.json()
     assert body["days"] == 7 and len(body["indicators"]) > 10
     assert "first_name" not in r.text and "last_name" not in r.text
-    for email in ("doctor@ward.tn", "nurse@ward.tn", "patient@ward.tn"):
+    for email in ("doctor@medora.tn", "nurse@medora.tn", "patient@medora.tn"):
         assert client.get("/admin/impact", headers=login(client, email)).status_code == 403
     assert client.get("/admin/impact").status_code == 401
-    assert client.get("/admin/impact?days=0", headers=login(client, "admin@ward.tn")).status_code == 422
+    assert client.get("/admin/impact?days=0", headers=login(client, "admin@medora.tn")).status_code == 422
 
 
 def test_demo_history_fills_the_dashboard_and_is_idempotent(client, seeded):
@@ -158,7 +158,7 @@ def test_demo_history_fills_the_dashboard_and_is_idempotent(client, seeded):
     assert seeded.scalar(select(Alert.id).where(Alert.id.like("al-h%"), Alert.created_at >= recent)) is None
     assert seeded.scalar(select(Alert.id).where(Alert.id.like("al-h%"), Alert.acked_at.is_(None))) is None
     assert seeded.scalar(select(Alert.id).where(Alert.id.like("al-h%"), Alert.patient_id.is_not(None))) is None
-    nurse = client.get("/alerts", headers=login(client, "nurse@ward.tn")).json()
+    nurse = client.get("/alerts", headers=login(client, "nurse@medora.tn")).json()
     assert not [a for a in nurse if a["id"].startswith("al-h")]  # history stays out of the clinical feeds
     assert seeded.scalar(select(MedDose.id).where(MedDose.id.like("d-h%"), MedDose.scheduled_at >= recent)) is None
     assert seeded.scalar(select(Appointment.id).where(Appointment.id.like("a-h%"),
@@ -166,7 +166,7 @@ def test_demo_history_fills_the_dashboard_and_is_idempotent(client, seeded):
     assert seeded.scalar(select(Admission.id).where(Admission.id.like("adm-h%"),
                                                     Admission.patient_id.in_(["p-0001", "p-0005"]))) is None
 
-    r = client.get("/admin/impact?days=30", headers=login(client, "admin@ward.tn"))
+    r = client.get("/admin/impact?days=30", headers=login(client, "admin@medora.tn"))
     ind = _by_id(r.json())
     for key in ("alerts_total", "ack_median_min", "ack_p90_min", "ack_within_5min_pct", "doses_taken_pct",
                 "doses_missed_pct", "doses_on_time_pct", "missed_per_patient_day", "requests_received",

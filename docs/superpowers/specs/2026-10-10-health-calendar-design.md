@@ -4,7 +4,7 @@
 
 ## Goal
 
-Every Ward user (patient, nurse, doctor, admin) sees a calendar of the important public-health events in Tunisia
+Every Medora user (patient, nurse, doctor, admin) sees a calendar of the important public-health events in Tunisia
 (Octobre Rose, the seasonal flu campaign, HPV vaccination for girls, world health days…) and is told about the ones
 that concern them: in the app (nav badge, home banner) and by push (WhatsApp + email through n8n). The admin curates
 the list. Users choose which categories they follow.
@@ -161,7 +161,7 @@ Routes:
   matching + followed events active today or starting within 7 days (fetched once in the Sidebar).
 - `/patient/calendar`: phone-frame screen, compact (upcoming list + small month), 5th tab `calendar`, link "Open full
   calendar" → `/calendar`.
-- `/calendar`: full-width page for any signed-in user (its own minimal header with Ward brand, language switcher,
+- `/calendar`: full-width page for any signed-in user (its own minimal header with Medora brand, language switcher,
   back link to the user's home).
 - Patient Home shows `UpcomingBanner`; staff home pages show it above their content.
 

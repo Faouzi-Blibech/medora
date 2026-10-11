@@ -109,7 +109,7 @@ In the role matrix, add two rows before `Devices / admissions`:
 | Notebook | RW own | — | — | — |
 ```
 
-Under "Seed data", add the bullet `- 2 department nurses: \`u-0006\` Imaging (\`imaging@ward.tn\`), \`u-0007\` Laboratory (\`lab@ward.tn\`)`. Add the changelog line at the top of the Changelog:
+Under "Seed data", add the bullet `- 2 department nurses: \`u-0006\` Imaging (\`imaging@medora.tn\`), \`u-0007\` Laboratory (\`lab@medora.tn\`)`. Add the changelog line at the top of the Changelog:
 
 ```markdown
 - **1.4** (2026-10-09): adds `exam_orders`, `exam_results`, `notebook_entries`, the Exams and Notebook permission rows and two department nurses in the seed (single-visit pathway and case notebook, see `docs/superpowers/specs/2026-10-09-single-visit-and-case-notebook-design.md`). Needs a 👍 from Wali.
@@ -385,7 +385,7 @@ git commit -m "feat(backend): exam_orders, exam_results and notebook_entries tab
 - Test: `backend/tests/test_seed.py`
 
 **Interfaces:**
-- Produces: logins `imaging@ward.tn` (`u-0006`, Staff ward `Imaging`, name `Nurse Rania`) and `lab@ward.tn` (`u-0007`, ward `Laboratory`, name `Nurse Karim`), password `ward1234`.
+- Produces: logins `imaging@medora.tn` (`u-0006`, Staff ward `Imaging`, name `Nurse Rania`) and `lab@medora.tn` (`u-0007`, ward `Laboratory`, name `Nurse Karim`), password `ward1234`.
 
 - [ ] **Step 1: Write the failing test.** Append to `backend/tests/test_seed.py`:
 
@@ -393,8 +393,8 @@ git commit -m "feat(backend): exam_orders, exam_results and notebook_entries tab
 def test_seed_department_nurses(seeded):
     from app.models import Staff, User
 
-    assert seeded.get(User, "u-0006").email == "imaging@ward.tn" and seeded.get(Staff, "u-0006").ward == "Imaging"
-    assert seeded.get(User, "u-0007").email == "lab@ward.tn" and seeded.get(Staff, "u-0007").ward == "Laboratory"
+    assert seeded.get(User, "u-0006").email == "imaging@medora.tn" and seeded.get(Staff, "u-0006").ward == "Imaging"
+    assert seeded.get(User, "u-0007").email == "lab@medora.tn" and seeded.get(Staff, "u-0007").ward == "Laboratory"
 ```
 
 - [ ] **Step 2: Run it to make sure it fails**
@@ -405,8 +405,8 @@ Expected: FAIL (`'NoneType' object has no attribute 'email'`)
 - [ ] **Step 3: Implement.** Add two tuples at the end of `STAFF` in `backend/app/seed.py`:
 
 ```python
-    ("u-0006", "imaging@ward.tn", "Nurse Rania", "nurse", "Imaging", None),
-    ("u-0007", "lab@ward.tn", "Nurse Karim", "nurse", "Laboratory", None),
+    ("u-0006", "imaging@medora.tn", "Nurse Rania", "nurse", "Imaging", None),
+    ("u-0007", "lab@medora.tn", "Nurse Karim", "nurse", "Laboratory", None),
 ```
 
 Change `("u", 5)` in the `reserve_upto` loop to `("u", 7)`.
@@ -935,8 +935,8 @@ def stored(monkeypatch):
 
 
 def _request(client):
-    a = client.post("/appointments", headers=login(client, "admin@ward.tn"), json=CHEST).json()
-    doc = login(client, "doctor@ward.tn")
+    a = client.post("/appointments", headers=login(client, "admin@medora.tn"), json=CHEST).json()
+    doc = login(client, "doctor@medora.tn")
     return a, doc, client.get(f"/appointments/{a['id']}/exams", headers=doc).json()
 
 
@@ -964,7 +964,7 @@ def test_order_selected_cancels_the_rest_and_emits(client, emitted):
 
 def test_order_rejects_foreign_or_stale_ids(client, db):
     a, doc, exams = _request(client)
-    other = client.post("/appointments", headers=login(client, "admin@ward.tn"),
+    other = client.post("/appointments", headers=login(client, "admin@medora.tn"),
                         json=dict(CHEST, patient_id="p-0002")).json()
     foreign = client.get(f"/appointments/{other['id']}/exams", headers=doc).json()[0]["id"]
     r = client.post(f"/appointments/{a['id']}/exams/order", headers=doc, json={"exam_ids": [foreign]})
@@ -973,7 +973,7 @@ def test_order_rejects_foreign_or_stale_ids(client, db):
     client.post(f"/appointments/{a['id']}/exams/order", headers=doc, json={"exam_ids": [exams[0]["id"]]})
     again = client.post(f"/appointments/{a['id']}/exams/order", headers=doc, json={"exam_ids": [exams[0]["id"]]})
     assert again.status_code == 409 and again.json()["code"] == "bad_status"
-    nurse = login(client, "nurse@ward.tn")
+    nurse = login(client, "nurse@medora.tn")
     assert client.post(f"/appointments/{a['id']}/exams/order", headers=nurse, json={"exam_ids": []}).status_code == 403
 
 
@@ -990,9 +990,9 @@ def test_upload_rules(client, db, stored):
     a, doc, exams = _request(client)
     xray = exams[2]["id"]  # Imaging
     client.post(f"/appointments/{a['id']}/exams/order", headers=doc, json={"exam_ids": [xray]})
-    lab = login(client, "lab@ward.tn")
+    lab = login(client, "lab@medora.tn")
     assert client.post(f"/exams/{xray}/results", headers=lab, files={"file": PDF}).status_code == 403
-    img = login(client, "imaging@ward.tn")
+    img = login(client, "imaging@medora.tn")
     bad = client.post(f"/exams/{xray}/results", headers=img, files={"file": ("x.exe", b"MZ", "application/x-msdownload")})
     assert bad.status_code == 422 and bad.json()["code"] == "bad_file"
     big = client.post(f"/exams/{xray}/results", headers=img,
@@ -1012,9 +1012,9 @@ def test_results_ready_fires_once_on_last_upload(client, emitted, stored):
     a, doc, exams = _request(client)
     ecg, xray = exams[0]["id"], exams[2]["id"]
     client.post(f"/appointments/{a['id']}/exams/order", headers=doc, json={"exam_ids": [ecg, xray]})
-    client.post(f"/exams/{ecg}/results", headers=login(client, "nurse@ward.tn"), files={"file": PDF})
+    client.post(f"/exams/{ecg}/results", headers=login(client, "nurse@medora.tn"), files={"file": PDF})
     assert [e for e, _ in emitted].count("exam.results_ready") == 0
-    client.post(f"/exams/{xray}/results", headers=login(client, "imaging@ward.tn"), files={"file": PDF})
+    client.post(f"/exams/{xray}/results", headers=login(client, "imaging@medora.tn"), files={"file": PDF})
     ready = [d for e, d in emitted if e == "exam.results_ready"]
     assert len(ready) == 1 and ready[0]["doctor_id"] == "u-0001" and ready[0]["appointment_id"] == a["id"]
 
@@ -1025,21 +1025,21 @@ def test_file_download_is_audited_and_guarded(client, db, stored):
     a, doc, exams = _request(client)
     xray = exams[2]["id"]
     client.post(f"/appointments/{a['id']}/exams/order", headers=doc, json={"exam_ids": [xray]})
-    res = client.post(f"/exams/{xray}/results", headers=login(client, "imaging@ward.tn"),
+    res = client.post(f"/exams/{xray}/results", headers=login(client, "imaging@medora.tn"),
                       files={"file": PDF}).json()["results"][0]
     r = client.get(f"/exam-results/{res['id']}/file", headers=doc)
     assert r.status_code == 200 and r.content == PDF[1] and r.headers["content-type"] == "application/pdf"
     assert db.query(AuditLog).filter_by(resource="exam_result", resource_id=res["id"]).count() == 1
-    assert client.get(f"/exam-results/{res['id']}/file", headers=login(client, "nurse2@ward.tn")).status_code == 403
-    assert client.get(f"/exam-results/{res['id']}/file", headers=login(client, "patient@ward.tn")).status_code == 403
+    assert client.get(f"/exam-results/{res['id']}/file", headers=login(client, "nurse2@medora.tn")).status_code == 403
+    assert client.get(f"/exam-results/{res['id']}/file", headers=login(client, "patient@medora.tn")).status_code == 403
 
 
 def test_patient_sees_only_ordered_rows(client):
-    patient = login(client, "patient@ward.tn")
+    patient = login(client, "patient@medora.tn")
     a = client.post("/appointments", headers=patient, json=CHEST).json()
     assert client.get(f"/appointments/{a['id']}/exams", headers=patient).json() == []
     assert client.get("/patients/p-0001/exams", headers=patient).json() == []
-    doc = login(client, "doctor@ward.tn")
+    doc = login(client, "doctor@medora.tn")
     first = client.get(f"/appointments/{a['id']}/exams", headers=doc).json()[0]["id"]
     client.post(f"/appointments/{a['id']}/exams/order", headers=doc, json={"exam_ids": [first]})
     [row] = client.get("/patients/p-0001/exams", headers=patient).json()
@@ -1050,8 +1050,8 @@ def test_patient_sees_only_ordered_rows(client):
 def test_worklist_is_per_department(client):
     a, doc, exams = _request(client)
     client.post(f"/appointments/{a['id']}/exams/order", headers=doc, json={"exam_ids": [e["id"] for e in exams]})
-    img = client.get("/exams?status=ordered", headers=login(client, "imaging@ward.tn")).json()
-    lab = client.get("/exams?status=ordered", headers=login(client, "lab@ward.tn")).json()
+    img = client.get("/exams?status=ordered", headers=login(client, "imaging@medora.tn")).json()
+    lab = client.get("/exams?status=ordered", headers=login(client, "lab@medora.tn")).json()
     assert [e["code"] for e in img] == ["chest_xray"] and [e["code"] for e in lab] == ["troponin"]
     assert img[0]["patient_name"] == "Amira Ben Salah"
     assert client.get("/exams", headers=doc).status_code == 403
@@ -1796,7 +1796,7 @@ git commit -m "feat(web): doctor reviews and orders suggested exams on requests"
 "use client";
 
 // Exams for one patient: ordered and done, with the uploaded files and report lines. A person reads the
-// results; Ward only stores and shows them.
+// results; Medora only stores and shows them.
 import { useEffect, useState } from "react";
 import { examFileUrl, getPatientExams } from "@/lib/api";
 import { tunisDay, tunisTime } from "@/lib/time";
@@ -2011,7 +2011,7 @@ If `Toast`'s props differ (for example a `tone` prop is required), match the usa
 import { Suspense } from "react";
 import { ExamWorklist } from "@/components/nurse/ExamWorklist";
 
-export const metadata = { title: "Exams · Ward" };
+export const metadata = { title: "Exams · Medora" };
 
 export default function NurseExamsPage() {
   return (
@@ -2111,9 +2111,9 @@ Expected: `{"status":"ok","db":true,"mqtt":true}`. `alembic upgrade head` runs i
 
 - [ ] **Step 2: Walk the golden path in real mode** (web on :3000 with `NEXT_PUBLIC_USE_MOCKS=0`)
 
-1. As `patient@ward.tn`, request: "douleur thoracique depuis ce matin".
-2. As `doctor@ward.tn`, open `/doctor/requests`: three suggestions → order ECG + chest X-ray.
-3. As `imaging@ward.tn`, open `/nurse/exams` → upload a PDF for the chest X-ray. As `nurse@ward.tn` (Cardiology), do the same for the ECG.
+1. As `patient@medora.tn`, request: "douleur thoracique depuis ce matin".
+2. As `doctor@medora.tn`, open `/doctor/requests`: three suggestions → order ECG + chest X-ray.
+3. As `imaging@medora.tn`, open `/nurse/exams` → upload a PDF for the chest X-ray. As `nurse@medora.tn` (Cardiology), do the same for the ECG.
 4. As the doctor, open the patient page: both results are listed and open in a new tab.
 5. As the admin, open `/admin/waitlist`: "Exams 2/2 · results in".
 6. As the patient, Home shows "Before your visit" with both rows "Done".

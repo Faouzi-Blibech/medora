@@ -86,7 +86,7 @@ export function CodeDialog({ subject, code, expiresAt, onClose }: CodeDialogProp
       </div>
 
       <div data-print-sheet>
-        <span className={styles.sheetBrand}>Ward</span>
+        <span className={styles.sheetBrand}>Medora</span>
         <span dir="auto">{subject}</span>
         <span dir="ltr" className={styles.sheetCode}>
           {code}

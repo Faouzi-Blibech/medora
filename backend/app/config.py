@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import PrivateAttr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-log = logging.getLogger("ward.config")
+log = logging.getLogger("medora.config")
 
 # Public defaults (also in .env.example): kept as constants so they can be detected.
 DEFAULT_JWT_SECRET = "change-me-to-a-long-random-string"  # NOSONAR
@@ -36,7 +36,7 @@ class Settings(BaseSettings):
 
     jwt_secret: str = DEFAULT_JWT_SECRET
     jwt_expire_hours: int = 8
-    hospital_name: str = "Ward Hospital"  # GET /hospital: this install's hospital (one install per hospital)
+    hospital_name: str = "Medora Hospital"  # GET /hospital: this install's hospital (one install per hospital)
     # health watch: the hospital's city for the weather-health alerts (Open-Meteo, no key) and the news feeds
     hospital_city: str = "Tunis"
     hospital_lat: float = 36.8065

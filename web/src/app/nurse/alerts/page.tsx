@@ -4,7 +4,7 @@ import { AlertsView } from "@/components/nurse/AlertsView";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("nurse.metaAlerts")} · Ward` };
+  return { title: `${t("nurse.metaAlerts")} · Medora` };
 }
 
 export default function NurseAlertsPage() {

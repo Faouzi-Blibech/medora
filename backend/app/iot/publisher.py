@@ -11,7 +11,7 @@ import paho.mqtt.client as mqtt
 from app.config import get_settings
 from app.iot import mqtt_auth
 
-log = logging.getLogger("ward.publisher")
+log = logging.getLogger("medora.publisher")
 
 WS_TOPIC = "ward/internal/ws"
 _client = None

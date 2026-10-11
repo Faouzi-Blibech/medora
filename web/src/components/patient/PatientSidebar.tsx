@@ -43,7 +43,7 @@ export function PatientSidebar() {
       <div className={styles.brand}>
         <Link href="/patient" className={styles.wordmark} style={{ color: "inherit", textDecoration: "none" }}>
           <span className={styles.mark} />
-          <span className={styles.name}>Ward</span>
+          <span className={styles.name}>Medora</span>
         </Link>
         <span className={styles.tag}>{t("patient.protoTag")}</span>
       </div>

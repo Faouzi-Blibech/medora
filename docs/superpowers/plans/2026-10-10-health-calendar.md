@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A calendar of important Tunisian public-health events, visible to every Ward role, with audience-targeted, opt-out-able push (n8n W9: WhatsApp + email) and admin curation.
+**Goal:** A calendar of important Tunisian public-health events, visible to every Medora role, with audience-targeted, opt-out-able push (n8n W9: WhatsApp + email) and admin curation.
 
 **Architecture:** Two new tables (`health_events`, `health_event_prefs`) behind one service module (`app/services/health_calendar.py`: matching, prefs, recipients, payloads). One router for users/admin, two new n8n callbacks. Web gets one data layer addition (types, api, mocks), one pure helper module, one shared `HealthCalendar` component reused by staff routes, the patient tab and a full-width `/calendar` page.
 
@@ -281,7 +281,7 @@ def test_age_on_birthday_boundary():
 
 def test_role_must_be_in_audience(db, seeded):
     ev = _ev(db, roles=["patient"])
-    doctor = make_user(db, "d9@ward.tn", role="doctor")
+    doctor = make_user(db, "d9@medora.tn", role="doctor")
     assert H.matches(doctor, None, ev) is False
 
 
@@ -295,7 +295,7 @@ def test_sex_and_age_apply_to_patients(db, seeded):
 
 def test_staff_ignore_sex_and_age(db, seeded):
     ev = _ev(db, sex="F", min_age=40)
-    nurse = make_user(db, "n9@ward.tn", role="nurse")
+    nurse = make_user(db, "n9@medora.tn", role="nurse")
     assert H.matches(nurse, None, ev) is True
 
 
@@ -333,10 +333,10 @@ def test_recipients_match_follow_and_active(db, seeded):
     ids = {u.id for u, _ in H.recipients(db, ev)}
     assert "u-0005" in ids and "u-0002" in ids and "u-0001" not in ids  # doctor not in roles
     H.set_prefs(db, "u-0002", {"screening": False})
-    make_user(db, "off@ward.tn", role="nurse", status="disabled")
-    make_user(db, "pend@ward.tn", role=None, status="pending")
+    make_user(db, "off@medora.tn", role="nurse", status="disabled")
+    make_user(db, "pend@medora.tn", role=None, status="pending")
     ids = {u.email for u, _ in H.recipients(db, ev)}
-    assert "nurse@ward.tn" not in ids and "off@ward.tn" not in ids and "pend@ward.tn" not in ids
+    assert "nurse@medora.tn" not in ids and "off@medora.tn" not in ids and "pend@medora.tn" not in ids
 
 
 def test_payload_first_names_only(db, seeded):
@@ -733,7 +733,7 @@ def test_list_needs_login(client):
 
 
 def test_list_window_and_flags(client):
-    pat = login(client, "patient@ward.tn")
+    pat = login(client, "patient@medora.tn")
     r = client.get("/health-events?from=2026-10-01&to=2026-11-30", headers=pat)
     assert r.status_code == 200
     ids = [e["id"] for e in r.json()]
@@ -744,7 +744,7 @@ def test_list_window_and_flags(client):
 
 
 def test_prefs_get_put(client):
-    pat = login(client, "patient@ward.tn")
+    pat = login(client, "patient@medora.tn")
     assert client.get("/me/health-prefs", headers=pat).json()["following"]["screening"] is True
     r = client.put("/me/health-prefs", headers=pat, json={"following": {"screening": False}})
     assert r.status_code == 200 and r.json()["following"]["screening"] is False
@@ -753,34 +753,34 @@ def test_prefs_get_put(client):
 
 
 def test_prefs_unknown_category_422(client):
-    pat = login(client, "patient@ward.tn")
+    pat = login(client, "patient@medora.tn")
     r = client.put("/me/health-prefs", headers=pat, json={"following": {"vaccination": False, "astrology": False}})
     assert r.status_code == 422
     assert client.get("/me/health-prefs", headers=pat).json()["following"]["vaccination"] is True
 
 
 def test_only_admin_writes(client):
-    doc = login(client, "doctor@ward.tn")
+    doc = login(client, "doctor@medora.tn")
     assert client.post("/health-events", headers=doc, json=NEW).status_code == 403
     assert client.delete("/health-events/he-0001", headers=doc).status_code == 403
     assert client.post("/health-events/he-0001/notify", headers=doc).status_code == 403
 
 
 def test_admin_create_patch_delete(client, db):
-    adm = login(client, "admin@ward.tn")
+    adm = login(client, "admin@medora.tn")
     r = client.post("/health-events", headers=adm, json=NEW)
     assert r.status_code == 201, r.text
     ev = r.json()
     assert ev["id"].startswith("he-") and ev["description"] == {"en": "", "fr": "", "ar": ""}
     assert ev["notify_days_before"] == 3
-    r = client.patch(f"/health-events/{ev['id']}", headers=adm, json={"organizer": "Ward"})
-    assert r.status_code == 200 and r.json()["organizer"] == "Ward"
+    r = client.patch(f"/health-events/{ev['id']}", headers=adm, json={"organizer": "Medora"})
+    assert r.status_code == 200 and r.json()["organizer"] == "Medora"
     assert client.delete(f"/health-events/{ev['id']}", headers=adm).status_code == 204
     assert client.patch(f"/health-events/{ev['id']}", headers=adm, json={"organizer": "x"}).status_code == 404
 
 
 def test_bad_dates(client):
-    adm = login(client, "admin@ward.tn")
+    adm = login(client, "admin@medora.tn")
     r = client.post("/health-events", headers=adm, json=dict(NEW, ends_on="2026-11-19"))
     assert r.status_code == 422 and r.json()["code"] == "bad_dates"
     r = client.patch("/health-events/he-0005", headers=adm, json={"ends_on": "2026-11-01"})  # starts 11-14
@@ -788,7 +788,7 @@ def test_bad_dates(client):
 
 
 def test_bad_audience(client):
-    adm = login(client, "admin@ward.tn")
+    adm = login(client, "admin@medora.tn")
     bad = dict(NEW, audience={"roles": [], "sex": None, "min_age": None, "max_age": None})
     assert client.post("/health-events", headers=adm, json=bad).status_code == 422
     bad = dict(NEW, audience={"roles": ["patient"], "sex": None, "min_age": 50, "max_age": 40})
@@ -799,13 +799,13 @@ def test_moving_start_clears_announced(client, db):
     from datetime import UTC, datetime
     db.get(HealthEvent, "he-0005").announced_at = datetime.now(UTC)
     db.flush()
-    adm = login(client, "admin@ward.tn")
+    adm = login(client, "admin@medora.tn")
     r = client.patch("/health-events/he-0005", headers=adm, json={"starts_on": "2026-11-13"})
     assert r.status_code == 200 and r.json()["announced_at"] is None
 
 
 def test_notify_now(client, db, emitted):
-    adm = login(client, "admin@ward.tn")
+    adm = login(client, "admin@medora.tn")
     r = client.post("/health-events/he-0001/notify", headers=adm)
     assert r.status_code == 200
     (event, data), = [e for e in emitted if e[0] == "health_event.upcoming"]
@@ -1100,7 +1100,7 @@ Update the module docstring version mention to `n8n-webhooks.md v1.4`.
   2. `Schedule Trigger` ("Daily 08:00", cron `0 8 * * *`; the container TZ is Africa/Tunis) → HTTP Request GET `{{$env.WARD_API_URL}}/integrations/n8n/health-events/due` with header `X-N8N-Secret: {{$env.N8N_CALLBACK_SECRET}}` → Code node "Split" returning one item per payload with `from_cron:true`.
   3. Both → Code node "Compose": `text = "📅 " + title.fr + " · " + range + (organizer ? " · " + organizer : "") + "\n" + web_url`, where `range` = `starts_on` or `starts_on → ends_on`. Output 1 item with `text`, plus `recipients`.
   4. WhatsApp: same HTTP node shape as W4, one message per number in `WARD_WHATSAPP_PATIENT` + `WARD_WHATSAPP_STAFF` (split on commas, skip empties), `onError: continueRegularOutput`.
-  5. Email: Code node "One per recipient" → Email node (`ward-smtp`, from `$env.WARD_MAIL_FROM`, to `email`, subject `Ward · {title.fr}`, body `Bonjour {first_name},\n\n{text}`), `onError: continueRegularOutput`.
+  5. Email: Code node "One per recipient" → Email node (`ward-smtp`, from `$env.WARD_MAIL_FROM`, to `email`, subject `Medora · {title.fr}`, body `Bonjour {first_name},\n\n{text}`), `onError: continueRegularOutput`.
   6. IF `from_cron` → HTTP POST `{{$env.WARD_API_URL}}/integrations/n8n/health-events/{{event_id}}/announced` with the secret header.
 - [ ] **Step 3: W0 router**: in the Code node "Check secret + route" add `'health_event.upcoming': <next index>` to `ROUTES` (also make sure `exam.ordered`/`exam.results_ready` routes are untouched); add the matching Switch output rule and an `executeWorkflow` node "W9 health calendar" calling `wardHealthCalW9x` (same shape as the other executeWorkflow nodes), wired in `connections`.
 - [ ] **Step 4: Validate JSON** `python -c "import json;[json.load(open(f'n8n/workflows/{f}.json',encoding='utf-8')) for f in ('W0-router','W9-health-calendar')];print('ok')"` → `ok`. If the local stack runs, import with the README commands (add `W9-health-calendar` before `W0-router` and `wardHealthCalW9x` before `wardRouterW00000` in both loops) and publish.
@@ -1508,7 +1508,7 @@ export const CATEGORY_LABEL: Record<HealthCategory, Key> = {
 
 - [ ] **Step 3: `CalendarView.tsx`** ("use client"): `<PatientScreen nav="calendar">` → a `styles.scroll` body with the title (`calendar.title`, class `styles.h1Small`), `<HealthCalendar role="patient" compact />`, and a `Link` to `/calendar` labelled `calendar.openFull`. `app/patient/calendar/page.tsx` follows `app/patient/vitals/page.tsx`.
 
-- [ ] **Step 4: Full-width `/calendar`**: `app/calendar/layout.tsx` renders children on `var(--canvas)` full height. `FullCalendarPage.tsx` ("use client"): `const me = useMe();` (real mode: the signed-in role; mock mode: default to `"patient"`), header row with the Ward wordmark (reuse the brand markup/classes idea from `Sidebar`/`Brand` but in its own CSS module), `LanguageSwitcher`, and a back link (`calendar.back`) to `/patient`, `/doctor`, `/nurse` or `/admin` according to the role; then `<HealthCalendar role={role} editable={role === "admin"} />`. `app/calendar/page.tsx` is the server wrapper with metadata and `Suspense`. If the app has route protection (check how `/patient` pages redirect when signed out, e.g. a `401` handler in `api.ts`), rely on the same mechanism; do not add a new one.
+- [ ] **Step 4: Full-width `/calendar`**: `app/calendar/layout.tsx` renders children on `var(--canvas)` full height. `FullCalendarPage.tsx` ("use client"): `const me = useMe();` (real mode: the signed-in role; mock mode: default to `"patient"`), header row with the Medora wordmark (reuse the brand markup/classes idea from `Sidebar`/`Brand` but in its own CSS module), `LanguageSwitcher`, and a back link (`calendar.back`) to `/patient`, `/doctor`, `/nurse` or `/admin` according to the role; then `<HealthCalendar role={role} editable={role === "admin"} />`. `app/calendar/page.tsx` is the server wrapper with metadata and `Suspense`. If the app has route protection (check how `/patient` pages redirect when signed out, e.g. a `401` handler in `api.ts`), rely on the same mechanism; do not add a new one.
 
 - [ ] **Step 5: Banners** — patient `Home.tsx`: render `<UpcomingBanner role="patient" href="/patient/calendar" />` near the top of the home body (after the greeting block). `RoleShell.tsx`: when `pathname === "/" + role` (the role's home), render `<UpcomingBanner role={role} href={`/${role}/calendar`} />` at the top of `main` inside a wrapper with `padding: 16px 40px 0` (add a class to `RoleShell.module.css`). `RoleShell` already reads the pathname in `ShellSidebar`; read it with `usePathname()` in a small client child component so the layout stays a single client component.
 
@@ -1523,5 +1523,5 @@ export const CATEGORY_LABEL: Record<HealthCategory, Key> = {
 
 - [ ] **Step 1: Backend suite** `cd backend && .venv/Scripts/python -m pytest -q` → all PASS.
 - [ ] **Step 2: Migration on the real stack**: `docker compose -f infra/docker-compose.yml --env-file .env up -d --build api worker web` then `docker compose -f infra/docker-compose.yml exec api alembic upgrade head` (if the api container does not migrate on start) and `docker compose -f infra/docker-compose.yml exec api python -m app.seed`; `curl -s localhost:8001/health` → ok (the local API port is 8001 on this laptop).
-- [ ] **Step 3: Real-mode check**: log in as `admin@ward.tn` (seed password from `.env` `SEED_PASSWORD`) at the web app, open `/admin/calendar`, press Notify now on Octobre Rose → a `health_event.upcoming` reaches n8n (check the n8n executions list; W9 present if imported). Log in as `patient@ward.tn` → banner + calendar tab.
+- [ ] **Step 3: Real-mode check**: log in as `admin@medora.tn` (seed password from `.env` `SEED_PASSWORD`) at the web app, open `/admin/calendar`, press Notify now on Octobre Rose → a `health_event.upcoming` reaches n8n (check the n8n executions list; W9 present if imported). Log in as `patient@medora.tn` → banner + calendar tab.
 - [ ] **Step 4: Push and PR** `git push -u origin wali/health-calendar`, then `gh pr create --title "feat: health calendar (Tunisian health events, targeted push)" --body …` with: summary, contract bumps (api 1.10, data-model 1.6, n8n 1.4), the lanes touched, **"@Faouzi-Blibech: this touches web/ and n8n/ (your lane) — please review those commits"**, and a test plan. No AI attribution in the body.

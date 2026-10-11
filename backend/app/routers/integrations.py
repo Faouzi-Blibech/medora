@@ -89,7 +89,7 @@ def backfill_accept(body: BackfillIn, db: Session = Depends(get_db)) -> dict:
     return {"status": status}
 
 
-NOT_REVIEWED = "Summary not reviewed yet. Open Ward to review it."
+NOT_REVIEWED = "Summary not reviewed yet. Open Medora to review it."
 
 
 def _summary_text(db: Session, p: Patient) -> str:

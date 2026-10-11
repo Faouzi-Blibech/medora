@@ -57,7 +57,7 @@ notification. The link survives restarts (the `waha-sessions` volume).
 In production the hospital would use the official WhatsApp Business API (Meta) instead; only the HTTP node's URL
 and body change.
 
-**Privacy:** staff alerts name the bed only ("Ward: critical alert, bed C-12. Open Ward now."): no patient name,
+**Privacy:** staff alerts name the bed only ("Medora: critical alert, bed C-12. Open Medora now."): no patient name,
 score, vitals or medication leaves the server. Patient messages carry the patient's own appointment details.
 WhatsApp is still a third-party service outside Tunisia: a real deployment needs INPDP authorisation for it.
 

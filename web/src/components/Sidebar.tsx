@@ -144,7 +144,7 @@ export function Sidebar({ role, active, live = true, counts }: SidebarProps) {
       <div className={styles.brand}>
         <div className={styles.wordmark}>
           <span className={styles.mark} />
-          <span className={styles.name}>Ward</span>
+          <span className={styles.name}>Medora</span>
         </div>
         <span className={styles.tag}>{t("common.prototypeTag")}</span>
       </div>

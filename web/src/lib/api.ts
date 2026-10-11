@@ -347,7 +347,7 @@ export function changePassword(req: ChangePasswordRequest): Promise<void> {
 
 /** GET /hospital (no auth): this install's hospital name. */
 export function getHospital(): Promise<Hospital> {
-  if (USE_MOCKS) return mock(() => ({ name: "Ward Hospital" }));
+  if (USE_MOCKS) return mock(() => ({ name: "Medora Hospital" }));
   return http<Hospital>("GET", "/hospital");
 }
 

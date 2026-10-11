@@ -4,7 +4,7 @@ import { Dashboard } from "@/components/admin/Dashboard";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("admin.dashboard")} · Ward` };
+  return { title: `${t("admin.dashboard")} · Medora` };
 }
 
 export default function AdminDashboardPage() {

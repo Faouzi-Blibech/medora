@@ -40,9 +40,9 @@ function downloadIcs(a: Appointment, t: TFn) {
   const ics = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Ward//Patient//EN",
+    "PRODID:-//Medora//Patient//EN",
     "BEGIN:VEVENT",
-    `UID:${a.id}@ward`,
+    `UID:${a.id}@medora`,
     `DTSTAMP:${stamp(new Date())}`,
     `DTSTART:${stamp(start)}`,
     `DTEND:${stamp(end)}`,
@@ -54,7 +54,7 @@ function downloadIcs(a: Appointment, t: TFn) {
   const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar" }));
   const link = document.createElement("a");
   link.href = url;
-  link.download = `ward-appointment-${a.id}.ics`;
+  link.download = `medora-appointment-${a.id}.ics`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

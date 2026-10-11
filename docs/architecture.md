@@ -1,6 +1,6 @@
-# Ward — Architecture
+# Medora — Architecture
 
-> Ward (وَرد) is "rose" in Arabic and a "hospital ward" in English. It is a connected smart-hospital ecosystem
+> Medora is a connected smart-hospital ecosystem
 > in which patient, nurse, doctor and administration share one patient record and the patient process is automated.
 
 ## 1. Problem and framing
@@ -11,7 +11,7 @@ Tunisian hospitals today:
 - Doctors and nurses log, search and re-read paper records every day.
 - Patient, nurse, doctor and administration have no shared system.
 
-**Ward automates the patient process**:
+**Medora automates the patient process**:
 - no paper
 - exams done before the visit, so one consultation is enough
 - fewer no-shows
@@ -20,12 +20,12 @@ Tunisian hospitals today:
 
 Shorter waits are the *result*. We do not claim to "solve the waitlist".
 
-**Where Ward fits.** Doctors we showed the demo to (2026-10-09) already use a doctor-only system, and the national
+**Where Medora fits.** Doctors we showed the demo to (2026-10-09) already use a doctor-only system, and the national
 programme is rolling out:
 - electronic records and PACS imaging in public hospitals
 - Sahetna.tn for citizens, keyed on the national health identifier (INS)
 
-Ward does not replace these. It connects the four roles around one patient and automates the steps between them; in
+Medora does not replace these. It connects the four roles around one patient and automates the steps between them; in
 production it would use the INS as the patient identifier and exchange records with these systems.
 
 **Locked principles:**
@@ -103,7 +103,7 @@ flowchart LR
   D(("Doctor"))
   A(("Admin"))
 
-  subgraph Ward
+  subgraph Medora
     UC1["Request appointment"]
     UC2["Med reminders on bedside screen"]
     UC3["See prescriptions & next visit"]

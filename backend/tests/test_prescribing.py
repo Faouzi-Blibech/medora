@@ -6,7 +6,7 @@ from app.models import AuditLog, MedDose, Patient, Prescription
 from app.services import schedule
 from tests.helpers import login, pharmacist
 
-DOC = "doctor@ward.tn"
+DOC = "doctor@medora.tn"
 RX_OK = {"patient_id": "p-0001", "care_plan": "",
          "items": [{"med": "Omeprazole 20 mg", "drug_id": "d-0041", "times": ["20:00"], "slot": 3, "days": 3}]}
 RX_ALLERGY = {"patient_id": "p-0001", "care_plan": "",
@@ -47,7 +47,7 @@ def test_check_is_a_dry_run(client, db):
 
 def test_check_permissions(client):
     body = {"patient_id": "p-0001", "items": RX_OK["items"]}
-    assert client.post("/prescriptions/check", headers=login(client, "nurse@ward.tn"), json=body).status_code == 403
+    assert client.post("/prescriptions/check", headers=login(client, "nurse@medora.tn"), json=body).status_code == 403
     assert client.post("/prescriptions/check", headers=login(client, DOC),
                        json={**body, "patient_id": "p-0007"}).status_code == 403
     assert client.post("/prescriptions/check", headers=login(client, DOC),
@@ -152,8 +152,8 @@ def test_get_shapes_by_role(client):
     rows = client.get("/patients/p-0001/prescriptions", headers=login(client, DOC)).json()
     assert rows and all(set(r) == DOCTOR_KEYS for r in rows)
     assert all(set(r) == DOCTOR_KEYS for r in client.get("/patients/p-0001/prescriptions",
-                                                          headers=login(client, "nurse@ward.tn")).json())
-    mine = client.get("/patients/p-0001/prescriptions", headers=login(client, "patient@ward.tn")).json()
+                                                          headers=login(client, "nurse@medora.tn")).json())
+    mine = client.get("/patients/p-0001/prescriptions", headers=login(client, "patient@medora.tn")).json()
     assert mine and all(set(r) == PATIENT_KEYS for r in mine)
 
 
@@ -218,5 +218,5 @@ def test_stop_is_audited_with_the_prescription_and_checks_access_first(client, d
     before = db.query(AuditLog).count()
     assert client.patch(f"/prescriptions/{rx['id']}", headers=h, json={"active": False}).status_code == 409
     assert db.query(AuditLog).count() == before  # a refused request writes no audit row
-    assert client.patch(f"/prescriptions/{rx['id']}", headers=login(client, "nurse@ward.tn"),
+    assert client.patch(f"/prescriptions/{rx['id']}", headers=login(client, "nurse@medora.tn"),
                         json={"active": False}).status_code == 403

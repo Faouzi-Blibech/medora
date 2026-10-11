@@ -134,7 +134,7 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
 
 - [ ] **Step 3:** `ws.ts` exports `useWard(onFrame)`. In mock mode it emits a `vital` frame every 3 s and an `alert` every 30 s. In real mode it connects to `ws://…/ws?token=` and reconnects with backoff from 1 s up to 10 s, exposing `status: "live" | "reconnecting"`.
 - [ ] **Step 4:** Login page: email + password → `/auth/login` → store the token and the `me` object → redirect by role (`/doctor`, `/nurse`, `/admin`, `/patient`). In mock mode, four "log in as…" buttons.
-- [ ] **Step 5:** Install and configure Tailwind v4. Add a minimal `manifest.webmanifest` (name "Ward", theme colour, icons 192/512) linked from `layout.tsx` so the app installs on phones.
+- [ ] **Step 5:** Install and configure Tailwind v4. Add a minimal `manifest.webmanifest` (name "Medora", theme colour, icons 192/512) linked from `layout.tsx` so the app installs on phones.
 - [ ] **Step 6:** Create the Telegram bot via @BotFather. Get your chat ID (message the bot, then `https://api.telegram.org/bot<token>/getUpdates`). Create the n8n credentials per `n8n/README.md`.
 - [ ] **Step 7:** `npm run build` passes. Commit `feat(web): api client, mocks, ws hook, login`.
 
@@ -359,13 +359,13 @@ from tests.helpers import login
 def test_request_runs_triage(client, monkeypatch):
     from app.ai import triage as T
     monkeypatch.setattr(T, "complete_json", lambda *a, **k: (_ for _ in ()).throw(T.LLMUnavailable("x")))
-    h = login(client, "patient@ward.tn")
+    h = login(client, "patient@medora.tn")
     r = client.post("/appointments", headers=h, json={"patient_id": "p-0001",
                     "referral_text": "douleur thoracique", "symptoms": [], "preferred_dates": []})
     assert r.status_code == 200 and r.json()["urgency_ai"] == 5 and r.json()["status"] == "requested"
 
 def test_waitlist_uses_final_over_ai(client):
-    h = login(client, "admin@ward.tn")
+    h = login(client, "admin@medora.tn")
     wl = client.get("/appointments/waitlist", headers=h).json()
     last = wl[-1]["id"]
     r = client.patch(f"/appointments/{last}", headers=h, json={"urgency_final": 5})
@@ -373,7 +373,7 @@ def test_waitlist_uses_final_over_ai(client):
     assert client.get("/appointments/waitlist", headers=h).json()[0]["id"] == last
 
 def test_patient_cannot_confirm(client):
-    h = login(client, "patient@ward.tn")
+    h = login(client, "patient@medora.tn")
     assert client.post("/appointments/a-0001/confirm", headers=h, json={}).status_code == 403
 ```
 
@@ -494,7 +494,7 @@ Plan: `docs/superpowers/plans/2026-10-10-i18n.md`.
 
 - [ ] Verify the whole demo with `LLM_PROVIDER=none` and the Wi-Fi off (local stack only).
 - [ ] Record the **backup demo video** of the full golden path.
-- [ ] Pitch deck (≤ 10 slides): problem → Ward (one line) → the live demo → architecture → AI with a human in the loop → privacy (self-hosted, audit, no data leaves the server by default, optional LLM anonymised, INPDP Law 2004-63) → honesty slide (vitals simulated, AI not clinically validated, production path) → impact metrics we'd track (no-show rate, time-to-appointment for urgency ≥ 4, paper hours saved) → team.
+- [ ] Pitch deck (≤ 10 slides): problem → Medora (one line) → the live demo → architecture → AI with a human in the loop → privacy (self-hosted, audit, no data leaves the server by default, optional LLM anonymised, INPDP Law 2004-63) → honesty slide (vitals simulated, AI not clinically validated, production path) → impact metrics we'd track (no-show rate, time-to-appointment for urgency ≥ 4, paper hours saved) → team.
 - [ ] Rehearse ×3 with a timer. Q&A prep: cost per bed, scaling to a hospital, data residency, what if the AI is wrong (rules floor + human confirm), and offline behaviour.
 
 **Day 4 done when:** the backup video is recorded, the deck is done, and the team has rehearsed three times.

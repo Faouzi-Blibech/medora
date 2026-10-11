@@ -108,7 +108,7 @@ def test_window_hours():
 # --- API --------------------------------------------------------------------------------------------------------
 
 def test_nurse_gets_her_ward_drafts_audited(client, db):
-    h = login(client, "nurse@ward.tn")
+    h = login(client, "nurse@medora.tn")
     r = client.get("/handover?hours=12", headers=h)
     assert r.status_code == 200, r.text
     body = r.json()
@@ -132,7 +132,7 @@ def test_handover_flags_missed_dose_and_rising_news2(client, db):
                      hr=100 + 10 * k, spo2=94, temp=37.8, news2=n, source="manual"))
     db.add(Note(id="n-9001", patient_id="p-0001", author_id="u-0002", text="Patient feels dizzy"))
     db.flush()
-    item = next(i for i in client.get("/handover", headers=login(client, "nurse@ward.tn")).json()["items"]
+    item = next(i for i in client.get("/handover", headers=login(client, "nurse@medora.tn")).json()["items"]
                 if i["patient"]["id"] == "p-0001")
     codes = [r["code"] for r in item["recommendations"]]
     assert "missed_dose" in codes and "news2_rising" in codes and "news2_high" in codes
@@ -144,19 +144,19 @@ def test_nurse_scoping_and_roles(client, db):
     p = make_patient(db, ward="Internal Medicine", first="Rim", last="Test")
     db.add(Alert(id="al-9001", patient_id=p.id, kind="news2", severity="high", news2=6, message="NEWS2 6"))
     db.flush()
-    ids = [i["patient"]["id"] for i in client.get("/handover", headers=login(client, "nurse@ward.tn")).json()["items"]]
+    ids = [i["patient"]["id"] for i in client.get("/handover", headers=login(client, "nurse@medora.tn")).json()["items"]]
     assert p.id not in ids
-    other = [i["patient"]["id"] for i in client.get("/handover", headers=login(client, "nurse2@ward.tn")).json()["items"]]
+    other = [i["patient"]["id"] for i in client.get("/handover", headers=login(client, "nurse2@medora.tn")).json()["items"]]
     assert p.id in other and "p-0001" not in other  # an open alert puts a non-admitted patient on the list
-    assert client.get("/handover?ward=Internal%20Medicine", headers=login(client, "nurse@ward.tn")).status_code == 403
-    for email in ("patient@ward.tn", "admin@ward.tn"):
+    assert client.get("/handover?ward=Internal%20Medicine", headers=login(client, "nurse@medora.tn")).status_code == 403
+    for email in ("patient@medora.tn", "admin@medora.tn"):
         assert client.get("/handover", headers=login(client, email)).status_code == 403
-    doc = client.get("/handover", headers=login(client, "doctor@ward.tn"))
+    doc = client.get("/handover", headers=login(client, "doctor@medora.tn"))
     assert doc.status_code == 200 and sorted(i["patient"]["id"] for i in doc.json()["items"]) == ["p-0001", "p-0005"]
 
 
 def test_confirm_stores_who_and_when(client, db):
-    h = login(client, "nurse@ward.tn")
+    h = login(client, "nurse@medora.tn")
     r = client.post("/handover/p-0001/confirm", headers=h, json={"hours": 8})
     assert r.status_code == 200, r.text
     c = r.json()["confirmation"]
@@ -171,9 +171,9 @@ def test_confirm_stores_who_and_when(client, db):
 
 
 def test_confirm_access(client, db):
-    assert client.post("/handover/p-0007/confirm", headers=login(client, "nurse@ward.tn")).status_code == 403
-    assert client.post("/handover/p-9999/confirm", headers=login(client, "nurse@ward.tn")).status_code == 404
-    for email in ("doctor@ward.tn", "patient@ward.tn", "admin@ward.tn"):
+    assert client.post("/handover/p-0007/confirm", headers=login(client, "nurse@medora.tn")).status_code == 403
+    assert client.post("/handover/p-9999/confirm", headers=login(client, "nurse@medora.tn")).status_code == 404
+    for email in ("doctor@medora.tn", "patient@medora.tn", "admin@medora.tn"):
         assert client.post("/handover/p-0001/confirm", headers=login(client, email)).status_code == 403
-    make_user(db, "team@ward.tn", role="nurse", supervisor_id="u-0001")  # a doctor's team nurse, no ward
-    assert client.post("/handover/p-0001/confirm", headers=login(client, "team@ward.tn")).status_code == 200
+    make_user(db, "team@medora.tn", role="nurse", supervisor_id="u-0001")  # a doctor's team nurse, no ward
+    assert client.post("/handover/p-0001/confirm", headers=login(client, "team@medora.tn")).status_code == 200

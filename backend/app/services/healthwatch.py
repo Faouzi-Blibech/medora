@@ -44,7 +44,7 @@ def clear_cache() -> None:
 
 def _get(url: str, **params) -> httpx.Response:
     r = httpx.get(url, params=params or None, timeout=TIMEOUT_S, follow_redirects=True,
-                  headers={"User-Agent": "Ward-hospital-prototype/1.0"})
+                  headers={"User-Agent": "Medora-hospital-prototype/1.0"})
     r.raise_for_status()
     return r
 

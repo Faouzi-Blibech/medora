@@ -7,8 +7,8 @@ from tests.helpers import login, make_patient, make_user
 
 
 def _setup(db):
-    team = make_user(db, "team.t@ward.tn", role="nurse", supervisor_id="u-0001")
-    doc2 = make_user(db, "doc2.t@ward.tn", role="doctor", ward="Cardiology")
+    team = make_user(db, "team.t@medora.tn", role="nurse", supervisor_id="u-0001")
+    doc2 = make_user(db, "doc2.t@medora.tn", role="doctor", ward="Cardiology")
     mine = make_patient(db, attending="u-0001", ward="Cardiology")
     theirs = make_patient(db, attending=doc2.id, ward="Cardiology")
     return team, doc2, mine, theirs
@@ -16,7 +16,7 @@ def _setup(db):
 
 def test_team_nurse_sees_only_her_doctors_patients(client, db):
     _, _, mine, theirs = _setup(db)
-    h = login(client, "team.t@ward.tn")
+    h = login(client, "team.t@medora.tn")
     assert client.get(f"/patients/{mine.id}", headers=h).status_code == 200
     assert client.get(f"/patients/{theirs.id}", headers=h).status_code == 403
     ids = {r["id"] for r in client.get("/patients", headers=h).json()}
@@ -27,20 +27,20 @@ def test_team_nurse_gets_her_doctors_alerts_only(client, db):
     _, _, mine, theirs = _setup(db)
     a1 = AL.create_alert(db, mine.id, None, "trend", "medium", None, "test mine", None)
     a2 = AL.create_alert(db, theirs.id, None, "trend", "medium", None, "test theirs", None)
-    ids = {a["id"] for a in client.get("/alerts", headers=login(client, "team.t@ward.tn")).json()}
+    ids = {a["id"] for a in client.get("/alerts", headers=login(client, "team.t@medora.tn")).json()}
     assert a1.id in ids and a2.id not in ids
 
 
 def test_team_nurse_ward_screens_are_empty_not_errors(client, db):
     _setup(db)
-    h = login(client, "team.t@ward.tn")
+    h = login(client, "team.t@medora.tn")
     assert client.get("/exams", headers=h).json() == []
     r = client.get("/patients?ward=Nowhere", headers=h)
     assert r.status_code == 200 and r.json() == []
 
 
 def test_ward_nurse_unchanged(client):
-    rows = client.get("/patients", headers=login(client, "nurse@ward.tn")).json()
+    rows = client.get("/patients", headers=login(client, "nurse@medora.tn")).json()
     assert rows and {r["ward"] for r in rows} == {"Cardiology"}
 
 
@@ -54,7 +54,7 @@ def test_ws_routes_doctor_frames_to_his_team_nurse():
 
 def test_share_gives_access_until_revoked(client, db):
     _, doc2, _, _ = _setup(db)
-    h2, h1 = login(client, "doc2.t@ward.tn"), login(client, "doctor@ward.tn")
+    h2, h1 = login(client, "doc2.t@medora.tn"), login(client, "doctor@medora.tn")
     assert client.get("/patients/p-0001", headers=h2).status_code == 403
     r = client.post("/patients/p-0001/access", headers=h1, json={"doctor_id": doc2.id})
     assert r.status_code == 200 and r.json()["doctor_id"] == doc2.id
@@ -71,20 +71,20 @@ def test_expired_grant_gives_nothing(client, db):
     db.add(PatientAccess(id="pa-9001", patient_id="p-0001", user_id=doc2.id, granted_by="u-0001",
                          created_at=now - timedelta(days=31), expires_at=now - timedelta(days=1)))
     db.flush()
-    assert client.get("/patients/p-0001", headers=login(client, "doc2.t@ward.tn")).status_code == 403
+    assert client.get("/patients/p-0001", headers=login(client, "doc2.t@medora.tn")).status_code == 403
 
 
 def test_only_attending_or_admin_can_share(client, db):
     _, doc2, _, _ = _setup(db)
     body = {"doctor_id": doc2.id}
-    assert client.post("/patients/p-0001/access", headers=login(client, "doc2.t@ward.tn"), json=body).status_code == 403
-    assert client.post("/patients/p-0001/access", headers=login(client, "nurse@ward.tn"), json=body).status_code == 403
-    assert client.post("/patients/p-0001/access", headers=login(client, "admin@ward.tn"), json=body).status_code == 200
+    assert client.post("/patients/p-0001/access", headers=login(client, "doc2.t@medora.tn"), json=body).status_code == 403
+    assert client.post("/patients/p-0001/access", headers=login(client, "nurse@medora.tn"), json=body).status_code == 403
+    assert client.post("/patients/p-0001/access", headers=login(client, "admin@medora.tn"), json=body).status_code == 200
 
 
 def test_share_validation(client, db):
     _, doc2, _, _ = _setup(db)
-    h1 = login(client, "doctor@ward.tn")
+    h1 = login(client, "doctor@medora.tn")
     far = (datetime.now(UTC) + timedelta(days=400)).isoformat()
     past = (datetime.now(UTC) - timedelta(days=1)).isoformat()
     for body in ({"doctor_id": doc2.id, "expires_at": far}, {"doctor_id": doc2.id, "expires_at": past},
@@ -99,7 +99,7 @@ from app.models import Appointment, AuditLog, ExamOrder, Staff  # noqa: E402
 
 
 def _share(client, doc2, **extra):
-    return client.post("/patients/p-0001/access", headers=login(client, "doctor@ward.tn"),
+    return client.post("/patients/p-0001/access", headers=login(client, "doctor@medora.tn"),
                        json={"doctor_id": doc2.id, **extra})
 
 
@@ -110,7 +110,7 @@ def _audits(db, resource):
 
 def test_share_revoke_and_list_are_audited(client, db):
     _, doc2, _, _ = _setup(db)
-    h1 = login(client, "doctor@ward.tn")
+    h1 = login(client, "doctor@medora.tn")
     grant_id = _share(client, doc2)
     assert grant_id.status_code == 200
     client.get("/patients/p-0001/access", headers=h1)
@@ -123,7 +123,7 @@ def test_share_revoke_and_list_are_audited(client, db):
 
 def test_expired_and_revoked_grants_are_excluded_from_lists(client, db):
     _, doc2, _, _ = _setup(db)
-    h2, h1 = login(client, "doc2.t@ward.tn"), login(client, "doctor@ward.tn")
+    h2, h1 = login(client, "doc2.t@medora.tn"), login(client, "doctor@medora.tn")
     now = datetime.now(UTC)
     alert = AL.create_alert(db, "p-0001", None, "trend", "medium", None, "shared alert", None)
     db.add(PatientAccess(id="pa-9002", patient_id="p-0001", user_id=doc2.id, granted_by="u-0001",
@@ -141,9 +141,9 @@ def test_expired_and_revoked_grants_are_excluded_from_lists(client, db):
 
 def test_shared_doctor_cannot_reshare(client, db):
     _, doc2, _, _ = _setup(db)
-    doc3 = make_user(db, "doc3.t@ward.tn", role="doctor", ward="Cardiology")
+    doc3 = make_user(db, "doc3.t@medora.tn", role="doctor", ward="Cardiology")
     _share(client, doc2)
-    r = client.post("/patients/p-0001/access", headers=login(client, "doc2.t@ward.tn"), json={"doctor_id": doc3.id})
+    r = client.post("/patients/p-0001/access", headers=login(client, "doc2.t@medora.tn"), json={"doctor_id": doc3.id})
     assert r.status_code == 403
 
 
@@ -157,7 +157,7 @@ def test_second_share_replaces_the_first(client, db):
     _, doc2, _, _ = _setup(db)
     _share(client, doc2)
     _share(client, doc2, expires_at=(datetime.now(UTC) + timedelta(days=5)).isoformat())
-    live = client.get("/patients/p-0001/access", headers=login(client, "doctor@ward.tn")).json()
+    live = client.get("/patients/p-0001/access", headers=login(client, "doctor@medora.tn")).json()
     assert [g["doctor_id"] for g in live] == [doc2.id]
     rows = db.scalars(select(PatientAccess).where(PatientAccess.user_id == doc2.id)).all()
     assert len(rows) == 2 and sum(r.revoked_at is None for r in rows) == 1
@@ -165,7 +165,7 @@ def test_second_share_replaces_the_first(client, db):
 
 def test_shared_doctor_reads_exams_and_appointments_until_revoked(client, db):
     _, doc2, _, _ = _setup(db)
-    h2, h1 = login(client, "doc2.t@ward.tn"), login(client, "doctor@ward.tn")
+    h2, h1 = login(client, "doc2.t@medora.tn"), login(client, "doctor@medora.tn")
     appt = Appointment(id="ap-9001", patient_id="p-0001", status="confirmed", urgency_ai=2, doctor_id=None)
     db.add(appt)
     db.flush()
@@ -208,7 +208,7 @@ def test_chat_ids_include_team_nurses_once(client, db):
     from app.services.alerts import chat_ids
 
     team, _, mine, _ = _setup(db)
-    ward_nurse = make_user(db, "wn.t@ward.tn", role="nurse", ward="Cardiology", supervisor_id="u-0001")
+    ward_nurse = make_user(db, "wn.t@medora.tn", role="nurse", ward="Cardiology", supervisor_id="u-0001")
     db.get(Staff, team.id).telegram_chat_id = "T1"
     db.get(Staff, ward_nurse.id).telegram_chat_id = "W1"
     db.flush()
@@ -220,7 +220,7 @@ def test_chat_ids_include_team_nurses_once(client, db):
 # ---- read-only sharing ----
 def test_shared_doctor_is_read_only(client, db):
     _, doc2, _, _ = _setup(db)
-    h2, h1 = login(client, "doc2.t@ward.tn"), login(client, "doctor@ward.tn")
+    h2, h1 = login(client, "doc2.t@medora.tn"), login(client, "doctor@medora.tn")
     appt = Appointment(id="ap-9002", patient_id="p-0001", status="confirmed", urgency_ai=2, doctor_id=None)
     db.add(appt)
     db.flush()

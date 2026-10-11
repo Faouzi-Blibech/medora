@@ -12,7 +12,7 @@ def _confirm(client, h, appointment_id, slot=SLOT, **extra):
 
 
 def test_patient_requests_own_appointment_and_sees_no_score(client):
-    h = login(client, "patient@ward.tn")
+    h = login(client, "patient@medora.tn")
     r = client.post("/appointments", headers=h, json=REQ)
     assert r.status_code == 201, r.text
     body = r.json()
@@ -25,25 +25,25 @@ def test_patient_requests_own_appointment_and_sees_no_score(client):
 
 
 def test_admin_request_runs_triage(client):
-    r = client.post("/appointments", headers=login(client, "admin@ward.tn"), json=REQ)
+    r = client.post("/appointments", headers=login(client, "admin@medora.tn"), json=REQ)
     body = r.json()
     assert r.status_code == 201 and body["urgency_ai"] == 5 and "chest_pain" in body["triage"]["red_flags"]
     assert body["triage"]["source"] in ("model", "rules") and body["ai_suggested"]["urgency"] == 5
     assert body["patient_name"] == "Amira Ben Salah" and body["specialty"] == "Cardiology"
-    assert client.post("/appointments", headers=login(client, "doctor@ward.tn"), json=REQ).status_code == 403
+    assert client.post("/appointments", headers=login(client, "doctor@medora.tn"), json=REQ).status_code == 403
 
 
 def test_waitlist_order_and_roles(client):
-    rows = client.get("/appointments/waitlist", headers=login(client, "doctor@ward.tn")).json()
+    rows = client.get("/appointments/waitlist", headers=login(client, "doctor@medora.tn")).json()
     assert len(rows) == 10 and all(r["status"] == "requested" for r in rows)
     keys = [(-(r["urgency_final"] or r["urgency_ai"]), r["created_at"]) for r in rows]
     assert keys == sorted(keys)
-    assert client.get("/appointments/waitlist", headers=login(client, "nurse@ward.tn")).status_code == 403
-    assert client.get("/appointments/waitlist", headers=login(client, "patient@ward.tn")).status_code == 403
+    assert client.get("/appointments/waitlist", headers=login(client, "nurse@medora.tn")).status_code == 403
+    assert client.get("/appointments/waitlist", headers=login(client, "patient@medora.tn")).status_code == 403
 
 
 def test_override_records_the_human(client):
-    h = login(client, "admin@ward.tn")
+    h = login(client, "admin@medora.tn")
     r = client.patch("/appointments/a-0004", headers=h, json={"urgency_final": 4})
     assert r.status_code == 200 and r.json()["urgency_final"] == 4
     assert r.json()["human_confirmed_by"] == "u-0004" and r.json()["human_confirmed_by_name"] == "Hela Mejri"
@@ -52,7 +52,7 @@ def test_override_records_the_human(client):
 
 
 def test_confirm_emits_and_guards_the_slot(client, emitted):
-    h = login(client, "admin@ward.tn")
+    h = login(client, "admin@medora.tn")
     r = _confirm(client, h, "a-0001", urgency_final=5)
     assert r.status_code == 200, r.text
     body = r.json()
@@ -65,11 +65,11 @@ def test_confirm_emits_and_guards_the_slot(client, emitted):
     assert taken.status_code == 409 and taken.json()["code"] == "slot_taken"
     bad = client.post("/appointments/a-0002/confirm", headers=h, json={"slot_at": SLOT, "doctor_id": "u-0002"})
     assert bad.status_code == 422
-    assert _confirm(client, login(client, "patient@ward.tn"), "a-0002").status_code == 403
+    assert _confirm(client, login(client, "patient@medora.tn"), "a-0002").status_code == 403
 
 
 def test_cancel_frees_the_slot_for_the_best_candidate(client, db, emitted):
-    h = login(client, "admin@ward.tn")
+    h = login(client, "admin@medora.tn")
     _confirm(client, h, "a-0001")
     r = client.post("/appointments/a-0001/cancel", headers=h, json={"reason": "travel"})
     assert r.status_code == 200 and r.json()["status"] == "cancelled"
@@ -82,9 +82,9 @@ def test_cancel_frees_the_slot_for_the_best_candidate(client, db, emitted):
 
 
 def test_patient_reply_confirm_and_cancel(client, db, emitted):
-    patient = login(client, "patient@ward.tn")
+    patient = login(client, "patient@medora.tn")
     a = client.post("/appointments", headers=patient, json=REQ).json()
-    _confirm(client, login(client, "admin@ward.tn"), a["id"])
+    _confirm(client, login(client, "admin@medora.tn"), a["id"])
     r = client.post(f"/appointments/{a['id']}/reply", headers=patient, json={"reply": "confirm"})
     assert r.status_code == 200 and r.json()["patient_confirmed_at"]
     r = client.post(f"/appointments/{a['id']}/reply", headers=patient, json={"reply": "cancel"})

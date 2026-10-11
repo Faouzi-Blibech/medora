@@ -19,8 +19,8 @@ def stored(monkeypatch):
 
 
 def _request(client):
-    a = client.post("/appointments", headers=login(client, "admin@ward.tn"), json=CHEST).json()
-    doc = login(client, "doctor@ward.tn")
+    a = client.post("/appointments", headers=login(client, "admin@medora.tn"), json=CHEST).json()
+    doc = login(client, "doctor@medora.tn")
     return a, doc, client.get(f"/appointments/{a['id']}/exams", headers=doc).json()
 
 
@@ -48,7 +48,7 @@ def test_order_selected_cancels_the_rest_and_emits(client, emitted):
 
 def test_order_rejects_foreign_or_stale_ids(client, db):
     a, doc, exams = _request(client)
-    other = client.post("/appointments", headers=login(client, "admin@ward.tn"),
+    other = client.post("/appointments", headers=login(client, "admin@medora.tn"),
                         json=dict(CHEST, patient_id="p-0002")).json()
     foreign = client.get(f"/appointments/{other['id']}/exams", headers=doc).json()[0]["id"]
     r = client.post(f"/appointments/{a['id']}/exams/order", headers=doc, json={"exam_ids": [foreign]})
@@ -57,7 +57,7 @@ def test_order_rejects_foreign_or_stale_ids(client, db):
     client.post(f"/appointments/{a['id']}/exams/order", headers=doc, json={"exam_ids": [exams[0]["id"]]})
     again = client.post(f"/appointments/{a['id']}/exams/order", headers=doc, json={"exam_ids": [exams[0]["id"]]})
     assert again.status_code == 409 and again.json()["code"] == "bad_status"
-    nurse = login(client, "nurse@ward.tn")
+    nurse = login(client, "nurse@medora.tn")
     assert client.post(f"/appointments/{a['id']}/exams/order", headers=nurse, json={"exam_ids": []}).status_code == 403
 
 
@@ -74,9 +74,9 @@ def test_upload_rules(client, db, stored):
     a, doc, exams = _request(client)
     xray = exams[2]["id"]  # Imaging
     client.post(f"/appointments/{a['id']}/exams/order", headers=doc, json={"exam_ids": [xray]})
-    lab = login(client, "lab@ward.tn")
+    lab = login(client, "lab@medora.tn")
     assert client.post(f"/exams/{xray}/results", headers=lab, files={"file": PDF}).status_code == 403
-    img = login(client, "imaging@ward.tn")
+    img = login(client, "imaging@medora.tn")
     bad = client.post(f"/exams/{xray}/results", headers=img, files={"file": ("x.exe", b"MZ", "application/x-msdownload")})
     assert bad.status_code == 422 and bad.json()["code"] == "bad_file"
     big = client.post(f"/exams/{xray}/results", headers=img,
@@ -96,9 +96,9 @@ def test_results_ready_fires_once_on_last_upload(client, emitted, stored):
     a, doc, exams = _request(client)
     ecg, xray = exams[0]["id"], exams[2]["id"]
     client.post(f"/appointments/{a['id']}/exams/order", headers=doc, json={"exam_ids": [ecg, xray]})
-    client.post(f"/exams/{ecg}/results", headers=login(client, "nurse@ward.tn"), files={"file": PDF})
+    client.post(f"/exams/{ecg}/results", headers=login(client, "nurse@medora.tn"), files={"file": PDF})
     assert [e for e, _ in emitted].count("exam.results_ready") == 0
-    client.post(f"/exams/{xray}/results", headers=login(client, "imaging@ward.tn"), files={"file": PDF})
+    client.post(f"/exams/{xray}/results", headers=login(client, "imaging@medora.tn"), files={"file": PDF})
     ready = [d for e, d in emitted if e == "exam.results_ready"]
     assert len(ready) == 1 and ready[0]["doctor_id"] == "u-0001" and ready[0]["appointment_id"] == a["id"]
 
@@ -109,23 +109,23 @@ def test_file_download_is_audited_and_guarded(client, db, stored):
     a, doc, exams = _request(client)
     xray = exams[2]["id"]
     client.post(f"/appointments/{a['id']}/exams/order", headers=doc, json={"exam_ids": [xray]})
-    res = client.post(f"/exams/{xray}/results", headers=login(client, "imaging@ward.tn"),
+    res = client.post(f"/exams/{xray}/results", headers=login(client, "imaging@medora.tn"),
                       files={"file": PDF}).json()["results"][0]
     r = client.get(f"/exam-results/{res['id']}/file", headers=doc)
     assert r.status_code == 200 and r.content == PDF[1] and r.headers["content-type"] == "application/pdf"
     assert r.headers["x-content-type-options"] == "nosniff"
     assert db.query(AuditLog).filter_by(action="read", resource="exam_result", resource_id=res["id"]).count() == 1
-    assert client.get(f"/exam-results/{res['id']}/file", headers=login(client, "nurse2@ward.tn")).status_code == 403
-    assert client.get(f"/exam-results/{res['id']}/file", headers=login(client, "patient@ward.tn")).status_code == 403
-    assert client.get(f"/exam-results/{res['id']}/file", headers=login(client, "admin@ward.tn")).status_code == 403
+    assert client.get(f"/exam-results/{res['id']}/file", headers=login(client, "nurse2@medora.tn")).status_code == 403
+    assert client.get(f"/exam-results/{res['id']}/file", headers=login(client, "patient@medora.tn")).status_code == 403
+    assert client.get(f"/exam-results/{res['id']}/file", headers=login(client, "admin@medora.tn")).status_code == 403
 
 
 def test_patient_sees_only_ordered_rows(client):
-    patient = login(client, "patient@ward.tn")
+    patient = login(client, "patient@medora.tn")
     a = client.post("/appointments", headers=patient, json=CHEST).json()
     assert client.get(f"/appointments/{a['id']}/exams", headers=patient).json() == []
     assert client.get("/patients/p-0001/exams", headers=patient).json() == []
-    doc = login(client, "doctor@ward.tn")
+    doc = login(client, "doctor@medora.tn")
     first = client.get(f"/appointments/{a['id']}/exams", headers=doc).json()[0]["id"]
     client.post(f"/appointments/{a['id']}/exams/order", headers=doc, json={"exam_ids": [first]})
     [row] = client.get("/patients/p-0001/exams", headers=patient).json()
@@ -136,8 +136,8 @@ def test_patient_sees_only_ordered_rows(client):
 def test_worklist_is_per_department(client):
     a, doc, exams = _request(client)
     client.post(f"/appointments/{a['id']}/exams/order", headers=doc, json={"exam_ids": [e["id"] for e in exams]})
-    img = client.get("/exams?status=ordered", headers=login(client, "imaging@ward.tn")).json()
-    lab = client.get("/exams?status=ordered", headers=login(client, "lab@ward.tn")).json()
+    img = client.get("/exams?status=ordered", headers=login(client, "imaging@medora.tn")).json()
+    lab = client.get("/exams?status=ordered", headers=login(client, "lab@medora.tn")).json()
     assert [e["code"] for e in img] == ["chest_xray"] and [e["code"] for e in lab] == ["troponin"]
     assert img[0]["patient_name"] == "Amira Ben Salah"
     assert client.get("/exams", headers=doc).status_code == 403
@@ -146,5 +146,5 @@ def test_worklist_is_per_department(client):
 def test_admin_sees_exam_status_only(client):
     a, doc, exams = _request(client)
     client.post(f"/appointments/{a['id']}/exams/order", headers=doc, json={"exam_ids": [exams[0]["id"]]})
-    rows = client.get("/exams?status=ordered", headers=login(client, "admin@ward.tn")).json()
+    rows = client.get("/exams?status=ordered", headers=login(client, "admin@medora.tn")).json()
     assert rows and all(set(r) == {"id", "appointment_id", "department", "status"} for r in rows)

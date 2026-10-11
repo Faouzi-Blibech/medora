@@ -3,7 +3,7 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or
 > superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Let patients and staff reach Ward from home over HTTPS. Only the proxy faces the internet; the offline demo
+**Goal:** Let patients and staff reach Medora from home over HTTPS. Only the proxy faces the internet; the offline demo
 is unchanged.
 
 **Architecture:** A Caddy 2 container runs only under the compose profile `internet`. It terminates TLS, adds the
@@ -107,7 +107,7 @@ for i in $(seq 1 11); do curl -s -o /dev/null -w "%{http_code} " -H "X-Forwarded
 - [ ] **Step 1: Write `infra/caddy/Caddyfile`:**
 
 ```caddyfile
-# Ward reverse proxy (compose profile "internet"). TLS + security headers; /api/* → FastAPI, the rest → Next.js.
+# Medora reverse proxy (compose profile "internet"). TLS + security headers; /api/* → FastAPI, the rest → Next.js.
 {$WARD_DOMAIN:localhost} {
 	tls {$WARD_TLS:internal}
 	encode gzip
@@ -185,7 +185,7 @@ NEXT_PUBLIC_USE_MOCKS=0
     the build points at the proxy.
 
 - [ ] **Step 6: Browser end-to-end** (Chrome; accept the internal CA warning once):
-  - Log in as `nurse@ward.tn` at `https://<lan-ip>/`.
+  - Log in as `nurse@medora.tn` at `https://<lan-ip>/`.
   - Publish one vital as `bsu-001` (the MQTT command from the MQTT hardening report) → the nurse dashboard updates
     live. That proves `wss://<lan-ip>/api/ws`.
   - Log in as the doctor and open an exam result PDF → it renders, with no CSP errors in the console.

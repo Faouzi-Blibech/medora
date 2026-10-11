@@ -14,7 +14,7 @@ from app.services import accounts, alerts
 from app.services.audit import audit
 from app.services.schedule import TUNIS
 
-log = logging.getLogger("ward.events")
+log = logging.getLogger("medora.events")
 
 # A dose only moves forward: a replayed `dose_missed` never undoes a `dose_taken`
 RANK = {"scheduled": 0, "dispensed": 1, "missed": 2, "taken": 3}

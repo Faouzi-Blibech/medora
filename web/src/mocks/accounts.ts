@@ -33,8 +33,8 @@ export const PENDING: PendingUser[] = [
 
 /** Dr Trabelsi's team (consistent with STAFF: Ines active, Sami disabled). */
 export const TEAM: UserAdmin[] = [
-  { id: "u-0002", name: "Nurse Ines", email: "i.mejri@hr-ward.tn", role: "nurse", status: "active", ward: "Cardiology", supervisor_id: "u-0001", requested_role: null, requested_doctor_id: null },
-  { id: "u-0004", name: "Nurse Sami", email: "s.dridi@hr-ward.tn", role: "nurse", status: "disabled", ward: "Cardiology", supervisor_id: "u-0001", requested_role: null, requested_doctor_id: null },
+  { id: "u-0002", name: "Nurse Ines", email: "i.mejri@hr-medora.tn", role: "nurse", status: "active", ward: "Cardiology", supervisor_id: "u-0001", requested_role: null, requested_doctor_id: null },
+  { id: "u-0004", name: "Nurse Sami", email: "s.dridi@hr-medora.tn", role: "nurse", status: "disabled", ward: "Cardiology", supervisor_id: "u-0001", requested_role: null, requested_doctor_id: null },
 ];
 
 export const GRANTS: Record<string, PatientAccessGrant[]> = {

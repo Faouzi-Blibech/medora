@@ -16,7 +16,7 @@ NOW = int(datetime.now(UTC).timestamp())
 def test_move_patient_unassigns_old_device(client, db, published):
     db.add(Device(id="bsu-002", online=True, schedule_version=0, schedule_acked_version=0))
     db.flush()
-    r = client.post("/devices/bsu-002/assign", headers=login(client, "admin@ward.tn"),
+    r = client.post("/devices/bsu-002/assign", headers=login(client, "admin@medora.tn"),
                     json={"patient_id": "p-0001", "bed": "C-13"})
     assert r.status_code == 200
     by_topic = {t: p for t, p, _, _ in published}
@@ -26,7 +26,7 @@ def test_move_patient_unassigns_old_device(client, db, published):
 
 # 2: the active admission decides whose vitals they are
 def test_stale_device_vitals_not_charged_to_discharged_patient(client, db):
-    client.post("/admissions/adm-0001/discharge", headers=login(client, "admin@ward.tn"))
+    client.post("/admissions/adm-0001/discharge", headers=login(client, "admin@medora.tn"))
     ingest.handle(db, "bsu-001", "vitals", {"msg_id": 1, "ts": NOW, "patient_id": "p-0001", "hr": 135,
                                             "spo2": 87, "temp": 39.3})
     v = db.scalars(select(Vital).where(Vital.device_id == "bsu-001", Vital.ts == datetime.fromtimestamp(NOW, UTC)))
@@ -67,14 +67,14 @@ def test_schedule_lists_next_occurrence_when_today_is_past(db, seeded):
 
 # 4: validation errors use the {detail, code} envelope
 def test_422_envelope(client):
-    r = client.post("/auth/login", json={"email": "doctor@ward.tn"})
+    r = client.post("/auth/login", json={"email": "doctor@medora.tn"})
     assert r.status_code == 422
     assert isinstance(r.json()["detail"], str) and r.json()["code"] == "invalid"
 
 
 # 5: null on a NOT NULL field is a 422, not a 500
 def test_patch_null_rejected(client):
-    h = login(client, "doctor@ward.tn")
+    h = login(client, "doctor@medora.tn")
     assert client.patch("/patients/p-0002", headers=h, json={"history": None}).status_code == 422
     assert client.patch("/patients/p-0002", headers=h, json={"first_name": None}).status_code == 422
 
@@ -86,7 +86,7 @@ def test_recently_acked_alert_not_reopened(client, db):
                                                 "hr": 80, "spo2": 88, "temp": 37.0})
     bad(0)
     aid = db.query(Alert).one().id
-    client.post(f"/alerts/{aid}/ack", headers=login(client, "nurse@ward.tn"))
+    client.post(f"/alerts/{aid}/ack", headers=login(client, "nurse@medora.tn"))
     bad(1)
     assert db.query(Alert).filter_by(kind="news2").count() == 1
 

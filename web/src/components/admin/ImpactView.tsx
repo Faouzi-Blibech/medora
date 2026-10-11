@@ -203,7 +203,7 @@ export function ImpactView() {
     const url = URL.createObjectURL(new Blob([toCsv(report, t)], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `ward-pilot-impact-${report.days}d-${report.period.to.slice(0, 10)}.csv`;
+    a.download = `medora-pilot-impact-${report.days}d-${report.period.to.slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };

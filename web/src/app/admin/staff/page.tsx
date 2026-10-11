@@ -4,7 +4,7 @@ import { StaffView } from "@/components/admin/StaffView";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("admin.staff")} · Ward` };
+  return { title: `${t("admin.staff")} · Medora` };
 }
 
 export default function AdminStaffPage() {

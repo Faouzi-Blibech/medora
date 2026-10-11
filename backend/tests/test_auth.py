@@ -5,7 +5,7 @@ from tests.helpers import login
 
 
 def test_login_returns_token_and_user(client):
-    r = client.post("/auth/login", json={"email": "patient@ward.tn", "password": "ward1234"})
+    r = client.post("/auth/login", json={"email": "patient@medora.tn", "password": "ward1234"})
     assert r.status_code == 200
     body = r.json()
     assert body["token_type"] == "bearer"
@@ -16,14 +16,14 @@ def test_login_returns_token_and_user(client):
 
 
 def test_login_wrong_password(client):
-    r = client.post("/auth/login", json={"email": "doctor@ward.tn", "password": "nope"})
+    r = client.post("/auth/login", json={"email": "doctor@medora.tn", "password": "nope"})
     assert r.status_code == 401
     assert r.json()["code"] == "bad_credentials"
 
 
 def test_me(client):
-    r = client.get("/me", headers=login(client, "nurse@ward.tn"))
-    assert r.json() == {"id": "u-0002", "name": "Nurse Ines", "email": "nurse@ward.tn", "role": "nurse",
+    r = client.get("/me", headers=login(client, "nurse@medora.tn"))
+    assert r.json() == {"id": "u-0002", "name": "Nurse Ines", "email": "nurse@medora.tn", "role": "nurse",
                         "patient_id": None}
 
 

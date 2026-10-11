@@ -5,7 +5,7 @@ go straight to plans and implementation · **Branch:** `abdelhedimed05/pharmacy`
 
 ## 1. Goal and decisions
 
-Bring the **hospital pharmacist** into Ward's medication chain, between the doctor's prescription and the nurse or
+Bring the **hospital pharmacist** into Medora's medication chain, between the doctor's prescription and the nurse or
 bedside device that gives the dose. A second pair of eyes catches prescription errors (allergy, interaction,
 overdose, duplicate) before they reach the patient. The pharmacist then prepares each ward's doses and manages the
 drug stock.
@@ -267,7 +267,7 @@ still give a dose that isn't dispensed yet, because ward stock exists. The UI sh
 **Mocks:** every new API function has a mock (`web/src/mocks/pharmacy.ts`) so the screens work with `NEXT_PUBLIC_USE_MOCKS=1`.
 
 ## 7. Seed and demo
-- **A pharmacist account:** `pharmacist@ward.tn`, "Pharm. Salma", active, password `SEED_PASSWORD`.
+- **A pharmacist account:** `pharmacist@medora.tn`, "Pharm. Salma", active, password `SEED_PASSWORD`.
 - **A formulary** of about 50 drugs.
 - **Existing seed prescriptions** are mapped to drugs and validated by the seed pharmacist.
 - **A pending demo prescription:** Amoxicillin 1 g × 3/day for a penicillin-allergic seed patient (give one seed

@@ -32,7 +32,7 @@ def test_ws_rejects_bad_token(client):
 
 
 def test_ws_rejects_patient(client):
-    token = login(client, "patient@ward.tn")["Authorization"].split()[1]
+    token = login(client, "patient@medora.tn")["Authorization"].split()[1]
     with pytest.raises(WebSocketDisconnect) as e:
         with client.websocket_connect(f"/ws?token={token}") as ws:
             ws.receive_json()
@@ -40,7 +40,7 @@ def test_ws_rejects_patient(client):
 
 
 def test_ws_receives_scoped_frame_without_scope(client):
-    token = login(client, "nurse@ward.tn")["Authorization"].split()[1]
+    token = login(client, "nurse@medora.tn")["Authorization"].split()[1]
     with client.websocket_connect(f"/ws?token={token}") as ws:
         ws.send_json({"type": "ping"})
         assert ws.receive_json() == {"type": "pong"}

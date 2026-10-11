@@ -1,11 +1,11 @@
-# Ward — Team Plan
+# Medora — Team Plan
 
 Build window: **Day 0 Mon 2026-10-05 → Day 4 Fri 2026-10-09**. Sat 10-10 onward: buffer, pitch deck, Q&A prep.
 Spec: `docs/superpowers/specs/2026-10-05-ward-foundation-design.md` · Contracts: `docs/contracts/` (v1.0, frozen).
 
 ## 0. Core first (agreed 2026-10-05)
 
-The core of Ward is the medication loop: **the doctor prescribes, the bedside device gives the right dose at the right time, and the nurse and doctor see what happened.** On Day 0 we built extras (AI modules, n8n workflows) before any of it. Until step 6 below runs end to end once, **no new extra merges**. After that, extras come back in order of demo value.
+The core of Medora is the medication loop: **the doctor prescribes, the bedside device gives the right dose at the right time, and the nurse and doctor see what happened.** On Day 0 we built extras (AI modules, n8n workflows) before any of it. Until step 6 below runs end to end once, **no new extra merges**. After that, extras come back in order of demo value.
 
 | Step | What | Owner | When |
 |---|---|---|---|
@@ -122,7 +122,7 @@ flowchart LR
 
 ## 5. Demo script (≈6 minutes)
 
-1. **(30 s) Problem:** paper records, 6–12-month waits, no shared system. "Ward automates the patient process."
+1. **(30 s) Problem:** paper records, 6–12-month waits, no shared system. "Medora automates the patient process."
 2. **(60 s) Booking:**
    - The patient requests an appointment in Darija/French with "chest pain".
    - Triage shows urgency 5 with a red flag.

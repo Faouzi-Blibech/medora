@@ -4,7 +4,7 @@ import { PatientsView } from "@/components/nurse/PatientsView";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("nurse.metaPatients")} · Ward` };
+  return { title: `${t("nurse.metaPatients")} · Medora` };
 }
 
 export default function NursePatientsPage() {

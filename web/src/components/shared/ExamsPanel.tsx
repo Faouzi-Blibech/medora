@@ -1,7 +1,7 @@
 "use client";
 
 // Exams for one patient: ordered and done, with the uploaded files and report lines. A person reads the
-// results; Ward only stores and shows them. Radiographs carry an AI reading status; a doctor can open the
+// results; Medora only stores and shows them. Radiographs carry an AI reading status; a doctor can open the
 // reading, edit and sign the report, and add an outside X-ray.
 import { examLabel, deptLabel } from "@/lib/labels";
 import { useCallback, useEffect, useRef, useState } from "react";

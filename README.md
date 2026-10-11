@@ -1,8 +1,8 @@
-# Ward · وَرد
+# Medora
 
 **The patient journey, connected.** A smart-hospital prototype built for **HackCure @ ESEN** (October 2026).
 
-*Ward* means "rose" in Arabic and "hospital ward" in English. It links the patient, nurse, doctor and hospital
+Medora links the patient, nurse, doctor and hospital
 administration through **one shared patient record**, and it automates the patient process end to end:
 - urgency-aware booking
 - exams done *before* the visit, so one consultation is enough
@@ -19,10 +19,10 @@ In Tunisian public hospitals:
 - Patient, nurse, doctor and administration have no shared system.
 
 The Ministry of Health is digitising hospital records for staff, and Sahetna.tn will give citizens their records with
-a national health identifier (INS). Ward does not replace those systems. It connects the four roles around one patient
+a national health identifier (INS). Medora does not replace those systems. It connects the four roles around one patient
 and automates the steps between them.
 
-## What Ward does
+## What Medora does
 
 | For | What they get |
 |---|---|
@@ -94,14 +94,14 @@ The web app runs on mock data by default. To use the real API, set `NEXT_PUBLIC_
 
 | Email | Role |
 |---|---|
-| `doctor@ward.tn` | Doctor, Cardiology |
-| `nurse@ward.tn` | Nurse, Cardiology |
-| `nurse2@ward.tn` | Nurse, Internal Medicine |
-| `imaging@ward.tn` | Nurse, Imaging (uploads X-rays and scans) |
-| `lab@ward.tn` | Nurse, Laboratory (uploads lab results) |
-| `admin@ward.tn` | Admin |
-| `patient@ward.tn` | Patient (Amira, bed C-12), phone app |
-| `patient2@ward.tn` | Patient (Youssef, bed C-08), desktop patient platform |
+| `doctor@medora.tn` | Doctor, Cardiology |
+| `nurse@medora.tn` | Nurse, Cardiology |
+| `nurse2@medora.tn` | Nurse, Internal Medicine |
+| `imaging@medora.tn` | Nurse, Imaging (uploads X-rays and scans) |
+| `lab@medora.tn` | Nurse, Laboratory (uploads lab results) |
+| `admin@medora.tn` | Admin |
+| `patient@medora.tn` | Patient (Amira, bed C-12), phone app |
+| `patient2@medora.tn` | Patient (Youssef, bed C-08), desktop patient platform |
 
 **AI options (`.env`):** `LLM_PROVIDER=none` is the default, and every module works without it. To let an open LLM rewrite the doctor's daily summary, set `LLM_PROVIDER=groq`, `GROQ_API_KEY=…` and `LLM_MODEL=openai/gpt-oss-120b`. For a local model, use `LLM_PROVIDER=local` with Ollama.
 
@@ -125,10 +125,10 @@ API_BIND=127.0.0.1
 WEB_BIND=127.0.0.1
 N8N_BIND=127.0.0.1
 FORWARDED_ALLOW_IPS=*
-WARD_DOMAIN=ward.example.com
+WARD_DOMAIN=medora.example.com
 WARD_TLS=internal            # or an email address for Let's Encrypt
-WEB_ORIGIN=https://ward.example.com
-NEXT_PUBLIC_API_URL=https://ward.example.com/api
+WEB_ORIGIN=https://medora.example.com
+NEXT_PUBLIC_API_URL=https://medora.example.com/api
 NEXT_PUBLIC_USE_MOCKS=0
 WARD_ENV_FILE=.env.internet  # makes the api/worker containers load this file (default: .env)
 MQTT_BIND=192.168.1.10       # LAN interface IP or 127.0.0.1; see warning below

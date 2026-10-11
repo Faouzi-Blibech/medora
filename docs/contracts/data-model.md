@@ -378,11 +378,11 @@ Enforcement: FastAPI dependencies (`require_role`, `require_patient_access`) are
 
 `backend/app/seed.py` creates:
 - 1 doctor (`u-0001`, Cardiology), 2 nurses (`u-0002` with RFID `04A1B2C3`, `u-0003`), 1 admin (`u-0004`) and 1 patient login (`u-0005` → `p-0001`)
-- 2 department nurses: `u-0006` Imaging (`imaging@ward.tn`), `u-0007` Laboratory (`lab@ward.tn`)
+- 2 department nurses: `u-0006` Imaging (`imaging@medora.tn`), `u-0007` Laboratory (`lab@medora.tn`)
 - 12 patients: `p-0001`…`p-0006` in Cardiology (attending doctor `u-0001`, nurse `u-0002`'s ward), `p-0007`…`p-0012` in Internal Medicine (nurse `u-0003`'s ward, no attending doctor from the seed). `p-0001` (Amira) is admitted to bed `C-12` on device `bsu-001`
 - 48 h of normal vitals for admitted patients
 - 1 active prescription for `p-0001`
-- 1 pharmacist (`u-0008`, `pharmacist@ward.tn`, "Pharm. Salma")
+- 1 pharmacist (`u-0008`, `pharmacist@medora.tn`, "Pharm. Salma")
 - 51 formulary drugs (d-0001…d-0051)
 - the seed prescription mapped to drugs and validated by the pharmacist, plus 1 pending demo prescription (amoxicillin for penicillin-allergic `p-0001`, with an override reason: a critical allergy check)
 - Phase B stock: a lot for every formulary drug (`L0001-A`…), paracetamol 500 mg exactly at `min_stock` (the 20:00 Cardiology round tips it under), enoxaparin under `min_stock`, an amlodipine lot expiring in 10 days, an expired ibuprofen lot
@@ -423,6 +423,6 @@ Enforcement: FastAPI dependencies (`require_role`, `require_patient_access`) are
 
 - **1.2** (2026-10-05): drops the `documents` table, its permission row and the demo record image from the seed (paper digitizer dropped). Wali: nothing to migrate if the table isn't created yet.
 
-- **1.1** (2026-10-05): seed drops the `n8n@ward.tn` service account (n8n W6 now uses the `follow-up` callback). Seed owner: Wali.
+- **1.1** (2026-10-05): seed drops the `n8n@medora.tn` service account (n8n W6 now uses the `follow-up` callback). Seed owner: Wali.
 
 - **1.0** (2026-10-05): initial freeze. Adds `ingested_messages`, `ai_summaries`, `staff.rfid_uid`, the schedule-version columns and the AI-output convention.

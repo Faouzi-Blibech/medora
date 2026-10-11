@@ -219,7 +219,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# --- Ward additions ---
+# --- Medora additions ---
 # PlatformIO uses lib/ for project libraries; the Python template above ignores lib/ globally
 !firmware/lib/
 .pio/

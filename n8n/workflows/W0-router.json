@@ -1,10 +1,10 @@
 {
   "id": "wardRouterW00000",
-  "name": "W0 · Ward event router",
+  "name": "W0 · Medora event router",
   "nodes": [
     {
       "id": "4f0c2a8e-1b1a-4c55-9d0e-000000000001",
-      "name": "Ward events",
+      "name": "Medora events",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
@@ -175,7 +175,7 @@
     }
   ],
   "connections": {
-    "Ward events": {
+    "Medora events": {
       "main": [
         [
           {

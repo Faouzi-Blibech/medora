@@ -18,36 +18,36 @@ def _ids(rows):
 @pytest.mark.parametrize("q,expected", [("amox", {"d-0003", "d-0004", "d-0005"}), ("doliprane", {"d-0001", "d-0002"}),
                                         ("J01FA", {"d-0006", "d-0007"}), ("j01fa", {"d-0006", "d-0007"})])
 def test_search_by_dci_brand_or_atc(client, q, expected):
-    r = client.get("/drugs", params={"q": q}, headers=login(client, "doctor@ward.tn"))
+    r = client.get("/drugs", params={"q": q}, headers=login(client, "doctor@medora.tn"))
     assert r.status_code == 200 and _ids(r.json()) == expected
 
 
 def test_search_shape_and_limit(client):
-    rows = client.get("/drugs", headers=login(client, "nurse@ward.tn")).json()
+    rows = client.get("/drugs", headers=login(client, "nurse@medora.tn")).json()
     assert len(rows) == 50  # 51 drugs, capped
     assert set(rows[0]) == {"id", "dci", "brand_names", "form", "strength", "unit_mg", "max_daily_mg", "atc_code",
                             "allergy_classes", "interaction_groups", "high_alert", "min_stock", "active", "created_at",
                             "updated_at"}
     amox = next(r for r in client.get("/drugs", params={"q": "clamoxyl"},
-                                      headers=login(client, "nurse@ward.tn")).json() if r["id"] == "d-0003")
+                                      headers=login(client, "nurse@medora.tn")).json() if r["id"] == "d-0003")
     assert (amox["unit_mg"], amox["max_daily_mg"], amox["active"]) == (1000.0, 6000.0, True)
 
 
 @pytest.mark.parametrize("q", ["_", "باراسيتامول", "a'b"])
 def test_search_input_is_literal(client, q):
-    r = client.get("/drugs", params={"q": q}, headers=login(client, "doctor@ward.tn"))
+    r = client.get("/drugs", params={"q": q}, headers=login(client, "doctor@medora.tn"))
     assert r.status_code == 200 and r.json() == []
 
 
 def test_percent_is_a_literal_not_a_wildcard(client):
-    r = client.get("/drugs", params={"q": "%"}, headers=login(client, "doctor@ward.tn"))
+    r = client.get("/drugs", params={"q": "%"}, headers=login(client, "doctor@medora.tn"))
     assert _ids(r.json()) == {"d-0027"}  # only the brand "KCl 10%"; a wildcard would match all 50
 
 
 def test_read_roles(client):
-    for email in ("doctor@ward.tn", "nurse@ward.tn", "admin@ward.tn"):
+    for email in ("doctor@medora.tn", "nurse@medora.tn", "admin@medora.tn"):
         assert client.get("/drugs", headers=login(client, email)).status_code == 200
-    assert client.get("/drugs", headers=login(client, "patient@ward.tn")).status_code == 403
+    assert client.get("/drugs", headers=login(client, "patient@medora.tn")).status_code == 403
     assert client.get("/drugs").status_code == 401
 
 
@@ -59,15 +59,15 @@ def test_pharmacist_creates_a_drug(client, db):
         "J01XE01", ["nitrofuran"], True)
     assert db.scalar(select(AuditLog.id).where(AuditLog.resource == "drug", AuditLog.action == "create",
                                                AuditLog.resource_id == d["id"]))
-    again = client.post("/drugs", headers=login(client, "ph.t@ward.tn"), json={**NEW, "dci": "nitrofurantoin"})
+    again = client.post("/drugs", headers=login(client, "ph.t@medora.tn"), json={**NEW, "dci": "nitrofurantoin"})
     assert again.status_code == 409 and again.json()["code"] == "conflict"
 
 
 def test_who_may_write(client, db):
-    assert client.post("/drugs", headers=login(client, "doctor@ward.tn"), json=NEW).status_code == 403
-    assert client.post("/drugs", headers=login(client, "nurse@ward.tn"), json=NEW).status_code == 403
-    assert client.post("/drugs", headers=login(client, "admin@ward.tn"), json=NEW).status_code == 201
-    assert client.patch("/drugs/d-0001", headers=login(client, "doctor@ward.tn"),
+    assert client.post("/drugs", headers=login(client, "doctor@medora.tn"), json=NEW).status_code == 403
+    assert client.post("/drugs", headers=login(client, "nurse@medora.tn"), json=NEW).status_code == 403
+    assert client.post("/drugs", headers=login(client, "admin@medora.tn"), json=NEW).status_code == 201
+    assert client.patch("/drugs/d-0001", headers=login(client, "doctor@medora.tn"),
                         json={"min_stock": 1}).status_code == 403
 
 

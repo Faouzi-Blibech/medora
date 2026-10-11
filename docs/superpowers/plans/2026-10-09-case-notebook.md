@@ -369,7 +369,7 @@ from tests.helpers import login
 
 
 def test_ask_cites_a_note_and_stores_the_entry(client, db):
-    doc = login(client, "doctor@ward.tn")
+    doc = login(client, "doctor@medora.tn")
     client.post("/patients/p-0001/notes", headers=doc, json={"text": "Troponin came back normal this morning."})
     r = client.post("/ai/notebook/p-0001", headers=doc, json={"question": "What was the troponin result?"})
     assert r.status_code == 201, r.text
@@ -381,7 +381,7 @@ def test_ask_cites_a_note_and_stores_the_entry(client, db):
 
 
 def test_sources_history_and_review(client):
-    doc = login(client, "doctor@ward.tn")
+    doc = login(client, "doctor@medora.tn")
     kinds = {s["kind"] for s in client.get("/ai/notebook/p-0001/sources", headers=doc).json()}
     assert {"vitals", "prescription"} <= kinds
     first = client.post("/ai/notebook/p-0001", headers=doc, json={"question": "blood pressure plan"}).json()
@@ -393,18 +393,18 @@ def test_sources_history_and_review(client):
 
 
 def test_ask_with_empty_record(client):
-    admin = login(client, "admin@ward.tn")
+    admin = login(client, "admin@medora.tn")
     p = client.post("/appointments", headers=admin, json={"patient_id": "p-0002", "referral_text": "x"}).json()
     assert p["patient_id"] == "p-0002"
-    doc = login(client, "doctor@ward.tn")
+    doc = login(client, "doctor@medora.tn")
     r = client.post("/ai/notebook/p-0002", headers=doc, json={"question": "dialysis sessions"})
     assert r.status_code == 201 and r.json()["citations"] == [] and r.json()["source"] == "rules"
 
 
 def test_notebook_access(client, db):
-    doc = login(client, "doctor@ward.tn")
+    doc = login(client, "doctor@medora.tn")
     assert client.post("/ai/notebook/p-0007", headers=doc, json={"question": "anything"}).status_code == 403
-    for email in ("nurse@ward.tn", "admin@ward.tn", "patient@ward.tn"):
+    for email in ("nurse@medora.tn", "admin@medora.tn", "patient@medora.tn"):
         h = login(client, email)
         assert client.post("/ai/notebook/p-0001", headers=h, json={"question": "anything"}).status_code == 403
     assert client.post("/ai/notebook/p-0001", headers=doc, json={"question": "hi"}).status_code == 422
@@ -796,7 +796,7 @@ git commit -m "feat(web): case notebook panel on the doctor's patient page"
 
 - [ ] **Step 1: No-LLM mode on the real stack.**
   - Rebuild the API: `docker compose -p ward -f infra/docker-compose.yml --env-file .env up -d --build api`.
-  - With `LLM_PROVIDER=none`, as `doctor@ward.tn` open Amira's page and add a note "Troponin normal this morning".
+  - With `LLM_PROVIDER=none`, as `doctor@medora.tn` open Amira's page and add a note "Troponin normal this morning".
   - Ask "troponin?".
 
   Expected: a cited answer, `AI suggestion · Rules fallback · Needs review`, and an audit row:

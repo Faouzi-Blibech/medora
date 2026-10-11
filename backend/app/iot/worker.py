@@ -18,7 +18,7 @@ from app.db import SessionLocal, engine
 from app.iot import ingest, mqtt_auth, publisher
 from app.services import radiology as radiology_jobs
 
-log = logging.getLogger("ward.worker")
+log = logging.getLogger("medora.worker")
 TOPICS = [("hospital/device/+/vitals", 1), ("hospital/device/+/events", 1), ("hospital/device/+/status", 1)]
 
 

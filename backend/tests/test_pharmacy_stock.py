@@ -90,9 +90,9 @@ def test_summary_has_stock_alerts(client, db):
 
 
 def test_stock_roles(client, db):
-    for email in ("doctor@ward.tn", "nurse@ward.tn", "patient@ward.tn"):
+    for email in ("doctor@medora.tn", "nurse@medora.tn", "patient@medora.tn"):
         assert client.get("/pharmacy/stock", headers=login(client, email)).status_code == 403
-    admin = login(client, "admin@ward.tn")
+    admin = login(client, "admin@medora.tn")
     assert client.get("/pharmacy/stock", headers=admin).status_code == 200
     assert client.get("/pharmacy/stock/reorder", headers=admin).status_code == 200
     body = {"drug_id": "d-0001", "lot_number": "X", "expiry_date": _day(10), "quantity": 1}
