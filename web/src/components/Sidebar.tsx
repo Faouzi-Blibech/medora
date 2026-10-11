@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/I18nProvider";
 import type { Key } from "@/i18n/messages";
-import { LanguageSwitcher } from "./LanguageSwitcher";
 import { getHealthEvents } from "@/lib/api";
 import { addDays, badgeCount, todayIso, weatherEvents } from "@/lib/healthCalendar";
 import { loadHealthWatch } from "@/components/calendar/useHealthEvents";
@@ -202,7 +201,6 @@ export function Sidebar({ role, active, live = true, counts }: SidebarProps) {
             {t("common.reconnecting")}
           </span>
         )}
-        <LanguageSwitcher tone="dark" compact />
         <Link href={`/${role}/settings`} className={styles.user} title={t("auth.navSettings")}>
           <span className={styles.avatar}>{u.ini}</span>
           <div className={styles.who}>

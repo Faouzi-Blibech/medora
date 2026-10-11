@@ -6,7 +6,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useT } from "@/i18n/I18nProvider";
 import type { Key } from "@/i18n/messages";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { USE_MOCKS } from "@/lib/time";
 import { initialsOf, useMe } from "@/lib/useMe";
 import { LayoutSwitch } from "./LayoutSwitch";
@@ -66,7 +65,6 @@ export function PatientSidebar() {
       <div className={styles.spacer} />
       <div className={styles.foot}>
         <LayoutSwitch tone="dark" />
-        <LanguageSwitcher tone="dark" compact />
         <Link href="/patient/settings" className={styles.user} style={{ color: "inherit", textDecoration: "none" }}>
           <span className={styles.avatar}>{name ? initialsOf(name) : ""}</span>
           <div className={styles.who}>
