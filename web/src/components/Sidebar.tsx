@@ -70,6 +70,7 @@ export const NAV: Record<StaffRole, NavItem[]> = {
     { key: "worklist", label: "pharmacy.navWorklist", href: "/pharmacist" },
     { key: "catalogue", label: "pharmacy.navCatalogue", href: "/pharmacist/catalogue" },
     { key: "dispensing", label: "pharmacy.navDispensing", href: "/pharmacist/dispensing" },
+    { key: "stock", label: "pharmacy.navStock", href: "/pharmacist/stock", hot: true },
     { key: "password", label: "auth.navPassword", href: "/pharmacist/password" },
   ],
 };
@@ -103,7 +104,12 @@ export function Sidebar({ role, active, live = true, counts }: SidebarProps) {
   const me = useMe(role);
   // Pharmacist: the worklist badge comes from GET /pharmacy/summary in both modes; red when a critical item waits.
   const summary = usePharmacySummary(role === "pharmacist");
-  const merged: Partial<Record<string, string | number>> = { ...(summary ? { worklist: summary.pending } : {}), ...counts };
+  const stockAlerts = summary && (summary.low_stock !== undefined || summary.expiring !== undefined) ? (summary.low_stock ?? 0) + (summary.expiring ?? 0) : null;
+  const merged: Partial<Record<string, string | number>> = {
+    ...(summary ? { worklist: summary.pending } : {}),
+    ...(stockAlerts !== null ? { stock: stockAlerts } : {}),
+    ...counts,
+  };
   const critical = new Set<string>(summary && summary.critical_pending > 0 ? ["worklist"] : []);
   const u = USE_MOCKS
     ? { ...USERS[role], sub: t(USERS[role].sub) }
@@ -139,7 +145,13 @@ export function Sidebar({ role, active, live = true, counts }: SidebarProps) {
               {count && count !== "0" ? (
                 <span
                   className={`${styles.count} ${crit ? styles.countCritical : n.hot ? styles.countHot : ""}`}
-                  title={crit && summary ? t("pharmacy.criticalWaiting", { n: summary.critical_pending }) : undefined}
+                  title={
+                    crit && summary
+                      ? t("pharmacy.criticalWaiting", { n: summary.critical_pending })
+                      : n.key === "stock" && stockAlerts
+                        ? t("pharmacy.stockAttention", { n: stockAlerts })
+                        : undefined
+                  }
                 >
                   {count}
                 </span>

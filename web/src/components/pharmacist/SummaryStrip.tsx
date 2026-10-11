@@ -21,6 +21,8 @@ export function SummaryStrip() {
     { key: "urgent", label: "pharmacy.tileUrgent", n: s?.urgent_pending },
     { key: "critical", label: "pharmacy.tileCritical", n: s?.critical_pending, danger: true },
     { key: "changes", label: "pharmacy.tileChanges", n: s?.changes_requested },
+    ...(s?.low_stock !== undefined ? [{ key: "low", label: "pharmacy.tileLow" as Key, n: s.low_stock, danger: true }] : []),
+    ...(s?.expiring !== undefined ? [{ key: "expiring", label: "pharmacy.tileExpiringLots" as Key, n: s.expiring }] : []),
   ];
   return (
     <dl className={styles.tiles} aria-busy={!s || undefined}>

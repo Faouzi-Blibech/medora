@@ -182,3 +182,20 @@
 .lowNum { color: var(--danger); font-weight: 600; }
 .lotExpiring { color: var(--warn-ink); font-weight: 600; }
 .lotExpired { color: var(--danger); font-weight: 600; }
+
+/* ── Stock (Task 11) ────────────────────────────────────────────────────── */
+.stockLayout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; align-items: start; }
+
+@media (max-width: 1200px) {
+  .stockLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.stockGrid { display: grid; grid-template-columns: minmax(170px, 1.3fr) 110px 170px minmax(260px, 2fr); gap: 12px; align-items: start; min-width: 760px; }
+.side { display: flex; flex-direction: column; gap: 16px; }
+.card { display: flex; flex-direction: column; gap: 12px; padding: 20px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
+.cardTitle { margin: 0; font: 600 20px/1.2 var(--serif); color: var(--ink); }
+.lots { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.lotRow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 14px; }
+.reorderRow { padding: 6px 0; border-bottom: 1px solid var(--line-soft); font-size: 15px; }
