@@ -108,7 +108,7 @@ def test_seed_second_patient_account(db):
 
     seed(db)
     u = db.query(User).filter_by(email="patient2@ward.tn").one()
-    assert (u.id, u.role, u.patient_id) == ("u-0008", "patient", "p-0005")
+    assert (u.id, u.role, u.patient_id) == ("u-0009", "patient", "p-0005")
     adm = db.scalars(select(Admission).where(Admission.patient_id == "p-0005",
                                              Admission.discharged_at.is_(None))).one()
     assert (adm.device_id, adm.bed) == (None, "C-08")

@@ -135,8 +135,8 @@ def _upsert_second_patient(db: Session, pw: str) -> None:
         rx = Prescription(id=new_id(db, "rx"), patient_id=pid, doctor_id="u-0001", active=True,
                           created_at=local_to_utc(today_local(), "00:00"),
                           care_plan="Check blood sugar before meals",
-                          items=[{"med": "Metformin 500mg", "times": ["08:00", "20:00"], "days": 5},
-                                 {"med": "Bisoprolol 2.5mg", "times": ["08:00"], "days": 5}])
+                          items=[{"med": "Metformin 850mg", "times": ["08:00", "20:00"], "days": 5},
+                                 {"med": "Bisoprolol 5mg", "times": ["08:00"], "days": 5}])
         db.add(rx)
         db.flush()
         rebuild_doses(db, rx)
