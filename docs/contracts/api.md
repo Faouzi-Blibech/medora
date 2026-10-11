@@ -1,6 +1,6 @@
 # REST + WebSocket contract — v1.0
 
-> **Version:** 1.13 (2026-10-10) · **Owners:** Wali (core, IoT, alerts), Faouzi (appointments, AI, integrations, exams, notebook)
+> **Version:** 1.14 (2026-10-11) · **Owners:** Wali (core, IoT, alerts), Faouzi (appointments, AI, integrations, exams, notebook)
 > Any change: open a PR that bumps the version above, add a changelog line, and announce it in the team chat.
 
 ## Conventions
@@ -104,6 +104,7 @@ Codes (`reset-code`):
 | `GET /patients/{id}` | doctor (own), nurse (ward), patient (self) | → `Patient` |
 | `PATCH /patients/{id}` | doctor (own), nurse (ward; allergies + notes only) | partial `Patient` → `Patient` |
 | `GET /patients/{id}/vitals?from=&to=` | doctor, nurse, patient (self) | → `[Vital]`, default last 24 h, max 5000 points |
+| `POST /patients/{id}/vitals` | nurse, doctor (write access) | `{hr?, spo2?, temp?}` (at least one; hr 20–250, spo2 50–100, temp 30–45) → 201 `Vital` with `source: "manual"`, `nurse_id` = the author. Scored with NEWS2 and alerted exactly like a feed reading (same `vital`/`alert` WS frames). 409 if the same author saved one this second. |
 | `GET /patients/{id}/prescriptions` | doctor, nurse, patient (self) | → `[Prescription]` |
 | `GET /patients/{id}/notes` · `POST /patients/{id}/notes` | doctor, nurse | `{"text"}` → `Note` |
 
@@ -395,6 +396,7 @@ Still proposed: `GET /offers/{id}`, `POST /offers/{id}/accept` and `GET /patient
 
 ## Changelog
 
+- **1.14** (2026-10-11): `POST /patients/{id}/vitals`: a reading taken by hand on a nurse round (source `manual`), so vitals have a real collection path besides the simulated bedside feed. Owner: Faouzi (route in Wali's `patients.py`).
 - **1.13** (2026-10-10): health calendar — `GET/POST /health-events`, `PATCH/DELETE /health-events/{id}`, `POST /health-events/{id}/notify`, `GET/PUT /me/health-prefs`, n8n callbacks `GET /integrations/n8n/health-events/due` and `POST /integrations/n8n/health-events/{id}/announced`.
 - **1.12** (2026-10-10): health watch (`/health-watch`, `/health-watch/me`, `/integrations/n8n/health-watch`). Owner: Faouzi.
 - **1.11** (2026-10-10): staff AI assistant conversations (`/ai/conversations*`), stored server-side. Owner: Faouzi.

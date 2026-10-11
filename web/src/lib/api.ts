@@ -521,6 +521,28 @@ export function getVitals(patientId: string, opts: { from?: string; to?: string 
   return http<Vital[]>("GET", `/patients/${encodeURIComponent(patientId)}/vitals${qs ? `?${qs}` : ""}`);
 }
 
+/** POST /patients/{id}/vitals: a reading taken by hand (nurse round) → the stored Vital (source "manual"). */
+export function recordVitals(
+  patientId: string,
+  body: { hr?: number | null; spo2?: number | null; temp?: number | null },
+): Promise<Vital> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const v: Vital = {
+        ts: iso(now()),
+        hr: body.hr ?? null,
+        spo2: body.spo2 ?? null,
+        temp: body.temp ?? null,
+        nurse_id: USERS.nurse.id,
+        news2: null,
+        source: "manual",
+      };
+      (s.vitals[patientId] ??= []).push(v);
+      return v;
+    });
+  return http<Vital>("POST", `/patients/${encodeURIComponent(patientId)}/vitals`, body);
+}
+
 /** GET /patients/{id}/notes — newest first. */
 export function getNotes(patientId: string): Promise<Note[]> {
   if (USE_MOCKS) return mock((s) => s.notes[patientId] ?? []);

@@ -70,10 +70,15 @@
 
 .band {
   position: absolute;
-  left: 4px;
+  inset-inline-start: 4px;
   top: 4px;
+  z-index: 1;
   font-size: 12px;
+  line-height: 1.3;
   color: var(--news-normal-fg);
+  background: rgba(255, 255, 255, 0.85);
+  padding: 0 4px;
+  border-radius: 4px;
 }
 
 .axisRow {

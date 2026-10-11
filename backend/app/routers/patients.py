@@ -7,11 +7,14 @@ from sqlalchemy.orm import Session
 from app.auth.deps import (check_patient_access, doctor_patient_filter, nurse_patient_filter, nurse_scope,
                            require_roles)
 from app.db import get_db
-from app.errors import forbidden
+from app.ai.early_warning import score_news2
+from app.errors import ApiError, forbidden
 from app.ids import new_id
-from app.models import Note, Prescription, User, Vital
+from app.iot import publisher
+from app.iot.ingest import frame
+from app.models import Admission, Note, Prescription, User, Vital
 from app.schemas import (NoteIn, NoteOut, PatientListItem, PatientOut, PatientPatch, PatientSummary,
-                         PrescriptionOut, VitalOut)
+                         PrescriptionOut, VitalIn, VitalOut, iso)
 from app.services import patients as P
 from app.services.audit import audit
 
@@ -81,6 +84,35 @@ def get_vitals(patient_id: str, request: Request, from_: datetime | None = Query
                       .order_by(Vital.ts.desc()).limit(MAX_VITALS)).all()
     db.commit()
     return list(reversed(rows))  # newest MAX_VITALS, returned oldest first
+
+
+@router.post("/{patient_id}/vitals", response_model=VitalOut, status_code=201)
+def record_vitals(patient_id: str, body: VitalIn, request: Request,
+                  user: User = Depends(require_roles("doctor", "nurse")), db: Session = Depends(get_db)):
+    """A reading taken by hand at the bedside: stored as source `manual`, scored and alerted like a feed reading."""
+    if body.hr is None and body.spo2 is None and body.temp is None:
+        raise ApiError(422, "invalid", "enter at least one value")
+    check_patient_access(db, user, patient_id, write=True, resource="vitals", ip=_ip(request))
+    from app.services import alerts  # late import, as in iot.ingest
+
+    ts = datetime.now(UTC).replace(microsecond=0)
+    device_id = db.scalar(select(Admission.device_id).where(Admission.patient_id == patient_id,
+                                                            Admission.discharged_at.is_(None))) or "manual"
+    if db.get(Vital, (ts, f"manual:{user.id}")) is not None:
+        raise ApiError(409, "conflict", "a reading was just saved; wait a second")
+    news = score_news2(body.hr, body.spo2, body.temp)
+    v = Vital(ts=ts, device_id=f"manual:{user.id}", patient_id=patient_id, hr=body.hr, spo2=body.spo2,
+              temp=body.temp, nurse_id=user.id, news2=news.score, source="manual")
+    db.add(v)
+    db.flush()
+    frames = [frame(db, "vital", {"patient_id": patient_id, "device_id": v.device_id, "ts": iso(ts), "hr": v.hr,
+                                  "spo2": v.spo2, "temp": v.temp, "news2": news.score}, patient_id)]
+    frames += alerts.on_vital(db, patient_id, device_id, news, body.hr, body.spo2, body.temp)
+    out = VitalOut.model_validate(v)
+    db.commit()
+    for f in frames:
+        publisher.publish_ws_frame(f)
+    return out
 
 
 @router.get("/{patient_id}/prescriptions", response_model=list[PrescriptionOut])

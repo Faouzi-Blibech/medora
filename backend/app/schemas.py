@@ -115,6 +115,13 @@ class VitalOut(Orm):
     source: str
 
 
+class VitalIn(BaseModel):
+    """A reading taken by hand (nurse round); at least one value."""
+    hr: int | None = Field(None, ge=20, le=250)
+    spo2: int | None = Field(None, ge=50, le=100)
+    temp: float | None = Field(None, ge=30, le=45)
+
+
 class NoteIn(BaseModel):
     text: str = Field(min_length=1, max_length=5000)
 

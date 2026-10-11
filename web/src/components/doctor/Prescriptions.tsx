@@ -50,6 +50,7 @@ export function Prescriptions({ patient, prescriptions, actorId, onSaved, readOn
   const [plan, setPlan] = useState(() => t("doctor.defaultPlan"));
   const [saving, setSaving] = useState(false);
   const [timesError, setTimesError] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const [toast, showToast] = useToast<{ tone: "ok" | "warn"; body: ReactNode }>(4500);
 
   const pickedSlot: SlotKey = slot && (slot === "r" || !slotMeds[slot]) ? slot : firstFree();
@@ -58,6 +59,7 @@ export function Prescriptions({ patient, prescriptions, actorId, onSaved, readOn
   const sortedTimes = [...times].sort();
 
   function reset() {
+    setFormOpen(false);
     setMed(DEFAULT_MED);
     setDays(5);
     setTimes(["08:00"]);
@@ -188,7 +190,11 @@ export function Prescriptions({ patient, prescriptions, actorId, onSaved, readOn
         );
       })}
 
-      {readOnly ? null : (
+      {readOnly ? null : !formOpen ? (
+        <button type="button" className={styles.addRx} onClick={() => setFormOpen(true)}>
+          + {t("doctor.newRx")}
+        </button>
+      ) : (
       <div className={styles.form}>
         <span className={styles.formTitle}>{t("doctor.newRx")}</span>
         <div className={styles.formRow}>

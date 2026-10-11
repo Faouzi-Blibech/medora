@@ -27,7 +27,7 @@
 
 .rxGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 190px 150px 90px 60px;
+  grid-template-columns: minmax(150px, 1.5fr) minmax(110px, 1fr) 128px 64px 48px;
   gap: 14px;
 }
 
@@ -116,9 +116,27 @@
   padding: 6px 0;
 }
 
+.addRx {
+  align-self: flex-start;
+  margin-top: 6px;
+  font: 600 14px/1 var(--sans);
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  padding: 11px 16px;
+  cursor: pointer;
+}
+
+.addRx:hover {
+  border-color: var(--teal);
+  color: var(--teal-deep);
+}
+
 /* ── New prescription form ──────────────────────────────────────────────── */
 
 .form {
+  animation: wardRise 0.25s ease both;
   margin-top: 6px;
   padding: 20px;
   border-radius: 12px;
