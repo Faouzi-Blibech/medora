@@ -3,6 +3,11 @@ import { messages } from "../define";
 // Patient app (phone): plain words only, no NEWS2 and no AI badges.
 export const patient = messages({
   en: {
+    navSettings: "Settings",
+    homeVitalsTitle: "My latest readings",
+    homeVitalsLink: "Last reading at {time} · see my vitals ›",
+    homeRequestTitle: "Your appointment request",
+    homeRequestText: "The hospital is reviewing it. You will get a message when a time is set.",
     chatIntro: "Ask me about your medicines, appointments, exams or latest readings. I answer only from your hospital record, in your language.",
     metaHome: "Home · Ward",
     metaAppt: "Your appointment · Ward",
@@ -139,6 +144,11 @@ export const patient = messages({
     tabHomeCare: "After discharge",
   },
   fr: {
+    navSettings: "Paramètres",
+    homeVitalsTitle: "Mes dernières mesures",
+    homeVitalsLink: "Dernière mesure à {time} · voir mes constantes ›",
+    homeRequestTitle: "Votre demande de rendez-vous",
+    homeRequestText: "L'hôpital l'examine. Vous recevrez un message dès qu'un horaire sera fixé.",
     chatIntro: "Posez-moi vos questions sur vos médicaments, rendez-vous, examens ou dernières mesures. Je réponds uniquement à partir de votre dossier, dans votre langue.",
     metaHome: "Accueil · Ward",
     metaAppt: "Votre rendez-vous · Ward",
@@ -275,6 +285,11 @@ export const patient = messages({
     tabHomeCare: "Après la sortie",
   },
   ar: {
+    navSettings: "الإعدادات",
+    homeVitalsTitle: "آخر قياساتي",
+    homeVitalsLink: "آخر قياس على {time} · عرض علاماتي الحيوية ›",
+    homeRequestTitle: "طلب موعدك",
+    homeRequestText: "المستشفى يراجع طلبك. ستصلك رسالة عند تحديد الموعد.",
     chatIntro: "اسألني عن أدويتك أو مواعيدك أو فحوصاتك أو آخر قياساتك. أجيب فقط من ملفك في المستشفى، وبلغتك.",
     metaHome: "الرئيسية · وَرد",
     metaAppt: "موعدك · وَرد",

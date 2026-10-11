@@ -7,14 +7,13 @@ import { usePathname } from "next/navigation";
 import { useT } from "@/i18n/I18nProvider";
 import type { Key } from "@/i18n/messages";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { LogoutButton } from "@/components/LogoutButton";
 import { USE_MOCKS } from "@/lib/time";
 import { initialsOf, useMe } from "@/lib/useMe";
 import { LayoutSwitch } from "./LayoutSwitch";
 import { useApptHref } from "./PatientScreen";
 import styles from "../Sidebar.module.css";
 
-type NavKey = "home" | "vitals" | "assistant" | "appts" | "calendar" | "homeCare" | "password";
+type NavKey = "home" | "vitals" | "assistant" | "appts" | "calendar" | "homeCare" | "settings";
 
 const NAV: { key: NavKey; label: Key; href: string }[] = [
   { key: "home", label: "patient.tabHome", href: "/patient" },
@@ -23,7 +22,7 @@ const NAV: { key: NavKey; label: Key; href: string }[] = [
   { key: "appts", label: "patient.tabAppts", href: "/patient/appointments" },
   { key: "calendar", label: "calendar.tab", href: "/patient/calendar" },
   { key: "homeCare", label: "patient.tabHomeCare", href: "/patient/home-care" },
-  { key: "password", label: "auth.navPassword", href: "/patient/password" },
+  { key: "settings", label: "patient.navSettings", href: "/patient/settings" },
 ];
 
 function activeKey(pathname: string): NavKey {
@@ -68,8 +67,7 @@ export function PatientSidebar() {
       <div className={styles.foot}>
         <LayoutSwitch tone="dark" />
         <LanguageSwitcher tone="dark" compact />
-        <LogoutButton className={styles.logout} />
-        <div className={styles.user}>
+        <Link href="/patient/settings" className={styles.user} style={{ color: "inherit", textDecoration: "none" }}>
           <span className={styles.avatar}>{name ? initialsOf(name) : ""}</span>
           <div className={styles.who}>
             <span className={styles.userName} dir="auto">
@@ -77,7 +75,7 @@ export function PatientSidebar() {
             </span>
             <span className={styles.userSub}>{t("shared.rolePatient")}</span>
           </div>
-        </div>
+        </Link>
       </div>
     </div>
   );
