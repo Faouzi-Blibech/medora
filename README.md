@@ -100,7 +100,8 @@ The web app runs on mock data by default. To use the real API, set `NEXT_PUBLIC_
 | `imaging@ward.tn` | Nurse, Imaging (uploads X-rays and scans) |
 | `lab@ward.tn` | Nurse, Laboratory (uploads lab results) |
 | `admin@ward.tn` | Admin |
-| `patient@ward.tn` | Patient (Amira, bed C-12) |
+| `patient@ward.tn` | Patient (Amira, bed C-12), phone app |
+| `patient2@ward.tn` | Patient (Youssef, bed C-08), desktop patient platform |
 
 **AI options (`.env`):** `LLM_PROVIDER=none` is the default, and every module works without it. To let an open LLM rewrite the doctor's daily summary, set `LLM_PROVIDER=groq`, `GROQ_API_KEY=…` and `LLM_MODEL=openai/gpt-oss-120b`. For a local model, use `LLM_PROVIDER=local` with Ollama.
 

@@ -111,9 +111,14 @@ export function VitalsView() {
               <section className={styles.chartCard} aria-label={t("patient.hrChartLabel")}>
                 <span className={styles.chartTitle}>{t("patient.hrChartTitle")}</span>
                 <div dir="ltr">
-                <svg viewBox="0 0 300 90" className={styles.chart} role="img" aria-label={t("patient.hrLine")}>
+                {/* Stretches to the card (the desktop card is much wider than the phone's); the stroke keeps its width. */}
+                <svg viewBox="0 0 300 90" preserveAspectRatio="none" className={styles.chart} role="img" aria-label={t("patient.hrLine")}>
                   <rect x="0" y="45" width="300" height="34" className={styles.band} />
-                  <polyline points={hrPoints(hrSeries.map((v) => v.hr as number))} className={styles.line} />
+                  <polyline
+                    points={hrPoints(hrSeries.map((v) => v.hr as number))}
+                    className={styles.line}
+                    vectorEffect="non-scaling-stroke"
+                  />
                 </svg>
                 <div className={styles.axis}>
                   <span>{startLabel(hrSeries[0].ts, t)}</span>

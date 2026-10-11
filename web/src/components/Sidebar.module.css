@@ -116,17 +116,6 @@
   padding: 0 6px;
 }
 
-.logout {
-  align-self: flex-start;
-  font: 600 13px/1 var(--sans);
-  color: inherit;
-  background: transparent;
-  border: 1px solid var(--side-rule);
-  border-radius: 6px;
-  padding: 8px 12px;
-  cursor: pointer;
-}
-
 .live,
 .paused {
   align-self: flex-start;
@@ -168,6 +157,17 @@
   gap: 12px;
   padding-top: 14px;
   border-top: 1px solid var(--side-rule);
+  color: inherit;
+  text-decoration: none;
+}
+
+.user:hover .userName {
+  text-decoration: underline;
+}
+
+.user:focus-visible {
+  outline: 2px solid var(--teal-bright);
+  outline-offset: 2px;
 }
 
 .avatar {
@@ -196,4 +196,9 @@
 .userSub {
   font-size: 13px;
   color: var(--side-muted);
+}
+
+.countCritical {
+  background: var(--danger);
+  color: var(--paper);
 }

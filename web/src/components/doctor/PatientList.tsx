@@ -135,7 +135,7 @@ export function PatientList() {
       ) : state === "error" ? (
         <ErrorCard title={t("doctor.loadPatientsError")} onRetry={load} />
       ) : (
-        <div className={styles.table}>
+        <div className={`${styles.table} ward-stagger`}>
           <div className={`${styles.grid} ${styles.th}`}>
             <span>{t("doctor.colPatient")}</span>
             <span>{t("doctor.colBed")}</span>

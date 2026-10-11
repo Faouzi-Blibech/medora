@@ -147,7 +147,7 @@ export function BedCard({ bed, index, live, tick, call }: BedCardProps) {
       </div>
     );
   return (
-    <Link href={`/nurse/patients/${encodeURIComponent(p.id)}`} className={styles.card} style={cardStyle}>
+    <Link href={`/nurse/patients/${encodeURIComponent(p.id)}`} className={`${styles.card} ward-lift`} style={cardStyle}>
       {body}
     </Link>
   );

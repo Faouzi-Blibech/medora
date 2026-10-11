@@ -5,9 +5,9 @@ A few additive fields from the api.md 1.5 proposals are included where they cost
 """
 
 from datetime import UTC, date, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, StringConstraints, field_validator, model_validator
 
 
 def iso(dt: datetime | None) -> str | None:
@@ -115,6 +115,13 @@ class VitalOut(Orm):
     source: str
 
 
+class VitalIn(BaseModel):
+    """A reading taken by hand (nurse round); at least one value."""
+    hr: int | None = Field(None, ge=20, le=250)
+    spo2: int | None = Field(None, ge=50, le=100)
+    temp: float | None = Field(None, ge=30, le=45)
+
+
 class NoteIn(BaseModel):
     text: str = Field(min_length=1, max_length=5000)
 
@@ -129,21 +136,14 @@ class NoteOut(BaseModel):
 
 
 # --- prescriptions ---
-class PrescriptionOut(Orm):
-    id: str
-    patient_id: str
-    doctor_id: str
-    items: list
-    care_plan: str
-    active: bool
-    created_at: Ts
-
-
 HHMM = r"^([01]\d|2[0-3]):[0-5]\d$"
 
 
 class RxItemIn(BaseModel):
-    med: str = Field(min_length=1, max_length=80)
+    med: str = Field(min_length=1, max_length=80)  # display string; checks use drug_id
+    drug_id: str | None = Field(default=None, max_length=20)  # null = non-formulary ("hors livret")
+    dose_mg: float | None = Field(default=None, gt=0, le=100000)  # mg per intake; overrides units × unit_mg
+    units_per_intake: int = Field(default=1, ge=1, le=10)
     times: list[Annotated[str, Field(pattern=HHMM)]] = Field(min_length=1, max_length=8)
     slot: int | None = Field(default=None, ge=1, le=4)
     days: int = Field(default=1, ge=1, le=60)
@@ -153,15 +153,19 @@ class PrescriptionIn(BaseModel):
     patient_id: str
     items: list[RxItemIn] = Field(min_length=1, max_length=8)
     care_plan: str = ""
+    urgent: bool = False
+    override_reason: str | None = Field(default=None, max_length=500)
+    replaces_id: str | None = Field(default=None, max_length=20)
+
+
+class PrescriptionCheckIn(BaseModel):
+    patient_id: str
+    items: list[RxItemIn] = Field(min_length=1, max_length=8)
+    replaces_id: str | None = Field(default=None, max_length=20)
 
 
 class PrescriptionPatch(BaseModel):
-    active: bool
-
-
-class PrescriptionPublished(PrescriptionOut):
-    schedule_version: int | None
-    published_to_device: bool
+    active: Literal[False]  # stop only; edits are a new version through replaces_id
 
 
 class AssignIn(BaseModel):
@@ -186,3 +190,91 @@ class DoseOut(Orm):
     status: str
     taken_method: str | None
     updated_at: Ts
+    pharmacy: str = "none"  # none | sent | received (api 1.12 Phase B)
+
+
+# --- pharmacy (api 1.12) ---
+Comment = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+DrugForm = Literal["tablet", "capsule", "syrup", "injection", "inhaler", "patch", "drops", "other"]
+Tag = Annotated[str, StringConstraints(strip_whitespace=True, to_lower=True, pattern=r"(?i)^[a-z][a-z0-9_]{0,39}$")]
+Brand = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+Dci = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+Strength = Annotated[str, StringConstraints(strip_whitespace=True, max_length=40)]
+Atc = Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"(?i)^$|^[A-Z]\d{2}[A-Z]{2}\d{2}$")]
+
+
+class DrugIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    dci: Dci
+    brand_names: list[Brand] = Field(default_factory=list, max_length=20)
+    form: DrugForm
+    strength: Strength = ""
+    unit_mg: float | None = Field(default=None, gt=0, le=100000)
+    max_daily_mg: float | None = Field(default=None, gt=0, le=1000000)
+    atc_code: Atc = ""
+    allergy_classes: list[Tag] = Field(default_factory=list, max_length=20)
+    interaction_groups: list[Tag] = Field(default_factory=list, max_length=20)
+    high_alert: bool = False
+    min_stock: int = Field(default=0, ge=0, le=1000000)
+    active: bool = True
+
+
+class DrugPatch(BaseModel):
+    """Only the fields sent change. `unit_mg` and `max_daily_mg` may be set to null; the others may not."""
+
+    model_config = ConfigDict(extra="forbid")
+    dci: Dci | None = None
+    brand_names: list[Brand] | None = Field(default=None, max_length=20)
+    form: DrugForm | None = None
+    strength: Strength | None = None
+    unit_mg: float | None = Field(default=None, gt=0, le=100000)
+    max_daily_mg: float | None = Field(default=None, gt=0, le=1000000)
+    atc_code: Atc | None = None
+    allergy_classes: list[Tag] | None = Field(default=None, max_length=20)
+    interaction_groups: list[Tag] | None = Field(default=None, max_length=20)
+    high_alert: bool | None = None
+    min_stock: int | None = Field(default=None, ge=0, le=1000000)
+    active: bool | None = None
+
+
+class ValidateIn(BaseModel):
+    acknowledged: bool = False  # "warnings reviewed": required when the prescription has any check
+    comment: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+
+
+class CommentIn(BaseModel):
+    comment: Comment  # 1–500 characters after trimming
+
+
+class ReceiptIn(BaseModel):
+    drug_id: str = Field(max_length=20)
+    lot_number: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)]
+    expiry_date: date
+    quantity: int = Field(ge=1, le=100000)
+
+
+class AdjustmentIn(BaseModel):
+    lot_id: str = Field(max_length=20)
+    delta: int = Field(ge=-100000, le=100000)
+    reason: Literal["adjustment", "expired", "return"]
+    comment: Comment
+
+    @field_validator("delta")
+    @classmethod
+    def _nonzero(cls, v: int) -> int:
+        if v == 0:
+            raise ValueError("delta must not be 0")
+        return v
+
+
+class DispenseLineIn(BaseModel):
+    dose_id: str = Field(max_length=20)
+    lot_id: str | None = Field(default=None, max_length=20)  # null = FEFO
+
+
+class DispenseIn(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    ward: str = Field(min_length=1, max_length=60)
+    day: date = Field(alias="date")
+    round_time: str = Field(pattern=HHMM)
+    lines: list[DispenseLineIn] = Field(min_length=1, max_length=200)

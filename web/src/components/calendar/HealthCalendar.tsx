@@ -359,7 +359,10 @@ export function HealthCalendar({ role, editable = false, compact = false }: Heal
         <ErrorCard title={t("calendar.loadError")} onRetry={reload} secondaryLabel={null} />
       ) : (
         <div className={styles.columns}>
-          {monthCard}
+          <div className={styles.side}>
+            {monthCard}
+            {watch ? <NewsCard watch={watch} /> : null}
+          </div>
           <div className={styles.side}>
             {canEdit && editing ? (
               <EventForm
@@ -377,7 +380,6 @@ export function HealthCalendar({ role, editable = false, compact = false }: Heal
             )}
             {upcomingCard}
             {followCard}
-            {watch ? <NewsCard watch={watch} /> : null}
           </div>
         </div>
       )}

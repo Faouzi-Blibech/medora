@@ -12,7 +12,7 @@ import { useMeState } from "@/lib/useMe";
 import { HealthCalendar } from "./HealthCalendar";
 import styles from "./FullCalendarPage.module.css";
 
-const HOME: Record<Role, string> = { patient: "/patient", doctor: "/doctor", nurse: "/nurse", admin: "/admin" };
+const HOME: Record<Role, string> = { patient: "/patient", doctor: "/doctor", nurse: "/nurse", admin: "/admin", pharmacist: "/pharmacist" };
 
 export function FullCalendarPage() {
   const { t } = useT();

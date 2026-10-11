@@ -1,4 +1,4 @@
-"""Pilot impact dashboard (api.md 1.16): aggregates only, admin only."""
+"""Pilot impact dashboard (api.md 1.18): aggregates only, admin only."""
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session

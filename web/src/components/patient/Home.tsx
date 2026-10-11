@@ -4,10 +4,11 @@
 // the next appointment and "Ask a question". Plain words only: no NEWS2.
 import { examLabel, deptLabel } from "@/lib/labels";
 import Link from "next/link";
-import { getDoses, getMyAppointments, getPatient, getPatientExams } from "@/lib/api";
+import { getDoses, getMyAppointments, getPatient, getPatientExams, getVitals } from "@/lib/api";
 import { useDemoFlags } from "@/lib/demo";
+import { usePatientLayout } from "@/lib/patientLayout";
 import { useT } from "@/i18n/I18nProvider";
-import type { Appointment, ExamOrder } from "@/lib/types";
+import type { Appointment, ExamOrder, Vital } from "@/lib/types";
 import { now, tunisDate, tunisTime } from "@/lib/time";
 import { ErrorCard } from "@/components/shared/ErrorCard";
 import { UpcomingBanner } from "@/components/calendar/UpcomingBanner";
@@ -33,23 +34,25 @@ async function loadHome() {
   // Appointments are optional here: if they fail (route not built yet), Home shows no "Next appointment"
   // card instead of failing the medicines.
   // Exams are optional too; the patient only ever sees ordered or done ones, never suggestions.
-  const [patient, doses, appts, allExams] = await Promise.all([
+  const [patient, doses, appts, allExams, vitals] = await Promise.all([
     getPatient(id),
     getDoses(id),
     getMyAppointments(id).catch((): Appointment[] => []),
     getPatientExams(id).catch((): ExamOrder[] => []),
+    getVitals(id).catch((): Vital[] => []),
   ]);
   // "Before your visit": exams of a still-upcoming request (requested or confirmed), plus unattached ordered ones.
   const open = new Set(appts.filter((a) => a.status === "requested" || a.status === "confirmed").map((a) => a.id));
   const exams = allExams.filter((e) =>
     e.appointment_id ? open.has(e.appointment_id) && (e.status === "ordered" || e.status === "done") : e.status === "ordered",
   );
-  return { patient, doses, appts, exams };
+  return { patient, doses, appts, exams, vitals };
 }
 
 export function Home() {
   const { t, lang } = useT();
   const flags = useDemoFlags();
+  const desktop = usePatientLayout().layout === "desktop";
   const offline = useOffline();
   const res = useLoad(loadHome);
   const ref = now();
@@ -70,6 +73,13 @@ export function Home() {
   const next = (data?.appts ?? []).find(
     (a) => a.status === "confirmed" && a.slot_at && Date.parse(a.slot_at) >= ref.getTime(),
   );
+  const requested = (data?.appts ?? []).find((a) => a.status === "requested");
+  const lastVital = (k: "hr" | "spo2" | "temp") => {
+    const vs = data?.vitals ?? [];
+    for (let i = vs.length - 1; i >= 0; i--) if (vs[i][k] != null) return vs[i][k];
+    return null;
+  };
+  const lastTs = data?.vitals.length ? data.vitals[data.vitals.length - 1].ts : null;
   const place = data ? bedLine(data.patient.bed, data.patient.ward, t) : null;
 
   return (
@@ -89,88 +99,131 @@ export function Home() {
           <span className={styles.subline}>{[place, longDay(todayIso, lang)].filter(Boolean).join(" · ")}</span>
         </div>
 
-        <UpcomingBanner role="patient" href="/patient/calendar" />
+        {/* Two columns on the desktop (medicines | banner, next appointment, ask); one column on the phone. */}
+        <div className={styles.homeMain}>
+          {failed ? (
+            <ErrorCard
+              variant="patient"
+              title={t("patient.errTitle")}
+              message={t("patient.homeLoadErr")}
+              retryLabel={t("patient.tryAgain")}
+              onRetry={flags.state === "error" ? undefined : res.retry}
+            />
+          ) : loading ? (
+            <SkeletonCard />
+          ) : meds.length === 0 ? (
+            <EmptyCard title={t("patient.noMedsTitle")}>{t("patient.noMedsText")}</EmptyCard>
+          ) : (
+            <section className={`${styles.card} ${styles.medsCard}`} aria-labelledby="meds-title">
+              <h2 id="meds-title" className={styles.cardTitle}>
+                {t("patient.todaysMeds")}
+              </h2>
+              {meds.map((d) => {
+                const st = medState(d);
+                return (
+                  <div key={d.id} className={styles.medRow}>
+                    <span className={styles.medTime}>{d.time_of_day}</span>
+                    <span className={styles.medText}>
+                      <span className={styles.medName}>{d.meds.join(" + ")}</span>
+                      <span className={styles.medSub}>{medSource(d, t)}</span>
+                    </span>
+                    <span className={`${styles.medPill} ${styles[`med_${st}`]}`}>{t(MED_LABEL[st])}</span>
+                  </div>
+                );
+              })}
+            </section>
+          )}
 
-        {failed ? (
-          <ErrorCard
-            variant="patient"
-            title={t("patient.errTitle")}
-            message={t("patient.homeLoadErr")}
-            retryLabel={t("patient.tryAgain")}
-            onRetry={flags.state === "error" ? undefined : res.retry}
-          />
-        ) : loading ? (
-          <SkeletonCard />
-        ) : meds.length === 0 ? (
-          <EmptyCard title={t("patient.noMedsTitle")}>{t("patient.noMedsText")}</EmptyCard>
-        ) : (
-          <section className={`${styles.card} ${styles.medsCard}`} aria-labelledby="meds-title">
-            <h2 id="meds-title" className={styles.cardTitle}>
-              {t("patient.todaysMeds")}
-            </h2>
-            {meds.map((d) => {
-              const st = medState(d);
-              return (
-                <div key={d.id} className={styles.medRow}>
-                  <span className={styles.medTime}>{d.time_of_day}</span>
-                  <span className={styles.medText}>
-                    <span className={styles.medName}>{d.meds.join(" + ")}</span>
-                    <span className={styles.medSub}>{medSource(d, t)}</span>
-                  </span>
-                  <span className={`${styles.medPill} ${styles[`med_${st}`]}`}>{t(MED_LABEL[st])}</span>
-                </div>
-              );
-            })}
-          </section>
-        )}
-
-        {!failed && !loading && (data?.exams ?? []).length > 0 ? (
-          <section className={`${styles.card} ${styles.medsCard}`} aria-label={t("patient.beforeVisit")}>
-            <h2 className={styles.cardTitle}>{t("patient.beforeVisit")}</h2>
-            {(data?.exams ?? []).map((e) => (
-              <div key={e.id} className={styles.medRow}>
+          {desktop && !failed && !loading && lastTs ? (
+            <section className={`${styles.card} ${styles.medsCard}`} aria-label={t("patient.homeVitalsTitle")}>
+              <h2 className={styles.cardTitle}>{t("patient.homeVitalsTitle")}</h2>
+              <div className={styles.medRow}>
                 <span className={styles.medText}>
-                  <span className={styles.medName}>{examLabel(e, t)}</span>
-                  <span className={styles.medSub}>{deptLabel(e.department, t)}</span>
+                  <span className={styles.medName}>{t("patient.heartRate")}</span>
                 </span>
-                <span className={`${styles.medPill} ${e.status === "done" ? styles.med_taken : styles.med_upcoming}`}>
-                  {t(e.status === "done" ? "patient.examDone" : "patient.examTodo")}
+                <span className={styles.medTime} style={{ whiteSpace: "nowrap" }}>
+                  {lastVital("hr") ?? "—"} <small>{t("patient.beatsMin")}</small>
                 </span>
               </div>
-            ))}
-            <p className={styles.examNote}>{t("patient.examNote")}</p>
-          </section>
-        ) : null}
+              <div className={styles.medRow}>
+                <span className={styles.medText}>
+                  <span className={styles.medName}>{t("patient.oxygen")}</span>
+                </span>
+                <span className={styles.medTime} style={{ whiteSpace: "nowrap" }}>{lastVital("spo2") ?? "—"} %</span>
+              </div>
+              <div className={styles.medRow}>
+                <span className={styles.medText}>
+                  <span className={styles.medName}>{t("patient.temperature")}</span>
+                </span>
+                <span className={styles.medTime} style={{ whiteSpace: "nowrap" }}>{lastVital("temp") ?? "—"} °C</span>
+              </div>
+              <Link href="/patient/vitals" className={styles.examNote}>
+                {t("patient.homeVitalsLink", { time: tunisTime(lastTs) })}
+              </Link>
+            </section>
+          ) : null}
 
-        {!failed && !loading && missedYesterday.length > 0 ? (
-          <div className={styles.missed}>
-            <span className={styles.missedDot} />
-            <span>
-              <b>{t("patient.missedYesterday")}</b>{" "}
-              {missedYesterday
-                .map((d) => t("patient.missedItem", { drugs: d.meds.map(drugWord).join(" + "), time: tunisTime(d.scheduled_at) }))
-                .join(t("patient.listSep"))}
-              . {t("patient.missedAfter")}
-            </span>
+          {!failed && !loading && (data?.exams ?? []).length > 0 ? (
+            <section className={`${styles.card} ${styles.medsCard}`} aria-label={t("patient.beforeVisit")}>
+              <h2 className={styles.cardTitle}>{t("patient.beforeVisit")}</h2>
+              {(data?.exams ?? []).map((e) => (
+                <div key={e.id} className={styles.medRow}>
+                  <span className={styles.medText}>
+                    <span className={styles.medName}>{examLabel(e, t)}</span>
+                    <span className={styles.medSub}>{deptLabel(e.department, t)}</span>
+                  </span>
+                  <span className={`${styles.medPill} ${e.status === "done" ? styles.med_taken : styles.med_upcoming}`}>
+                    {t(e.status === "done" ? "patient.examDone" : "patient.examTodo")}
+                  </span>
+                </div>
+              ))}
+              <p className={styles.examNote}>{t("patient.examNote")}</p>
+            </section>
+          ) : null}
+
+          {!failed && !loading && missedYesterday.length > 0 ? (
+            <div className={styles.missed}>
+              <span className={styles.missedDot} />
+              <span>
+                <b>{t("patient.missedYesterday")}</b>{" "}
+                {missedYesterday
+                  .map((d) => t("patient.missedItem", { drugs: d.meds.map(drugWord).join(" + "), time: tunisTime(d.scheduled_at) }))
+                  .join(t("patient.listSep"))}
+                . {t("patient.missedAfter")}
+              </span>
+            </div>
+          ) : null}
+        </div>
+
+        <div className={styles.homeSide}>
+          <div className={styles.homeBanner}>
+            <UpcomingBanner role="patient" href="/patient/calendar" />
           </div>
-        ) : null}
 
-        {!failed && !loading && next?.slot_at ? (
-          <Link href={`/patient/appointments/${next.id}`} className={styles.nextAppt}>
-            <span className={styles.nextEyebrow}>{t("patient.nextAppt")}</span>
-            <span className={styles.nextWhen}>
-              {longDay(next.slot_at, lang)} · {tunisTime(next.slot_at)}
-            </span>
-            <span className={styles.nextWho}>{[next.doctor_name, next.room].filter(Boolean).join(" · ")}</span>
-            {next.patient_confirmed_at ? null : <span className={styles.nextCta}>
-                {t("patient.pleaseConfirm")} <span>›</span>
-              </span>}
+          {!failed && !loading && next?.slot_at ? (
+            <Link href={`/patient/appointments/${next.id}`} className={styles.nextAppt}>
+              <span className={styles.nextEyebrow}>{t("patient.nextAppt")}</span>
+              <span className={styles.nextWhen}>
+                {longDay(next.slot_at, lang)} · {tunisTime(next.slot_at)}
+              </span>
+              <span className={styles.nextWho}>{[next.doctor_name, next.room].filter(Boolean).join(" · ")}</span>
+              {next.patient_confirmed_at ? null : <span className={styles.nextCta}>
+                  {t("patient.pleaseConfirm")} <span>›</span>
+                </span>}
+            </Link>
+          ) : null}
+
+          {desktop && !failed && !loading && !next && requested ? (
+            <section className={`${styles.card} ${styles.medsCard}`} aria-label={t("patient.homeRequestTitle")}>
+              <h2 className={styles.cardTitle}>{t("patient.homeRequestTitle")}</h2>
+              <p className={styles.examNote}>{t("patient.homeRequestText")}</p>
+            </section>
+          ) : null}
+
+          <Link href="/patient/assistant" className={`${styles.outlineBtn} ${styles.ask}`}>
+            {t("patient.askQuestion")}
           </Link>
-        ) : null}
-
-        <Link href="/patient/assistant" className={`${styles.outlineBtn} ${styles.ask}`}>
-          {t("patient.askQuestion")}
-        </Link>
+        </div>
       </div>
     </PatientScreen>
   );

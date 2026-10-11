@@ -5,21 +5,27 @@ RX = {"patient_id": "p-0001", "care_plan": "Monitor temperature every 4h",
       "items": [{"med": "Paracetamol 500mg", "times": ["08:00", "20:00"], "slot": 1, "days": 5}]}
 
 
+def _schedules(published):
+    return [p for p in published if p[0].endswith("/schedule")]
+
+
 def test_prescribe_publishes_schedule(client, published):
-    r = client.post("/prescriptions", headers=login(client, "doctor@ward.tn"), json=RX)
+    r = client.post("/prescriptions", headers=login(client, "doctor@ward.tn"), json=dict(RX, urgent=True))
     assert r.status_code == 201, r.text
     body = r.json()
     assert body["id"].startswith("rx-") and body["doctor_id"] == "u-0001" and body["active"] is True
+    assert (body["status"], body["urgent"]) == ("pending_pharmacy", True)
     assert body["published_to_device"] is True and body["schedule_version"] == 1
-    topic, payload, _, retain = published[-1]
+    topic, payload, _, retain = _schedules(published)[-1]
     assert topic == "hospital/device/bsu-001/schedule" and retain
     assert payload["schedule_version"] == 1 and any(d["time"] == "20:00" for d in payload["doses"])
 
 
 def test_prescribe_patient_without_device(client, published):
-    r = client.post("/prescriptions", headers=login(client, "doctor@ward.tn"), json=dict(RX, patient_id="p-0002"))
+    r = client.post("/prescriptions", headers=login(client, "doctor@ward.tn"),
+                    json=dict(RX, patient_id="p-0002", urgent=True))
     assert r.status_code == 201 and r.json()["published_to_device"] is False
-    assert published == []
+    assert _schedules(published) == []
 
 
 def test_prescribe_rules(client):
@@ -32,10 +38,10 @@ def test_prescribe_rules(client):
 
 def test_stop_prescription(client, db, published):
     h = login(client, "doctor@ward.tn")
-    rx = client.post("/prescriptions", headers=h, json=RX).json()
+    rx = client.post("/prescriptions", headers=h, json=dict(RX, urgent=True)).json()
     r = client.patch(f"/prescriptions/{rx['id']}", headers=h, json={"active": False})
     assert r.status_code == 200 and r.json()["active"] is False and r.json()["schedule_version"] == 2
-    payload = published[-1][1]
+    payload = _schedules(published)[-1][1]
     assert all("Paracetamol 500mg" not in d["meds"] or d["slot"] != 1 for d in payload["doses"])
 
 

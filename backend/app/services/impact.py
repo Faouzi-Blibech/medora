@@ -1,4 +1,4 @@
-"""Pilot impact indicators (api.md 1.16): what a pilot ward would track, measured from the database.
+"""Pilot impact indicators (api.md 1.18): what a pilot ward would track, measured from the database.
 
 Aggregates only: no patient names or ids leave this module. Each indicator is computed for the period
 [now - days, now) and for the previous period of equal length, so the UI can show a trend.

@@ -1,4 +1,4 @@
-"""OPT-IN synthetic ward history for the pilot impact dashboard (api.md 1.16).
+"""OPT-IN synthetic ward history for the pilot impact dashboard (api.md 1.18).
 
     python -m app.demo_history --days 60      # add the history (does nothing if it is already there)
     python -m app.demo_history --reset        # remove only the rows this script created

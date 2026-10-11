@@ -1,7 +1,7 @@
 "use client";
 
 // Admin / Pilot impact (/admin/impact): the indicators a pilot ward would track, measured by
-// GET /admin/impact (api.md 1.16) over 7, 30 or 90 days, each with its trend against the previous
+// GET /admin/impact (api.md 1.18) over 7, 30 or 90 days, each with its trend against the previous
 // period of equal length. "Not recorded yet" when the data model cannot measure an indicator.
 import { useCallback, useEffect, useState } from "react";
 import { ErrorCard } from "@/components/shared/ErrorCard";

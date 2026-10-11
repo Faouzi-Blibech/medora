@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { RecordVitals } from "@/components/shared/RecordVitals";
 import { LiveBanner } from "@/components/LiveBanner";
 import { ErrorCard } from "@/components/shared/ErrorCard";
 import { NotesPanel } from "@/components/shared/NotesPanel";
@@ -17,10 +18,12 @@ import { addNote, getDoses, getNotes, getPatient, getPrescriptions, getVitals } 
 import { useDemoFlags } from "@/lib/demo";
 import { news2Word } from "@/lib/labels";
 import { level, PULSE } from "@/lib/news2";
+import { isPendingUrgent, isRunning } from "@/lib/pharmacy";
 import { dayLabel, now, pausedAt, tunisDate, tunisTime, tunisTimeSeconds, USE_MOCKS } from "@/lib/time";
 import type { Alert, Dose, Note, Patient, Prescription, Vital } from "@/lib/types";
 import { useMe } from "@/lib/useMe";
 import { DosePill } from "./DosePill";
+import { DosePharmacyNote, PendingReviewBadge } from "./PharmacyBadge";
 import {
   doseView,
   hrPoints,
@@ -300,6 +303,11 @@ export function NursePatientDetail({ id }: { id: string }) {
             })}
           </div>
 
+          <RecordVitals
+            patientId={id}
+            onRecorded={(v) => setData((d) => (d ? { ...d, vitals: [...d.vitals, v] } : d))}
+          />
+
           <div className={styles.columns}>
             <div className={styles.col}>
               <section className={styles.card}>
@@ -322,6 +330,8 @@ export function NursePatientDetail({ id }: { id: string }) {
                           <span className={styles.doseSub} style={v.subAlert ? { color: "var(--danger)" } : undefined}>
                             {v.sub}
                           </span>
+                          {v.pendingReview ? <PendingReviewBadge /> : null}
+                          <DosePharmacyNote state={v.pharmacy} canGive={v.canGive} />
                         </div>
                         <DosePill status={v.status} text={v.statusText} />
                       </div>
@@ -333,11 +343,12 @@ export function NursePatientDetail({ id }: { id: string }) {
                   <h3 className={styles.cardTitle}>{t("nurse.prescriptions")}</h3>
                   <span className={styles.readOnly}>{t("nurse.readOnly")}</span>
                 </div>
-                {data.prescriptions.length === 0 ? <span className={styles.none}>{t("nurse.noRx")}</span> : null}
-                {data.prescriptions.flatMap((rx) =>
+                {data.prescriptions.filter(isRunning).length === 0 ? <span className={styles.none}>{t("nurse.noRx")}</span> : null}
+                {data.prescriptions.filter(isRunning).flatMap((rx) =>
                   rx.items.map((item, i) => (
                     <div key={`${rx.id}-${i}`} className={styles.rxRow}>
                       <span className={styles.rxMed}>{item.med}</span>
+                      {isPendingUrgent(rx) ? <PendingReviewBadge /> : null}
                       <span className={styles.rxTimes}>{item.times.join(", ")}</span>
                       <span className={styles.rxSlot}>{item.slot != null ? t("nurse.slot", { n: item.slot }) : t("nurse.reminderOnly")}</span>
                     </div>
@@ -345,8 +356,9 @@ export function NursePatientDetail({ id }: { id: string }) {
                 )}
               </section>
             </div>
-            <PatientAiCard patientId={id} role="nurse" />
-            <NotesPanel
+            <div className={styles.col}>
+              <PatientAiCard patientId={id} role="nurse" />
+              <NotesPanel
               notes={data.notes}
               onAdd={onAddNote}
               placeholder={t("nurse.notePlaceholder")}
@@ -355,7 +367,8 @@ export function NursePatientDetail({ id }: { id: string }) {
               variant="nurse"
               now={ref}
               timeLabel={(iso) => (dayLabel(iso, ref, lang) === t("common.today") ? tunisTime(iso) : `${dayLabel(iso, ref, lang)} ${tunisTime(iso)}`)}
-            />
+              />
+            </div>
           </div>
         </>
       )}

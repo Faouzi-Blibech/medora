@@ -62,12 +62,12 @@ export function deptLabel(name: string | null | undefined, t: TFn): string {
 }
 
 const EXAM_CODES = new Set([
-  "ecg", "echo", "troponin", "cbc", "crp", "d_dimer", "inr", "hba1c", "creatinine", "chest_xray", "brain_ct", "leg_doppler",
+  "ecg", "echo", "troponin", "cbc", "crp", "d_dimer", "inr", "hba1c", "creatinine", "chest_xray", "xray", "xray_outside", "brain_ct", "leg_doppler",
 ]);
 
 /** A catalogue exam (`rules/exam_bundles.v1.json`) by code; unknown codes keep the API label. */
 export function examLabel(exam: { code: string; label: string }, t: TFn): string {
-  return EXAM_CODES.has(exam.code) ? t(`shared.exam_${exam.code}` as Key) : exam.label;
+  return exam.code !== "xray_outside" && EXAM_CODES.has(exam.code) ? t(`shared.exam_${exam.code}` as Key) : exam.label;
 }
 
 /** Message keys for triage `red_flags` codes. */

@@ -1,0 +1,69 @@
+/* Severity chips, prescription status pills and the check list (pharmacist review + doctor form). */
+.sev,
+.status {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font: 600 12px/1.2 var(--sans);
+  white-space: nowrap;
+}
+
+.sevCritical { background: var(--news-crit-edge); color: var(--paper); }
+.sevMajor { background: var(--news-high-bg); color: var(--news-high-fg); }
+.sevModerate { background: var(--news-low-bg); color: var(--news-low-fg); }
+.sevInfo { background: var(--ai-bg); color: var(--ai); }
+
+.stPending { background: var(--warn-bg); color: var(--warn-ink); border: 1px solid var(--warn-line); }
+.stUrgent { background: var(--danger); color: var(--paper); }
+.stValidated { background: var(--news-normal-bg); color: var(--news-normal-fg); }
+.stChanges { background: var(--news-high-bg); color: var(--news-high-fg); }
+.stRejected { background: var(--news-crit-bg); color: var(--news-crit-fg); }
+.stClosed { background: var(--chip); color: var(--muted); }
+
+.checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.checkCritical {
+  border-color: var(--danger-line);
+  border-inline-start: 4px solid var(--danger);
+  background: var(--danger-bg);
+  color: var(--danger-ink);
+}
+
+.checkBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.checkItem {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.noChecks {
+  margin: 0;
+  font-size: 15px;
+  color: var(--news-normal-fg);
+}

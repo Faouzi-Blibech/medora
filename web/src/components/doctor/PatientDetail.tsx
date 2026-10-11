@@ -3,7 +3,7 @@
 // Doctor / Patient detail (/doctor/patients/[id]).
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useT } from "@/i18n/I18nProvider";
 import { LiveBanner } from "@/components/LiveBanner";
 import { DosesTimeline } from "@/components/shared/DosesTimeline";
@@ -16,12 +16,14 @@ import { LIVE_JITTER, useLiveTick } from "@/components/shared/useLiveTick";
 import { Toast, useToast } from "@/components/Toast";
 import { addNote, getDoses, getNotes, getPatient, getPrescriptions, getVitals } from "@/lib/api";
 import { useDemoFlags } from "@/lib/demo";
+import { useLiveRefresh } from "@/lib/live";
 import { now, pausedAt, tunisTime, USE_MOCKS } from "@/lib/time";
 import type { Dose, Note, Patient, Prescription, Vital } from "@/lib/types";
 import { useMe } from "@/lib/useMe";
 import { DailySummary } from "./DailySummary";
 import { PatientHeader } from "./PatientHeader";
 import { Prescriptions } from "./Prescriptions";
+import { RecordVitals } from "@/components/shared/RecordVitals";
 import { VitalsCard } from "./VitalsCard";
 import styles from "./PatientDetail.module.css";
 
@@ -61,14 +63,28 @@ export function PatientDetail({ id }: { id: string }) {
 
   useEffect(load, [load]);
 
-  const refreshRx = useCallback(async () => {
-    try {
-      const [prescriptions, doses] = await Promise.all([getPrescriptions(id), dosesOrEmpty(id)]);
-      setData((d) => (d ? { ...d, prescriptions, doses } : d));
-    } catch {
-      showNoteError(t("doctor.rxRefreshError"));
-    }
-  }, [id, showNoteError, t]);
+  const rxReq = useRef(0);
+  const refreshRx = useCallback(
+    async (quiet = false) => {
+      const mine = ++rxReq.current; // only the newest request may write: frame, poll and onSaved can overlap
+      try {
+        const [prescriptions, doses] = await Promise.all([getPrescriptions(id), dosesOrEmpty(id)]);
+        if (mine === rxReq.current) setData((d) => (d ? { ...d, prescriptions, doses } : d));
+      } catch {
+        if (!quiet && mine === rxReq.current) showNoteError(t("doctor.rxRefreshError"));
+      }
+    },
+    [id, showNoteError, t],
+  );
+
+  // The pharmacist's decisions arrive as prescription_status frames (or every 15 s without a socket).
+  useLiveRefresh(
+    (frame) => {
+      if (!frame || (frame.type === "prescription_status" && frame.data.patient_id === id)) void refreshRx(true);
+    },
+    ["prescription_status"],
+    { enabled: !!data },
+  );
 
   const onAddNote = useCallback(
     async (text: string) => {
@@ -131,7 +147,21 @@ export function PatientDetail({ id }: { id: string }) {
           <PatientHeader patient={data.patient} vitals={data.vitals} />
           <div className={styles.columns}>
             <div className={styles.col}>
-              <VitalsCard vitals={data.vitals} live={flags.live} sec={sec} hrJitter={jitter} now={now()} />
+              <VitalsCard
+                vitals={data.vitals}
+                live={flags.live}
+                sec={sec}
+                hrJitter={jitter}
+                now={now()}
+                footer={
+                  shared ? null : (
+                    <RecordVitals
+                      patientId={id}
+                      onRecorded={(v) => setData((d) => (d ? { ...d, vitals: [...d.vitals, v] } : d))}
+                    />
+                  )
+                }
+              />
               <Prescriptions
                 readOnly={shared}
                 patient={data.patient}
@@ -141,20 +171,22 @@ export function PatientDetail({ id }: { id: string }) {
               />
             </div>
             <div className={styles.col}>
-              {me && data.patient.attending_doctor_id === me.id ? (
-                <AccessPanel
-                  patientId={id}
-                  patientName={`${data.patient.first_name} ${data.patient.last_name}`}
-                  excludeIds={[me.id]}
-                />
-              ) : null}
-              <PatientAiCard patientId={id} role="doctor" canUpload={!shared} />
-              <ExamsPanel patientId={id} />
               <DailySummary readOnly={shared} patientId={id} aiFallback={flags.aiFallback} actorId={DOCTOR_ID} />
+              <PatientAiCard patientId={id} role="doctor" canUpload={!shared} />
               <DosesTimeline doses={data.doses} now={now()} />
+              <ExamsPanel patientId={id} role="doctor" readOnly={shared} />
               <NotesPanel readOnly={shared} notes={data.notes} onAdd={onAddNote} now={now()} />
             </div>
           </div>
+          {me && data.patient.attending_doctor_id === me.id ? (
+            <div className={styles.accessRow}>
+              <AccessPanel
+                patientId={id}
+                patientName={`${data.patient.first_name} ${data.patient.last_name}`}
+                excludeIds={[me.id]}
+              />
+            </div>
+          ) : null}
         </>
       )}
       {noteError ? <Toast tone="warn">{noteError}</Toast> : null}

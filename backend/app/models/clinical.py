@@ -31,10 +31,21 @@ class Prescription(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True)
     patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"))
     doctor_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
-    items: Mapped[list] = mapped_column(JSONB)  # [{med, times[], slot, days}]
+    items: Mapped[list] = mapped_column(JSONB)  # [{med, drug_id?, dose_mg?, units_per_intake, times[], slot, days}]
     care_plan: Mapped[str] = mapped_column(Text, default="")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # pharmacy (data-model 1.7): pending_pharmacy | validated | changes_requested | rejected | stopped | superseded.
+    # `active` above is derived: validated, or pending_pharmacy + urgent (services/pharmacy/workflow.py keeps it).
+    status: Mapped[str] = mapped_column(String, default="validated", server_default="validated", index=True)
+    urgent: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    replaces_id: Mapped[str | None] = mapped_column(ForeignKey("prescriptions.id"))
+    checks: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    override_reason: Mapped[str | None] = mapped_column(Text)
+    reviewed_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_comment: Mapped[str | None] = mapped_column(Text)
 
 
 class MedDose(Base):
