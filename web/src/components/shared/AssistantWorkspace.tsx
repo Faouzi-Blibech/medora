@@ -14,6 +14,7 @@ import {
   getMyPatients,
   listConversations,
   sendConversationMessage,
+  uploadReport,
 } from "@/lib/api";
 import { dayLabel, tunisTime } from "@/lib/time";
 import type { Conversation, ConversationMessage, PatientRef, PatientSummary } from "@/lib/types";
@@ -38,6 +39,8 @@ export function AssistantWorkspace({ role }: { role: "doctor" | "nurse" }) {
   const [query, setQuery] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [attach, setAttach] = useState<{ tone: "ok" | "warn" | "busy"; text: string } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -118,6 +121,30 @@ export function AssistantWorkspace({ role }: { role: "doctor" | "nurse" }) {
     setCleared(false);
     setQuery(null);
     el?.focus();
+  }
+
+  /** The + button (doctor): attach a report to the patient the conversation is about. */
+  function pickFile() {
+    if (!patient || cleared) {
+      setAttach({ tone: "warn", text: t("shared.asstAttachNeedPatient") });
+      inputRef.current?.focus();
+      return;
+    }
+    fileRef.current?.click();
+  }
+
+  async function attachFile(file: File) {
+    const target = patient && !cleared ? patient : null;
+    if (!target) return;
+    setAttach({ tone: "busy", text: t("shared.asstAttaching", { file: file.name }) });
+    try {
+      await uploadReport(target.id, file, file.name.replace(/\.[^.]+$/, "").slice(0, 120));
+      setAttach({ tone: "ok", text: t("shared.asstAttached", { file: file.name, name: target.name }) });
+    } catch {
+      setAttach({ tone: "warn", text: t("shared.reportError") });
+    } finally {
+      if (fileRef.current) fileRef.current.value = "";
+    }
   }
 
   async function send() {
@@ -213,6 +240,11 @@ export function AssistantWorkspace({ role }: { role: "doctor" | "nurse" }) {
           {busy ? <div className={`${styles.bubble} ${styles.bot} ${styles.busy}`}>{t("shared.chatThinking")}</div> : null}
           {error ? <span role="alert" className={styles.warn}>{t("shared.chatError")}</span> : null}
         </div>
+        {attach ? (
+          <span role="status" dir="auto" className={attach.tone === "warn" ? styles.warn : styles.attachNote}>
+            {attach.text}
+          </span>
+        ) : null}
 
         <form
           className={styles.composer}
@@ -234,6 +266,20 @@ export function AssistantWorkspace({ role }: { role: "doctor" | "nurse" }) {
                 </button>
               ))}
             </div>
+          ) : null}
+          {role === "doctor" ? (
+            <>
+              <button type="button" className={styles.plus} onClick={pickFile} disabled={attach?.tone === "busy"}
+                aria-label={t("shared.asstAttach")} title={t("shared.asstAttach")}>
+                +
+              </button>
+              <input ref={fileRef} type="file" hidden
+                accept=".pdf,.jpg,.jpeg,.png,.txt,application/pdf,image/jpeg,image/png,text/plain"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void attachFile(f);
+                }} />
+            </>
           ) : null}
           <textarea
             ref={inputRef}

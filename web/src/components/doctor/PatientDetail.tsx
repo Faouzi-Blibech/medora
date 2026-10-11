@@ -172,7 +172,7 @@ export function PatientDetail({ id }: { id: string }) {
             </div>
             <div className={styles.col}>
               <DailySummary readOnly={shared} patientId={id} aiFallback={flags.aiFallback} actorId={DOCTOR_ID} />
-              <PatientAiCard patientId={id} role="doctor" canUpload={!shared} />
+              <PatientAiCard patientId={id} role="doctor" />
               <DosesTimeline doses={data.doses} now={now()} />
               <ExamsPanel patientId={id} role="doctor" readOnly={shared} />
               <NotesPanel readOnly={shared} notes={data.notes} onAdd={onAddNote} now={now()} />

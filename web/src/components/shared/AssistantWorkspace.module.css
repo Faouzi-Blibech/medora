@@ -40,6 +40,10 @@
 .input:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
 .send { border: 0; border-radius: 12px; padding: 13px 18px; background: var(--ink); color: var(--paper); font: 600 14px/1 var(--sans); cursor: pointer; }
 .send:disabled { opacity: 0.5; cursor: default; }
+.plus { flex: none; width: 44px; height: 44px; border: 1px solid var(--line-strong); border-radius: 50%; background: var(--paper); color: var(--ink); font: 400 24px/1 var(--sans); cursor: pointer; display: grid; place-items: center; transition: border-color 0.15s, color 0.15s, transform 0.15s; }
+.plus:hover:not(:disabled) { border-color: var(--teal); color: var(--teal-deep); transform: rotate(90deg); }
+.plus:disabled { opacity: 0.5; cursor: default; }
+.attachNote { align-self: flex-start; font-size: 13px; color: var(--teal-deep); background: var(--teal-tint); border-radius: 8px; padding: 6px 10px; }
 .mentions { position: absolute; inset-inline-start: 0; bottom: calc(100% + 6px); width: min(360px, 100%); display: flex; flex-direction: column; gap: 2px; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 6px; box-shadow: 0 8px 24px rgba(15, 45, 68, 0.14); z-index: 5; }
 .mention { display: flex; justify-content: space-between; gap: 12px; border: 0; background: none; border-radius: 8px; padding: 9px 10px; cursor: pointer; font-size: 14px; color: var(--ink); text-align: start; }
 .mention:hover, .mention:focus-visible { background: var(--canvas); }
