@@ -1,7 +1,7 @@
 # Medora: business model and business plan
 
 > **Status:** working draft for HackCure @ ESEN, 2026-10-11. Owner: Faouzi.
-> Every figure marked *estimate* or *assumption* is ours and must be checked with a real customer before it goes on a slide as fact. Market figures carry their source in section 17.
+> Every figure marked *estimate* or *assumption* is ours and must be checked with a real customer before it goes on a slide as fact. Market figures carry their source in section 20.
 > **The numbers live in [business-plan-financials.md](business-plan-financials.md)** (Wali): Tunisian prices, the 3-year model, scenarios and funding. This file tells the story and uses the same figures; if the two disagree, the financials file wins.
 
 ## 1. Medora in one sentence
@@ -57,9 +57,12 @@ Also built by the team (merged 2026-10-11):
 | Segment | Size in Tunisia | Why they buy | Sales cycle | Priority |
 |---|---|---|---|---|
 | **Private clinics** (polyclinics, cardiology, surgery) | ~110 clinics, 7,821 beds (INS 2023) | Quality image, medical tourism (Libya, Algeria, sub-Saharan Africa), nurse shortage, competition between clinics | 2–6 months, one decision maker | **1: beachhead** |
+| **Private doctors' offices** (cabinets de libre pratique) | ~8,600 offices (press estimate, 2022; to check with the INS) | Appointments, patient follow-up on WhatsApp, an assistant over the record, X-ray drafts; the doctor often also works in a clinic | Weeks, the doctor decides alone | **1b: entry product and the way into clinics** |
 | **Public hospitals** (24 university hospitals, 33 regional, 109 district) | 22,888 public beds (INS 2022) | Ministry digitisation programme, need for figures, staff shortage | 12–24 months, public procurement (TUNEPS) | 2: through pilots and programmes |
 | Home care and after discharge | Growing with chronic disease | Follow-up of discharged patients at home | short | 3 |
 | Export (Maghreb, West Africa) | Libya, Algeria, Mauritania, Senegal | Same French/Arabic context, same gaps | after 2 references | 4 |
+
+**Decided on 2026-10-11:** clinics first, sold as one system with **their internal pharmacy** (the pharmacy pack), and doctors' offices as a smaller second product that brings us doctors who also work in clinics. Outside (retail) pharmacies are not a target for now; when a prescription leaves the clinic, the patient chooses the pharmacy (section 18).
 
 **Buyer and users in a clinic:**
 - **Buyer:** the managing director or owner.
@@ -85,18 +88,21 @@ Also built by the team (merged 2026-10-11):
 |---|---|---|
 | Pilot | 1 ward, 10–20 beds, 3 months, setup, training, impact report | Free or at cost (hardware only), against a signed letter of intent and the right to publish the results |
 | Core licence | Shared record, bedside reminders, NEWS2 alerts, handover, impact dashboard, patient app | **45 TND / bed / month** |
-| AI and messaging pack | Assistants, daily summaries, triage, WhatsApp follow-up, health watch | **+20 TND / bed / month** (assumed taken on 60 % of beds) |
-| Pharmacy pack | Prescription checks, drug catalogue, dispensing by lot (FEFO), stock and reorder | **+15 TND / bed / month** (assumed 50 % of beds) |
+| AI and messaging pack | Assistants, daily summaries, triage, WhatsApp follow-up, health watch, **radiograph draft reports** (no separate imaging line; the GPU workstation is quoted per site) | **+20 TND / bed / month** (assumed taken on 60 % of beds) |
+| Pharmacy pack | The clinic's internal pharmacy: prescription checks, drug catalogue, dispensing by lot (FEFO), stock and reorder | **+15 TND / bed / month** (assumed 50 % of beds) |
 | Bedside unit | Lease (default), or sale | **+10 TND / bed / month** lease, or **250 TND** per unit sale |
 | Setup | Server bundle, installation, training (2 days) | **3,000 + 50 TND per bed**, capped at 8,000 (5,000 for 40 beds) |
 | Public hospitals | Same modules | **70 %** of the private price, annual licence |
 | **Average** | | **74.5 TND / bed / month** excl. VAT, unit lease included |
 | Support | Updates, remote support, quarterly impact report | Included; on-site support at day rate |
+| **Doctor's office** | Appointments, patient app and WhatsApp follow-up, assistant, X-ray drafts, prescriptions; runs on a mini-PC in the office | **60 TND / doctor / month**, plus **1,200 TND** once (mini-PC at cost and installation) |
 
 Why per bed:
 - Hospitals already think in beds.
 - The price scales with the value.
 - Budgets are easy to compute: a 40-bed clinic on the average package pays **2,980 TND per month** excl. VAT, which is 1.4–2.0 % of the ward's bed revenue (financials, section 4).
+
+The patient side (app, WhatsApp follow-up) is always paid by the clinic or the doctor, never by the patient.
 
 **Public sector variant:**
 - Annual licence per hospital through public procurement.
@@ -298,7 +304,80 @@ Measured by the pilot impact dashboard, with a baseline taken before go-live:
 | Where are the sensors? | Simulated in the prototype through the same MQTT contract; certified sensors come through a partner as a regulated step |
 | How do you make money in year 1? | First paid clinic after a 3-month pilot, a second in month 10, plus setup fees: 17 k TND. Break-even is month 30 |
 
-## 17. Sources
+## 17. Business Model Canvas
+
+| Block | Medora |
+|---|---|
+| **Customer segments** | 1. Private clinics with their internal pharmacy (beachhead: ~110 clinics, 7,821 beds). 1b. Private doctors' offices (~8,600), the entry product. 2. Public hospitals through donor or ministry programmes. Later: home care after discharge, export to the Maghreb. |
+| **Value propositions** | Clinic: one record from admission to discharge, fewer missed doses and missed warnings, the pharmacy linked to the ward, figures for the board. Nurse: handover and vitals in minutes. Doctor: the whole patient on one screen, X-ray drafts, an assistant in Arabic, French or English. Patient: knows the next dose and appointment. All: data stays on site, works without internet, a person confirms every AI output. |
+| **Channels** | Direct sales and on-site demos; the free 3-month pilot against a letter of intent; doctors who use the office product and also work in clinics; medical congresses and the nursing association; medical equipment distributors; public tenders (TUNEPS) and donor programmes. |
+| **Customer relationships** | A named clinical success contact per clinic; the head nurse as champion; training at go-live; a quarterly impact report from the dashboard; remote support, on-site at day rate. Offices: installed by a technician, then remote support. |
+| **Revenue streams** | 1. Per-bed monthly licence (core 45 + AI pack 20 + pharmacy pack 15 + unit lease 10; average 74.5 TND). 2. One-time setup (3,000 + 50 per bed, capped at 8,000). 3. Doctor's office subscription (60 TND per doctor per month + 1,200 once). 4. Public hospitals at 70 % of the private price, annual licence. 5. Later: the GPU workstation for radiograph reading, sold per site; on-site support days. Never a fee per prescription or per patient sent to a pharmacy (section 18). |
+| **Key resources** | The software (shared record, rules, AI modules that work without an LLM), the bedside unit design, the trilingual clinical content, the team (product and AI, hardware, backend), pilot data. |
+| **Key activities** | Building and supporting the product, installing servers and units, training, measuring impact, preparing each customer's data protection (INPDP) file, selling. |
+| **Key partners** | Tunisian electronics shops and a 3D printing workshop (units); a mini-PC and server supplier; a WhatsApp Business provider; a health lawyer and an accountant; the incubator and Startup Act bodies; later a certified sensor maker, a medical equipment distributor and the CNAM e-prescription system. |
+| **Cost structure** | Salaries (the largest line from year 2), bedside units and servers, WhatsApp messages, sales commissions and travel, office, legal and compliance, ISO 13485 groundwork in year 3. Details: [financials](business-plan-financials.md), sections 5–7. |
+
+## 18. Legal feasibility in Tunisia
+
+What the law allows and what still needs a written answer. Sources are in section 20. None of this is legal advice.
+
+| Question | What we found | Effect on Medora | Status |
+|---|---|---|---|
+| Can a doctor send patients to a partner pharmacy? | The medical code of ethics (Decree 93-1155 of 17 May 1993, amended by Decree 2018-34) forbids *compérage* between a doctor and a pharmacist, including commissions, rebates and hidden fee-sharing (article 19 in the Order's guide). | Medora never routes a prescription to a chosen partner and never earns per prescription or per patient. Outside the clinic, the patient picks the pharmacy. Inside a clinic, the internal pharmacy is part of the same establishment. | Clear; confirm the article number in the consolidated text |
+| Can a clinic run its own pharmacy in Medora? | Private clinics are governed by Law 91-63 (health organisation) and Decree 98-793 (private health establishments). Ministerial orders of 1993 and 1995 set the list of medicines a private establishment may hold and how they are supplied. | The pharmacy pack must follow that list and the clinic's supply rules (no retail dispensing). | **Open:** get the texts and an opinion from the DPM or a lawyer |
+| Health data in a clinic or an office | Law 2004-63 makes the clinic or the doctor the data controller. Health data needs the patient's explicit consent and prior INPDP authorisation; the INPDP answers in about one month. An INPDP decision of September 2019 covers health data. | Self-hosting (clinic server, office mini-PC) keeps the data on site. Each customer files its own INPDP request; we prepare the file for them as part of setup. | Clear; add a ready-made INPDP file to onboarding |
+| Hosting in the cloud later | The INPDP health toolkit mentions an approved national host category; we did not find its conditions. Transfers abroad need INPDP authorisation. | Stay on site for now; any cloud offer must use an approved Tunisian host. | Open |
+| Is the software a medical device? | The DPM registers medical devices before import or sale and is moving to a new national medicines agency. We found no Tunisian rule on whether decision-support software must be registered. | Keep the scope "decision support, a person confirms every output". Ask the DPM in writing, starting with the radiograph drafts. | **Open:** written question to the DPM |
+| E-prescriptions to pharmacies | The CNAM plans paper-free prescriptions by the end of 2027, with software in pharmacies funded by the World Bank (tender in January 2026). | Do not build a competing national flow; plan to send prescriptions into the CNAM system when it opens. | Watch |
+| Selling to a clinic | A private contract; VAT 19 %; for health data, a data processing agreement with the clinic. | A standard contract and a data processing agreement template. | To write |
+
+**Questions to send now:**
+- [ ] DPM: does decision-support software, and the radiograph draft in particular, need registration?
+- [ ] DPM or a health lawyer: the medicine list and supply rules for a private clinic's internal pharmacy.
+- [ ] Ordre des médecins: confirm that a per-doctor subscription with no prescription routing is not *compérage*.
+- [ ] INPDP: the template file for a clinic and for a doctor's office using a local server.
+
+## 19. Financial model v2: churn, doctors' offices, seed after proof
+
+`python docs/business-model/model.py` recomputes everything month by month. With the published assumptions it gives the figures of the financials (revenue and EBITDA to the TND). Full output: [docs/business-model/results.md](business-model/results.md).
+
+Assumptions added on 2026-10-11:
+- **Churn:** clinics lose 10 % of their beds a year, doctors' offices 20 %.
+- **Doctors' offices:** 60 TND per doctor per month and 1,200 TND once. New offices: 1 a month in year 1 (from month 4), 3 a month in year 2, 5 a month in year 3 (*estimate*).
+- **Funding:** the seed arrives 3 months after reaching 150 paying beds instead of in month 13. Employees are hired when it arrives; the founders are paid from month 13.
+
+| TND | Financials as published | New base |
+|---|---:|---:|
+| Paying beds / offices, end of year 3 | 900 / 0 | 828 / 86 |
+| Revenue, years 1–3 | 17,410 / 193,430 / 575,030 | 30,549 / 248,485 / 657,831 |
+| EBITDA, year 3 | 74,747 | 141,036 |
+| Break-even month | 30 | 27 |
+| Seed arrives in month | 13 | 20 |
+| Lowest cash | 6,290 (month 3) | **−47,702 (month 19)** |
+| Bridge needed to keep 20 k in the bank | 13,710 | **67,702** |
+| Cash at the end of month 36 | 129,206 | 246,373 |
+
+What this changes:
+1. **Churn alone** costs about 35 k TND of year-3 EBITDA. It was missing from the plan.
+2. **Doctors' offices** bring early cash (13 k TND more revenue in year 1) and more than make up for churn.
+3. **Raising after proof needs a bridge of about 70 k TND** between months 13 and 20: a second grant, an honour loan, or the founders delaying their pay. Without it, the seed has to come in month 13 as in the financials.
+4. **The new base is optimistic in one way:** the founders sell year 2 alone until the seed arrives.
+
+**Sensitivity of the new base:**
+
+| | Year-3 EBITDA | Break-even month | Bridge needed |
+|---|---:|---:|---:|
+| New base | 141,036 | 27 | 67,702 |
+| Price −20 % | 39,940 | 30 | 77,612 |
+| Sales 3 months late | 38,174 | 33 | 113,652 |
+| AI pack on 30 % of beds | 104,111 | 28 | 71,082 |
+| No public hospital | 74,264 | 27 | 67,702 |
+| Churn × 1.5 | 120,803 | 28 | 68,446 |
+
+Year-3 EBITDA stays positive under each shock on its own. Late sales hurt most, so plan for a bridge of about **115 k TND** to be safe.
+
+## 20. Sources
 
 - [INS / Kapitalis: hospital beds in Tunisia, public 22,888 (2022), private 7,821 (2023)](https://kapitalis.com/tunisie/?p=12906017)
 - [Oxford Business Group: Tunisian health sector structure (university, regional, district hospitals; private clinics)](https://oxfordbusinessgroup.com/overview/annual-check-solid-foundation-sector-ready-overhaul)
@@ -312,5 +391,20 @@ Measured by the pilot impact dashboard, with a baseline taken before go-live:
 - [Startup Genome: Tunisia ecosystem](https://startupgenome.com/ecosystems/Tunisia)
 - [Med.tn (Dealroom)](https://app.dealroom.co/companies/med_tn) and [Tobba.tn (We Are Tech Africa)](https://www.wearetech.africa/fr/fils/solutions/tunisie-tobba-tn-une-solution-de-sante-numerique-accessible-a-tous)
 - [Remote patient monitoring pricing benchmarks (US, for comparison only)](https://www.mindbowser.com/cost-of-remote-patient-monitoring/)
+
+Legal feasibility (section 18):
+- [Code de déontologie médicale (Tunisia), Decree 93-1155](https://fr.wikipedia.org/wiki/Code_de_d%C3%A9ontologie_m%C3%A9dicale_(Tunisie))
+- [Ordre des médecins (Centre): guide to medical practice, compérage](https://www.ordremedecins-centre.org.tn/fileadmin/contenu/Publications/guide_exercice_medecine.pdf)
+- [Ministry of Health: legal and regulatory texts](http://www.santetunisie.rns.tn/fr/presentations/textes-juridiques-et-reglementaires?start=19)
+- [Ministry of Health: specification for private health establishments](http://www.sicad.gov.tn/Fr/upload/1405507330.pdf)
+- [DPM: hospital pharmacy regulation](https://dpm.tn/accueil/reglementation/28-banner/169-reglementation-de-la-pharmacie-hospitaliere)
+- [DPM: registration of medical devices](http://www.dpm.tn/controle-technique/enregistrement-des-dispositifs-medicaux)
+- [Council of Europe / INPDP: health data protection toolkit](https://rm.coe.int/sante-projet-final-post-com-tech-juillet-2021-pour-soumission-19-10-20/pdf/1680a457b0)
+- [Council of Europe: data protection guide for doctors](https://rm.coe.int/protection-des-donnees-personnelles-guide-pratique-a-destination-des-m/1680a8dd33)
+- [INPDP newsletter: health data decision of September 2019](https://www.coe.int/web/tunis/newsletter_paii-t_2)
+- [Law 2004-63 compliance guide (2026)](https://www.dpo-consulting.com/fr-fr/blog/loi-tunisienne-sur-la-protection-des-donnees)
+- [La Presse: CNAM "zero paper" by the end of 2027](https://www.lapresse.tn/2026/01/10/digitalisation-des-services-de-la-cnam-vers-zero-papier-dci-la-fin-de-2027/)
+- [Webmanagercenter: about 8,600 private doctors' offices and 2,200 pharmacies (opinion column)](https://www.webmanagercenter.com/2022/10/22/493977/tribune-hassen-zargouni-les-chiffres-en-tunisie/)
+- [INS: Tunisia in figures 2020 (pharmacies, doctors)](https://www.ins.tn/sites/default/files-ftp3/files/publication/pdf/tec-newform-2020.pdf)
 
 Exchange rates used for rough conversions: 1 USD ≈ 3.1 TND, 1 EUR ≈ 3.4 TND (approximate).
