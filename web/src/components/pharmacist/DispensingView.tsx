@@ -5,14 +5,14 @@
 // holds the whole line (FEFO, simulated with planLots exactly as the server does it); the pharmacist may pick
 // another lot. "Prepare and send" posts one dispensation per ward, with an explicit lot for every formulary line.
 // Shortages show before sending; the server re-checks (409 insufficient_stock: nothing written).
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "@/i18n/I18nProvider";
 import page from "@/components/admin/AdminPage.module.css";
 import { WARD_OPTIONS } from "@/components/admin/wards";
 import { ErrorCard } from "@/components/shared/ErrorCard";
 import { Toast, useToast } from "@/components/Toast";
 import { ApiError, createDispensation, getDispensing, getStock } from "@/lib/api";
-import { expiryState, fefoLots, nextRound, planLots, ROUND_TIMES } from "@/lib/pharmacy";
+import { expiryState, fefoLots, ltr, nextRound, planLots, ROUND_TIMES, stockDay } from "@/lib/pharmacy";
 import { describePharmacyError, shortDrugId } from "@/lib/pharmacyUi";
 import { now, tunisDate, tunisTime } from "@/lib/time";
 import type { DispensingWard, RoundDose, StockItem, StockLot } from "@/lib/types";
@@ -23,8 +23,9 @@ interface LotSelectProps {
   dose: RoundDose;
   /** The drug's lots (any order); only those usable on `date` that hold the whole line are offered. */
   lots: readonly StockLot[];
+  /** The day the lots must still be valid on: stockDay(round date, today). */
   date: string;
-  /** The planned lot, or null when none fits. */
+  /** The planned lot, or null when none fits (after the lines above took their share). */
   value: string | null;
   onChange: (lotId: string) => void;
 }
@@ -33,19 +34,22 @@ interface LotSelectProps {
 function LotSelect({ dose, lots, date, value, onChange }: LotSelectProps) {
   const { t } = useT();
   const usable = fefoLots(lots, date).filter((l) => l.quantity >= dose.quantity);
-  if (!usable.length || !value) return <span className={styles.error}>{t("pharmacy.noLot")}</span>;
-  const chosen = usable.find((l) => l.id === value) ?? usable[0];
+  if (!usable.length) return <span className={styles.error}>{t("pharmacy.noLot")}</span>;
+  // No planned lot (the lines above used up the one picked here): keep the select so another lot can be chosen.
+  const chosen = value ? usable.find((l) => l.id === value) ?? null : null;
   return (
     <span className={page.selectWrap}>
       <select
         aria-label={t("pharmacy.colLot")}
-        className={`${page.select} ${expiryState(chosen.expiry_date, date) === "expiring" ? styles.lotExpiring : ""}`}
-        value={chosen.id}
-        onChange={(e) => onChange(e.target.value)}
+        aria-invalid={!chosen || undefined}
+        className={`${page.select} ${chosen && expiryState(chosen.expiry_date, date) === "expiring" ? styles.lotExpiring : ""}`}
+        value={chosen?.id ?? ""}
+        onChange={(e) => e.target.value && onChange(e.target.value)}
       >
+        {!chosen ? <option value="">{t("pharmacy.noLot")}</option> : null}
         {usable.map((l, i) => (
           <option key={l.id} value={l.id}>
-            {t(i === 0 ? "pharmacy.lotOptionFefo" : "pharmacy.lotOption", { lot: l.lot_number, date: l.expiry_date, qty: l.quantity })}
+            {t(i === 0 ? "pharmacy.lotOptionFefo" : "pharmacy.lotOption", { lot: ltr(l.lot_number), date: ltr(l.expiry_date), qty: l.quantity })}
           </option>
         ))}
       </select>
@@ -66,6 +70,7 @@ export function DispensingView() {
   const [chosen, setChosen] = useState<Record<string, string>>({});
   const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set());
   const [busyWard, setBusyWard] = useState<string | null>(null);
+  const sending = useRef(false); // double-click guard: state updates are not visible to a second click in the same tick
   const [toast, showToast] = useToast<{ text: string; tone: "ok" | "warn" }>(5000);
 
   useEffect(() => {
@@ -89,6 +94,8 @@ export function DispensingView() {
     };
   }, [date, round, ward, reload]);
 
+  // Lots must still be valid on the later of the round date and today (the server's rule).
+  const lotDay = stockDay(date, today);
   const lotsByDrug = useMemo(() => new Map(stock.map((r) => [r.drug_id, r.lots])), [stock]);
   const drugName = (id: string) => {
     const r = stock.find((x) => x.drug_id === id);
@@ -103,7 +110,8 @@ export function DispensingView() {
 
   async function send(w: DispensingWard, plan: Map<string, string | null>) {
     const doses = selected(w);
-    if (!doses.length || busyWard) return;
+    if (!doses.length || busyWard || sending.current) return;
+    sending.current = true;
     setBusyWard(w.ward);
     try {
       const disp = await createDispensation({
@@ -127,6 +135,7 @@ export function DispensingView() {
           : t(describePharmacyError(err));
       showToast({ tone: "warn", text });
     } finally {
+      sending.current = false;
       setBusyWard(null);
       setReload((n) => n + 1); // every outcome reloads: sent rows, new stock, or the changed round
     }
@@ -191,7 +200,7 @@ export function DispensingView() {
       ) : (
         data.map((w) => {
           const toSend = selected(w);
-          const plan = planLots(toSend, lotsByDrug, date, chosen);
+          const plan = planLots(toSend, lotsByDrug, lotDay, chosen);
           const short = w.patients.flatMap((p) =>
             p.doses.filter((d) => d.drug_id && plan.has(d.dose_id) && plan.get(d.dose_id) === null).map((d) => ({ p, d })),
           );
@@ -266,7 +275,7 @@ export function DispensingView() {
                           <LotSelect
                             dose={d}
                             lots={lotsByDrug.get(d.drug_id) ?? []}
-                            date={date}
+                            date={lotDay}
                             value={plan.get(d.dose_id) ?? null}
                             onChange={(id) => setChosen((c) => ({ ...c, [d.dose_id]: id }))}
                           />

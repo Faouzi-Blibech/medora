@@ -207,6 +207,19 @@ export function expiryState(expiry: string, today: string): ExpiryState {
   return left < 0 ? "expired" : left <= EXPIRING_DAYS ? "expiring" : "ok";
 }
 
+/**
+ * The day a round's lots must still be valid on: the later of the round date and today (backend
+ * `on = max(day, today_local())`). A past round never gets a lot that is expired today.
+ */
+export function stockDay(roundDate: string, today: string): string {
+  return roundDate > today ? roundDate : today;
+}
+
+/** Wraps a lot number or a date in a left-to-right isolate, so it never reorders inside Arabic text or an <option>. */
+export function ltr(s: string | number): string {
+  return `⁦${s}⁩`;
+}
+
 /** Lots usable on `date` (stock left, not expired that day), first-expiring first; ties: oldest receipt, then id. */
 export function fefoLots<L extends LotLike>(lots: readonly L[], date: string): L[] {
   return lots

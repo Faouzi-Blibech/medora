@@ -7,6 +7,7 @@ import { useT } from "@/i18n/I18nProvider";
 import type { Key } from "@/i18n/messages";
 import page from "@/components/admin/AdminPage.module.css";
 import { ApiError, receiveStock } from "@/lib/api";
+import { ltr } from "@/lib/pharmacy";
 import { describePharmacyError } from "@/lib/pharmacyUi";
 import { now, tunisDate } from "@/lib/time";
 import type { StockItem } from "@/lib/types";
@@ -40,7 +41,7 @@ export function ReceiptForm({ items, onDone }: ReceiptFormProps) {
     try {
       const saved = await receiveStock({ drug_id: f.drug, lot_number: lot, expiry_date: f.expiry, quantity: qty });
       setF((s) => ({ ...s, lot: "", expiry: "", qty: "" }));
-      onDone(t("pharmacy.receiptSaved", { lot: saved.lot_number }));
+      onDone(t("pharmacy.receiptSaved", { lot: ltr(saved.lot_number) }));
     } catch (err) {
       setError(err instanceof ApiError && err.code === "conflict" ? "pharmacy.errLotExpiryConflict" : describePharmacyError(err));
     } finally {

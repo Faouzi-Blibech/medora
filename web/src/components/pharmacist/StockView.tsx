@@ -11,7 +11,7 @@ import page from "@/components/admin/AdminPage.module.css";
 import { ErrorCard } from "@/components/shared/ErrorCard";
 import { Toast, useToast } from "@/components/Toast";
 import { getReorderList, getStock } from "@/lib/api";
-import { FORM_KEY } from "@/lib/pharmacy";
+import { FORM_KEY, ltr } from "@/lib/pharmacy";
 import type { ReorderItem, StockItem, StockLot } from "@/lib/types";
 import { AdjustDialog } from "./AdjustDialog";
 import { ReceiptForm } from "./ReceiptForm";
@@ -111,7 +111,7 @@ export function StockView() {
                     {r.lots.map((l) => (
                       <li key={l.id} className={styles.lotRow}>
                         <span className={l.expired ? styles.lotExpired : l.expiring ? styles.lotExpiring : undefined}>
-                          {t("pharmacy.lotLine", { lot: l.lot_number, date: l.expiry_date, qty: l.quantity })}
+                          {t("pharmacy.lotLine", { lot: ltr(l.lot_number), date: ltr(l.expiry_date), qty: l.quantity })}
                         </span>
                         <button type="button" className={styles.linkBtn} onClick={() => setAdjusting({ lot: l, drug: `${r.dci} ${r.strength}` })}>
                           {t("pharmacy.adjust")}

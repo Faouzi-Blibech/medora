@@ -7,7 +7,7 @@
 // Paths marked NOT IN CONTRACT have no api.md 1.4 endpoint yet (see the Task 1 report).
 import { chainOf, checksFor, createStore, drugMatches, generateCode, MOCK_CODES, EXAM_CATALOGUE, MOCK_RADIOGRAPH_URL, MOCK_READING_DRAFTS, mockAssistant, USERS, userName, type AssistantContext, type MockLot, type MockStore } from "@/mocks";
 import { publishFrame } from "./frames";
-import { COMMENT_MAX, expiryState, fefoLots, hasCritical, isRunning, maxSeverity, reorderQuantity, sortWorklist, stockFlags } from "./pharmacy";
+import { COMMENT_MAX, expiryState, fefoLots, hasCritical, isRunning, maxSeverity, reorderQuantity, sortWorklist, stockDay, stockFlags } from "./pharmacy";
 import { now, tunisDate, USE_MOCKS } from "./time";
 import { HEALTH_CATEGORIES } from "./types";
 import type {
@@ -1013,6 +1013,7 @@ export function getDispensing(q: { date: string; round: string; ward?: string })
   if (USE_MOCKS)
     return mock((s) => {
       const sent = dispensedDoseIds(s);
+      const on = stockDay(q.date, tunisToday()); // lots valid on the later of the round date and today
       const wards = new Map<string, DispensingWard>();
       for (const dose of s.doses) {
         if (tunisDate(dose.scheduled_at) !== q.date || dose.time_of_day !== q.round) continue;
@@ -1022,7 +1023,7 @@ export function getDispensing(q: { date: string; round: string; ward?: string })
         if (!p?.ward || (q.ward && p.ward !== q.ward)) continue;
         const drugId = item?.drug_id ?? null;
         const quantity = item?.units_per_intake ?? 1;
-        const usable = drugId ? fefoLots(s.lots.filter((l) => l.drug_id === drugId), q.date) : [];
+        const usable = drugId ? fefoLots(s.lots.filter((l) => l.drug_id === drugId), on) : [];
         const lot = usable.find((l) => l.quantity >= quantity) ?? null;
         const w = wards.get(p.ward) ?? { ward: p.ward, patients: [] };
         wards.set(p.ward, w);
@@ -1060,6 +1061,7 @@ export function createDispensation(req: CreateDispensationRequest, opts: ActorOp
     return mock((s) => {
       if (req.lines.length < 1 || req.lines.length > 200) throw new ApiError(422, "invalid", "1-200 lines");
       const sent = dispensedDoseIds(s);
+      const on = stockDay(req.date, tunisToday()); // backend: on = max(day, today_local())
       const seen = new Set<string>();
       const left = new Map<string, number>(); // lot id → units left after the lines planned so far
       const room = (l: MockLot) => left.get(l.id) ?? l.quantity;
@@ -1081,11 +1083,11 @@ export function createDispensation(req: CreateDispensationRequest, opts: ActorOp
         let lot: MockLot | undefined;
         if (line.lot_id) {
           lot = s.lots.find((l) => l.id === line.lot_id);
-          if (!lot || lot.drug_id !== drugId || expiryState(lot.expiry_date, req.date) === "expired")
+          if (!lot || lot.drug_id !== drugId || expiryState(lot.expiry_date, on) === "expired")
             throw new ApiError(422, "invalid", `lot ${line.lot_id} can't serve dose ${dose.id}`);
           if (room(lot) < quantity) lot = undefined;
         } else {
-          lot = fefoLots(s.lots.filter((l) => l.drug_id === drugId), req.date).find((l) => room(l) >= quantity);
+          lot = fefoLots(s.lots.filter((l) => l.drug_id === drugId), on).find((l) => room(l) >= quantity);
         }
         if (!lot) throw new ApiError(409, "insufficient_stock", `Not enough stock for ${drugId}`, { drug_id: drugId });
         left.set(lot.id, room(lot) - quantity);

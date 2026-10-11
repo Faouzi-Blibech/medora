@@ -8,7 +8,7 @@ import { useT } from "@/i18n/I18nProvider";
 import type { Key } from "@/i18n/messages";
 import page from "@/components/admin/AdminPage.module.css";
 import { adjustStock, ApiError } from "@/lib/api";
-import { COMMENT_MAX } from "@/lib/pharmacy";
+import { COMMENT_MAX, ltr } from "@/lib/pharmacy";
 import { describePharmacyError } from "@/lib/pharmacyUi";
 import type { AdjustmentReason, StockLot } from "@/lib/types";
 import styles from "./Pharmacist.module.css";
@@ -78,10 +78,10 @@ export function AdjustDialog({ lot, drug, onClose, onDone }: AdjustDialogProps) 
     <div className={styles.overlay}>
       <form role="dialog" aria-modal="true" aria-labelledby="adjust-title" className={styles.dialog} onSubmit={submit} noValidate>
         <h2 id="adjust-title" className={styles.dialogTitle}>
-          {t("pharmacy.adjustTitle", { lot: lot.lot_number })}
+          {t("pharmacy.adjustTitle", { lot: ltr(lot.lot_number) })}
         </h2>
         <p dir="auto" className={styles.muted}>
-          {drug} · {t("pharmacy.lotLine", { lot: lot.lot_number, date: lot.expiry_date, qty: lot.quantity })}
+          {drug} · {t("pharmacy.lotLine", { lot: ltr(lot.lot_number), date: ltr(lot.expiry_date), qty: lot.quantity })}
         </p>
         <label className={page.field}>
           <span className={page.fieldLabel}>{t("pharmacy.fReason")}</span>
