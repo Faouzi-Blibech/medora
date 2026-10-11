@@ -215,7 +215,7 @@ stateDiagram-v2
 - **Events:** `exam.ordered` (n8n W7, tells the patient where to go) and `exam.results_ready` (W8, tells the ordering doctor, once, when the last exam is done).
 - **Booking:** staff still pick the slot. The waitlist shows "Exams 2/3" so they can book once the results are in.
 - **Triage scale label:** our urgency 1–5 is shown with the hospital's triage-scale level from `rules/triage_scale.v1.json`, e.g. "Tri 1 · FRENCH". It is marked "(to confirm)" until the doctors confirm which scale they use.
-- **Out of scope:** AI reading images or lab values, and a DICOM viewer. PACS integration is the production path.
+- **Out of scope:** AI reading lab values, and a DICOM viewer. PACS integration is the production path. Radiographs (JPEG/PNG) are the one exception: since api.md 1.14 a local vision model drafts a report that a doctor edits and confirms (owner: Wali).
 
 ## 6. Hardware: Smart Bedside Unit (listener: OLED + servo + RTC)
 

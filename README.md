@@ -37,7 +37,7 @@ and automates the steps between them.
   - The whole system is self-hosted, with role-based access.
   - Every record read is written to an audit log, and result files are served only through the API.
   - No patient data leaves the server unless an optional open LLM is switched on. Even then it is anonymised first (Tunisian Organic Law 2004-63 / INPDP).
-- **Honest prototype:** vitals are simulated (the bedside unit has no sensors); the AI and the exam rules are not clinically validated; AI never reads scans or lab results.
+- **Honest prototype:** vitals are simulated (the bedside unit has no sensors); the AI and the exam rules are not clinically validated; the AI never reads lab results, and on radiographs it only drafts a report (local vision model) that a doctor edits and confirms, never a diagnosis.
 - **Synthetic data only.**
 
 ## Architecture
