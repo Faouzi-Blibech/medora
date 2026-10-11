@@ -33,7 +33,7 @@ export function AlertsView() {
           {[ward, state ? null : t("nurse.openNewest", { n: openCount })].filter(Boolean).join(" · ")}
         </span>
       </div>
-      <div className={styles.list}>
+      <div className={`${styles.list} ward-stagger`}>
         {state === "error" ? (
           <ErrorCard
             variant="box"

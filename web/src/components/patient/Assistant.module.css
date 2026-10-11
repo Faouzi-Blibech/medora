@@ -207,3 +207,18 @@
   opacity: 0.6;
   cursor: progress;
 }
+
+/* Desktop patient platform: a centred 860 px column, the scroll bar stays at the window edge. */
+:global(.patient-desk) .head,
+:global(.patient-desk) .list,
+:global(.patient-desk) .composer {
+  padding-inline: max(40px, calc((100% - 860px) / 2));
+}
+
+:global(.patient-desk) .head {
+  padding-top: 32px;
+}
+
+:global(.patient-desk) .composer {
+  padding-bottom: 32px;
+}

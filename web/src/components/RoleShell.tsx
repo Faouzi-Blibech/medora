@@ -40,6 +40,16 @@ function HomeBanner({ role }: { role: StaffRole }) {
   );
 }
 
+/** The page content, keyed by pathname so the entrance animation replays on every navigation. */
+function PageMotion({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  return (
+    <div key={pathname} className="ward-page">
+      {children}
+    </div>
+  );
+}
+
 /**
  * Sidebar (248 px) + full-height `main` on the canvas. Used by the doctor, nurse
  * and admin layouts. `main` has no padding: each page sets the design's own.
@@ -58,7 +68,7 @@ export function RoleShell({ role, active, live, tablet, children }: RoleShellPro
         <Suspense fallback={null}>
           <HomeBanner role={role} />
         </Suspense>
-        {children}
+        <PageMotion>{children}</PageMotion>
       </main>
     </div>
   );

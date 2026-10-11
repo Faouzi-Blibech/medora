@@ -108,11 +108,47 @@ def _upsert_missing_staff(db: Session, pw: str) -> None:
     reserve_upto(db, "u", 8)
 
 
+# The second patient account (the desktop patient platform demo): Youssef Khelifi, Cardiology.
+PATIENT2 = ("patient2@ward.tn", "Youssef Khelifi", "p-0005", "C-08")
+
+
+def _upsert_second_patient(db: Session, pw: str) -> None:
+    """patient2@ward.tn, linked to p-0005 and admitted to bed C-08 with no bedside unit (nurse-given doses).
+    Adds only what is missing, so it also runs on an already-seeded database."""
+    email, name, pid, bed = PATIENT2
+    if db.get(Patient, pid) is None or db.scalar(select(User).where(User.email == email)):
+        return
+    now = datetime.now(UTC).replace(second=0, microsecond=0)
+    db.add(User(id=new_id(db, "u"), email=email, name=name, role="patient", patient_id=pid, password_hash=pw))
+    if db.scalar(select(Admission).where(Admission.patient_id == pid, Admission.discharged_at.is_(None))) is None:
+        db.add(Admission(id=new_id(db, "adm"), patient_id=pid, device_id=None, bed=bed,
+                         admitted_at=now - timedelta(days=1)))
+    if db.scalar(select(Vital).where(Vital.patient_id == pid).limit(1)) is None:
+        # 24 h of normal manual readings every 30 min, the same deterministic wave as p-0001
+        start = now - timedelta(hours=24)
+        start = start.replace(minute=start.minute - start.minute % 30)
+        for k in range(24 * 2):
+            db.add(Vital(ts=start + timedelta(minutes=30 * k), device_id="manual", patient_id=pid,
+                         hr=72 + round(7 * math.sin(k / 4)) + (k % 3 - 1), spo2=96 + (k % 3),
+                         temp=round(36.8 + 0.2 * math.sin(k / 6), 1), news2=0, source="manual"))
+    if db.scalar(select(Prescription).where(Prescription.patient_id == pid, Prescription.active)) is None:
+        rx = Prescription(id=new_id(db, "rx"), patient_id=pid, doctor_id="u-0001", active=True,
+                          created_at=local_to_utc(today_local(), "00:00"),
+                          care_plan="Check blood sugar before meals",
+                          items=[{"med": "Metformin 850mg", "times": ["08:00", "20:00"], "days": 5},
+                                 {"med": "Bisoprolol 5mg", "times": ["08:00"], "days": 5}])
+        db.add(rx)
+        db.flush()
+        rebuild_doses(db, rx)
+    db.flush()
+
+
 def seed(db: Session) -> bool:
     """Create the dataset in `db` (caller commits). Returns False if it was already seeded."""
     pw = hash_password(get_settings().seed_password)
     if db.scalar(select(User).where(User.email == "doctor@ward.tn")):
         _upsert_missing_staff(db, pw)
+        _upsert_second_patient(db, pw)
         _pharmacy(db, datetime.now(UTC).replace(second=0, microsecond=0))
         _stock(db)
         seed_health_events(db)
@@ -176,6 +212,7 @@ def seed(db: Session) -> bool:
     seed_health_events(db)
     for prefix, n in [("u", 8), ("p", len(PATIENTS)), ("adm", 1), ("rx", 1), ("a", len(REQUESTS))]:
         reserve_upto(db, prefix, n)
+    _upsert_second_patient(db, pw)
     _pharmacy(db, now)
     _stock(db)
     return True

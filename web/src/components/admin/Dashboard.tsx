@@ -248,9 +248,9 @@ export function Dashboard() {
       ) : state === "error" || !full ? (
         <ErrorCard title={t("admin.dashLoadError")} onRetry={() => load()} />
       ) : (
-        <div className={styles.kpis}>
+        <div className={`${styles.kpis} ward-stagger`}>
           {buildKpis(full, t).map((k) => (
-            <Link key={k.label} href={k.href} className={styles.kpi}>
+            <Link key={k.label} href={k.href} className={`${styles.kpi} ward-lift`}>
               <span className={styles.kpiLabel}>{k.label}</span>
               <span className={styles.kpiValueRow}>
                 <span className={styles.kpiValue}>{k.value}</span>

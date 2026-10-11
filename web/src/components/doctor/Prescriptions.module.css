@@ -116,9 +116,27 @@
   padding: 6px 0;
 }
 
+.addRx {
+  align-self: flex-start;
+  margin-top: 6px;
+  font: 600 14px/1 var(--sans);
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  padding: 11px 16px;
+  cursor: pointer;
+}
+
+.addRx:hover {
+  border-color: var(--teal);
+  color: var(--teal-deep);
+}
+
 /* ── New prescription form ──────────────────────────────────────────────── */
 
 .form {
+  animation: wardRise 0.25s ease both;
   margin-top: 6px;
   padding: 20px;
   border-radius: 12px;

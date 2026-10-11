@@ -3,6 +3,7 @@
 // Doctor vitals card: HR, SpO2 and temperature over 24 h with normal bands, the NEWS2
 // dots every 2 h and the time axis. Built from the shared chart pieces. The charts draw
 // hourly means (lib/series); the number above each chart is the latest raw reading.
+import type React from "react";
 import { useT } from "@/i18n/I18nProvider";
 import type { Lang } from "@/i18n/config";
 import type { TFn } from "@/i18n/messages";
@@ -22,6 +23,8 @@ export interface VitalsCardProps {
   /** Simulated change on the latest heart rate (mock live tick). */
   hrJitter?: number;
   now: Date;
+  /** Shown under the charts when set: the hand-recorded reading form. */
+  footer?: React.ReactNode;
 }
 
 const HOURS = 24;
@@ -55,7 +58,7 @@ function axisLabels(ref: Date, lang: Lang, t: TFn): string[] {
   });
 }
 
-export function VitalsCard({ vitals, live, sec, hrJitter = 0, now }: VitalsCardProps) {
+export function VitalsCard({ vitals, live, sec, hrJitter = 0, now, footer }: VitalsCardProps) {
   const { t, lang } = useT();
   const hr = hourly(vitals, "hr", now, 1);
   const hrLatest = latestOf(vitals, "hr");
@@ -76,6 +79,7 @@ export function VitalsCard({ vitals, live, sec, hrJitter = 0, now }: VitalsCardP
         ? t("doctor.statusLastReading", { time: tunisTime(lastTs) })
         : t("doctor.statusNoReadings");
   const fresh = live && USE_MOCKS;
+  const manual = vitals.filter((v) => v.source === "manual").length;
 
   return (
     <section className={styles.card}>
@@ -139,6 +143,8 @@ export function VitalsCard({ vitals, live, sec, hrJitter = 0, now }: VitalsCardP
       />
       <News2Strip scores={news} />
       <TimeAxisRow labels={axisLabels(now, lang, t)} />
+      <span className={styles.sources}>{t("shared.vitalsSources", { manual, feed: vitals.length - manual })}</span>
+      {footer}
     </section>
   );
 }

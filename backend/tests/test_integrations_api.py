@@ -58,7 +58,9 @@ def test_appointment_reply(client, db, emitted):
 def test_daily_digest(client):
     rows = client.get("/integrations/n8n/daily-digest", headers=_n8n()).json()
     assert len(rows) == 1 and rows[0]["doctor"] == {"id": "u-0001", "name": "Dr Trabelsi", "email": "doctor@ward.tn"}
-    p = rows[0]["patients"][0]
+    # Amira (p-0001) and Youssef (p-0005, patient2@ward.tn) are the admitted cardiology patients
+    assert sorted(x["name"] for x in rows[0]["patients"]) == ["Amira", "Youssef"]
+    p = next(x for x in rows[0]["patients"] if x["name"] == "Amira")
     # First name only; an unreviewed AI summary never leaves the server.
     assert p["name"] == "Amira" and p["bed"] == "C-12" and p["news2"] == 0
     assert p["summary"] == "Summary not reviewed yet. Open Ward to review it."

@@ -15,7 +15,9 @@ def test_seed_matches_contract(db):
     cardio = db.scalars(select(Patient).where(Patient.ward == "Cardiology")).all()
     assert {p.id for p in cardio} == {f"p-000{i}" for i in range(1, 7)}
     assert all(p.attending_doctor_id == "u-0001" for p in cardio)
-    adm = db.scalars(select(Admission).where(Admission.discharged_at.is_(None))).one()
+    active = {a.patient_id: a for a in db.scalars(select(Admission).where(Admission.discharged_at.is_(None)))}
+    assert set(active) == {"p-0001", "p-0005"}
+    adm = active["p-0001"]
     assert (adm.patient_id, adm.device_id, adm.bed) == ("p-0001", "bsu-001", "C-12")
     assert db.query(Vital).filter_by(patient_id="p-0001").count() == 48 * 4
     assert db.query(Prescription).filter_by(patient_id="p-0001", active=True).count() == 1
@@ -99,3 +101,28 @@ def test_seed_suggests_exams_for_seeded_requests(db):
     seed(db)
     codes = {o.code for o in db.query(ExamOrder).filter_by(appointment_id="a-0001", status="suggested")}
     assert {"ecg", "troponin", "chest_xray"} <= codes
+
+
+def test_seed_second_patient_account(db):
+    from app.models import MedDose
+
+    seed(db)
+    u = db.query(User).filter_by(email="patient2@ward.tn").one()
+    assert (u.id, u.role, u.patient_id) == ("u-0009", "patient", "p-0005")
+    adm = db.scalars(select(Admission).where(Admission.patient_id == "p-0005",
+                                             Admission.discharged_at.is_(None))).one()
+    assert (adm.device_id, adm.bed) == (None, "C-08")
+    assert db.query(Vital).filter_by(patient_id="p-0005").count() == 24 * 2
+    rx = db.query(Prescription).filter_by(patient_id="p-0005", active=True).one()
+    # Metformin 08:00/20:00 × 5 days + Bisoprolol 08:00 × 5 days, given by hand (no slot)
+    assert db.query(MedDose).filter_by(prescription_id=rx.id).count() == 15
+
+
+def test_seed_adds_second_patient_on_an_already_seeded_db(db):
+    seed(db)
+    u = db.query(User).filter_by(email="patient2@ward.tn").one()
+    db.delete(u)
+    db.flush()
+    assert seed(db) is False
+    assert db.query(User).filter_by(email="patient2@ward.tn").one().patient_id == "p-0005"
+    assert db.query(Prescription).filter_by(patient_id="p-0005", active=True).count() == 1

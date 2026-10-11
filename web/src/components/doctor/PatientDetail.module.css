@@ -213,7 +213,15 @@
 
 .columns {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 384px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(360px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+/* Record access (reset code, sharing): admin-type tasks, side by side under the clinical columns. */
+.accessRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
   align-items: start;
 }
@@ -295,7 +303,8 @@
   .allergy {
     grid-column: 1 / -1;
   }
-  .columns {
+  .columns,
+  .accessRow {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -307,4 +316,10 @@
   background: var(--surface-2, var(--bg));
   color: var(--ink);
   font-size: 14px;
+}
+
+/* Where the charted readings come from (hand-recorded vs the simulated bedside feed). */
+.sources {
+  font-size: 12px;
+  color: var(--muted);
 }

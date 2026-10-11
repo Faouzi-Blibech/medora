@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { RecordVitals } from "@/components/shared/RecordVitals";
 import { LiveBanner } from "@/components/LiveBanner";
 import { ErrorCard } from "@/components/shared/ErrorCard";
 import { NotesPanel } from "@/components/shared/NotesPanel";
@@ -302,6 +303,11 @@ export function NursePatientDetail({ id }: { id: string }) {
             })}
           </div>
 
+          <RecordVitals
+            patientId={id}
+            onRecorded={(v) => setData((d) => (d ? { ...d, vitals: [...d.vitals, v] } : d))}
+          />
+
           <div className={styles.columns}>
             <div className={styles.col}>
               <section className={styles.card}>
@@ -350,8 +356,9 @@ export function NursePatientDetail({ id }: { id: string }) {
                 )}
               </section>
             </div>
-            <PatientAiCard patientId={id} role="nurse" />
-            <NotesPanel
+            <div className={styles.col}>
+              <PatientAiCard patientId={id} role="nurse" />
+              <NotesPanel
               notes={data.notes}
               onAdd={onAddNote}
               placeholder={t("nurse.notePlaceholder")}
@@ -360,7 +367,8 @@ export function NursePatientDetail({ id }: { id: string }) {
               variant="nurse"
               now={ref}
               timeLabel={(iso) => (dayLabel(iso, ref, lang) === t("common.today") ? tunisTime(iso) : `${dayLabel(iso, ref, lang)} ${tunisTime(iso)}`)}
-            />
+              />
+            </div>
           </div>
         </>
       )}

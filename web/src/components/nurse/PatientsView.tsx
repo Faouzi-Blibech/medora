@@ -59,7 +59,7 @@ export function PatientsView() {
           className={styles.error}
         />
       ) : (
-        <div className={styles.grid}>
+        <div className={`${styles.grid} ward-stagger`}>
           {state === "loading" || !beds
             ? Array.from({ length: 6 }, (_, i) => <BedCardSkeleton key={i} />)
             : beds.map((b, i) => (

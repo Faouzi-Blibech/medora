@@ -176,16 +176,172 @@ textarea {
   }
 }
 
-/* Reduced motion: no pulsing, blinking, shimmering or sliding. */
+/* Page and card entrance: a short rise and fade. */
+@keyframes wardRise {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes wardFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes wardPop {
+  from {
+    transform: scale(0.97);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* Every page rises in when it opens (RoleShell keys this wrapper by pathname). */
+.ward-page {
+  animation: wardRise 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Cards in a page arrive one after the other (first 8, then all at once). */
+.ward-page section,
+.ward-page article {
+  animation: wardRise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.ward-page section:nth-of-type(2),
+.ward-page article:nth-of-type(2) {
+  animation-delay: 0.04s;
+}
+.ward-page section:nth-of-type(3),
+.ward-page article:nth-of-type(3) {
+  animation-delay: 0.08s;
+}
+.ward-page section:nth-of-type(4),
+.ward-page article:nth-of-type(4) {
+  animation-delay: 0.12s;
+}
+.ward-page section:nth-of-type(5),
+.ward-page article:nth-of-type(5) {
+  animation-delay: 0.16s;
+}
+.ward-page section:nth-of-type(n + 6),
+.ward-page article:nth-of-type(n + 6) {
+  animation-delay: 0.2s;
+}
+.ward-page section section,
+.ward-page section article,
+.ward-page article section {
+  animation: none;
+}
+
+/* Grids of cards (ward board, patient lists, dashboard tiles): children arrive in sequence. */
+.ward-stagger > * {
+  animation: wardRise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.ward-stagger > :nth-child(2) {
+  animation-delay: 0.035s;
+}
+.ward-stagger > :nth-child(3) {
+  animation-delay: 0.07s;
+}
+.ward-stagger > :nth-child(4) {
+  animation-delay: 0.105s;
+}
+.ward-stagger > :nth-child(5) {
+  animation-delay: 0.14s;
+}
+.ward-stagger > :nth-child(6) {
+  animation-delay: 0.175s;
+}
+.ward-stagger > :nth-child(n + 7) {
+  animation-delay: 0.21s;
+}
+
+/* Cards that are links lift slightly on hover. */
+.ward-lift {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+.ward-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(15, 45, 68, 0.1);
+}
+
+/* Buttons and links respond to hover and press. */
+button,
+a {
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.18s ease,
+    transform 0.12s ease,
+    opacity 0.16s ease;
+}
+
+button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+input,
+textarea,
+select {
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px var(--teal-tint);
+  outline: none;
+}
+
+dialog[open],
+[role="dialog"] {
+  animation: wardPop 0.2s ease both;
+}
+
+[role="alert"],
+[role="status"] {
+  animation: wardFade 0.25s ease both;
+}
+
+/* Reduced motion (system setting or Settings > Reduce motion): no pulsing, blinking, shimmering or sliding. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  animation-delay: 0s !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
 
 /* Shimmering skeleton bar used by every "Loading" state. */
