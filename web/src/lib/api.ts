@@ -1747,10 +1747,10 @@ export function getStaff(): Promise<StaffMember[]> {
  * latest vital and whether a call-nurse alert is open. Real mode composes
  * GET /patients?ward=, /devices, /alerts?status=open and /patients/{id}/vitals.
  */
-export async function getWard(ward: string = DEFAULT_WARD): Promise<WardBed[]> {
+export async function getWard(ward?: string): Promise<WardBed[]> {
   if (USE_MOCKS)
     return mock((s) => {
-      const patients = s.patients.filter((p) => p.ward === ward);
+      const patients = s.patients.filter((p) => p.ward === (ward ?? DEFAULT_WARD));
       const beds = new Set([...s.boardBedOrder, ...patients.map((p) => p.bed ?? "")].filter(Boolean));
       return [...beds].map((bed) => {
         const patient = patients.find((p) => p.bed === bed) ?? null;
@@ -1765,7 +1765,7 @@ export async function getWard(ward: string = DEFAULT_WARD): Promise<WardBed[]> {
       });
     });
   const [patients, devices, alerts] = await Promise.all([
-    http<PatientSummary[]>("GET", `/patients?ward=${encodeURIComponent(ward)}`),
+    http<PatientSummary[]>("GET", ward ? `/patients?ward=${encodeURIComponent(ward)}` : "/patients"),
     getDevices(),
     getAlerts({ status: "open" }),
   ]);
@@ -1787,12 +1787,12 @@ export async function getWard(ward: string = DEFAULT_WARD): Promise<WardBed[]> {
 }
 
 /** The nurse med round: today's doses per ward patient (patients with no dose today are left out). */
-export async function getMedRound(ward: string = DEFAULT_WARD): Promise<MedRoundGroup[]> {
+export async function getMedRound(ward?: string): Promise<MedRoundGroup[]> {
   const today = tunisDate(iso(now()));
   if (USE_MOCKS)
     return mock((s) =>
       s.patients
-        .filter((p) => p.ward === ward)
+        .filter((p) => p.ward === (ward ?? DEFAULT_WARD))
         .sort(byNews)
         .map((patient) => ({
           patient,
@@ -1802,7 +1802,7 @@ export async function getMedRound(ward: string = DEFAULT_WARD): Promise<MedRound
         .filter((g) => g.doses.length > 0),
     );
   const [summaries, devices] = await Promise.all([
-    http<PatientSummary[]>("GET", `/patients?ward=${encodeURIComponent(ward)}`),
+    http<PatientSummary[]>("GET", ward ? `/patients?ward=${encodeURIComponent(ward)}` : "/patients"),
     getDevices(),
   ]);
   const groups = await Promise.all(
