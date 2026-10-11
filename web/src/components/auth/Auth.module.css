@@ -65,19 +65,6 @@
   color: var(--ink);
 }
 
-.pageWrap {
-  padding: 36px 40px 40px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.pageTitle {
-  margin: 0;
-  font: 600 32px/1.1 var(--serif);
-  color: var(--ink);
-}
-
 /* Codes, emails and passwords are always left-to-right, even inside Arabic pages. */
 .ltr {
   direction: ltr;

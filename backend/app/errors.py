@@ -9,9 +9,10 @@ _DEFAULT_CODES = {400: "bad_request", 401: "unauthorized", 403: "forbidden", 404
 
 
 class ApiError(HTTPException):
-    def __init__(self, status_code: int, code: str, detail: str = ""):
+    def __init__(self, status_code: int, code: str, detail: str = "", extra: dict | None = None):
         super().__init__(status_code=status_code, detail=detail or code.replace("_", " "))
         self.code = code
+        self.extra = extra or {}  # added to the body, e.g. {"drug_id": ...} on insufficient_stock (api 1.12)
 
 
 def forbidden(detail: str = "not allowed") -> ApiError:
@@ -26,7 +27,7 @@ def install(app: FastAPI) -> None:
     @app.exception_handler(HTTPException)
     async def _http(request: Request, exc: HTTPException) -> JSONResponse:
         code = getattr(exc, "code", None) or _DEFAULT_CODES.get(exc.status_code, "error")
-        return JSONResponse({"detail": exc.detail, "code": code}, status_code=exc.status_code,
+        return JSONResponse({**getattr(exc, "extra", {}), "detail": exc.detail, "code": code}, status_code=exc.status_code,
                             headers=getattr(exc, "headers", None))
 
     @app.exception_handler(RequestValidationError)

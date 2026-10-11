@@ -1,11 +1,12 @@
 """WebSocket fan-out (api.md → WebSocket). A nurse gets frames for their ward, a doctor for their own
-patients, an admin only `device_status`. `scope` routes the frame and is stripped before sending."""
+patients, an admin only `device_status`, a pharmacist only `prescription_status`. `scope` routes the frame and is stripped before sending."""
 
 import asyncio
 import logging
 from dataclasses import dataclass, field
 
 log = logging.getLogger("ward.ws")
+PHARMACIST_FRAMES = {"prescription_status"}
 
 
 @dataclass(eq=False)
@@ -21,6 +22,8 @@ def wants(c: Client, frame: dict) -> bool:
     scope = frame.get("scope") or {}
     if c.role == "admin":
         return frame.get("type") == "device_status"
+    if c.role == "pharmacist":  # hospital-wide, but only the pharmacy frame: no vitals, alerts or doses
+        return frame.get("type") in PHARMACIST_FRAMES
     if c.role == "nurse":
         return (c.ward is not None and scope.get("ward") == c.ward) or (
             c.supervisor_id is not None and scope.get("doctor_id") == c.supervisor_id)

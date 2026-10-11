@@ -1,0 +1,201 @@
+/* Pharmacist space. Logical properties only (the app runs RTL in Arabic). */
+
+/* ── Summary tiles (Task 2) ─────────────────────────────────────────────── */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 4px;
+  padding: 16px 18px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.tileDanger {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.tileLabel {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.tileNum {
+  margin: 0;
+  font: 600 32px/1 var(--serif);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.tileDanger .tileNum {
+  color: var(--danger);
+}
+
+/* ── Worklist and review (Task 3) ───────────────────────────────────────── */
+.split {
+  display: grid;
+  grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.listCol { display: flex; flex-direction: column; gap: 12px; }
+.panelCol { min-width: 0; }
+
+.segment { display: flex; padding: 4px; gap: 4px; background: var(--segment); border-radius: 10px; }
+.segBtn { flex: 1; min-height: 40px; padding: 0 12px; border: none; border-radius: 7px; background: transparent; color: var(--text); font: 600 14px/1 var(--sans); cursor: pointer; }
+.segOn { background: var(--paper); color: var(--ink); box-shadow: var(--shadow-segment); }
+
+.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+
+.row {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  text-align: start;
+  font: inherit;
+  color: var(--text);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.row:hover { border-color: var(--line-strong); }
+.rowOn { border-color: var(--teal); box-shadow: 0 0 0 2px var(--teal-tint); }
+.rowCrit { border-inline-start: 5px solid var(--danger); }
+.rowTop { display: flex; align-items: center; gap: 10px; }
+.rowName { flex: 1; font-size: 17px; font-weight: 600; color: var(--ink); }
+.rowMeta { font-size: 14px; color: var(--muted); }
+.rowChips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.chipWrap { display: inline-flex; align-items: center; gap: 3px; }
+.chipN { font-size: 12px; font-weight: 600; color: var(--muted); }
+.noWarn { font-size: 13px; color: var(--news-normal-fg); }
+.urgent { padding: 3px 8px; border-radius: 999px; background: var(--danger); color: var(--paper); font: 600 12px/1.2 var(--sans); white-space: nowrap; }
+
+.empty,
+.pick {
+  margin: 0;
+  padding: 32px;
+  text-align: center;
+  font-size: 16px;
+  color: var(--muted);
+  background: var(--paper);
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+}
+
+.panel { display: flex; flex-direction: column; gap: 18px; padding: 24px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
+.panelHead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.panelName { margin: 0; font: 600 28px/1.15 var(--serif); color: var(--ink); }
+.panelMeta { flex: 1 1 100%; font-size: 15px; color: var(--muted); }
+
+.allergy { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; padding: 12px 14px; border-radius: 10px; background: var(--chip); color: var(--text); }
+.allergyOn { background: var(--danger-bg); border: 2px solid var(--danger); color: var(--danger-ink); }
+.allergyLabel { font: 600 13px/1.2 var(--sans); letter-spacing: 0.06em; text-transform: uppercase; }
+.allergyList { font-size: 18px; font-weight: 700; }
+
+.block { display: flex; flex-direction: column; gap: 8px; }
+.blockTitle { margin: 0; font: 600 13px/1.2 var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.blockSub { font-weight: 500; letter-spacing: 0; text-transform: none; }
+.item { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+.itemMed { font-size: 16px; font-weight: 600; color: var(--ink); }
+.itemMeta { font-size: 14px; color: var(--text); font-variant-numeric: tabular-nums; }
+.nf { font-size: 12px; font-weight: 600; color: var(--warn-ink); }
+.muted { margin: 0; font-size: 14px; color: var(--muted); }
+.override { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 10px; background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn-ink); font-size: 15px; }
+.overrideLabel { font-size: 13px; font-weight: 700; }
+.history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.history li { display: flex; flex-direction: column; gap: 2px; }
+
+.actions { position: sticky; bottom: 0; display: flex; flex-direction: column; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); background: var(--paper); }
+.ack { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; color: var(--ink); cursor: pointer; }
+.ack input { width: 22px; height: 22px; }
+.actionRow { display: flex; flex-wrap: wrap; gap: 10px; }
+.danger { color: var(--danger-ink); border-color: var(--danger-line); }
+.dialog .dangerPrimary { background: var(--danger); }
+.dialog .dangerPrimary:hover { background: var(--danger-ink); }
+.error { font-size: 14px; color: var(--danger-ink); }
+
+.overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px; background: rgba(15, 45, 68, 0.55); }
+.dialog { width: min(520px, 100%); display: flex; flex-direction: column; gap: 14px; padding: 26px; background: var(--paper); border-radius: 14px; box-shadow: var(--shadow-frame); }
+.dialogTitle { margin: 0; font: 600 22px/1.2 var(--serif); color: var(--ink); }
+.textarea { width: 100%; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: 8px; font: 400 16px/1.4 var(--sans); color: var(--ink); background: var(--paper); resize: vertical; }
+.count { align-self: flex-end; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.dialogActions { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* ── Catalogue (Task 4) ─────────────────────────────────────────────────── */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.search { flex: 1 1 280px; width: auto; }
+.checkRow { display: inline-flex; align-items: center; gap: 10px; font-size: 15px; color: var(--ink); cursor: pointer; }
+.checkRow input { width: 20px; height: 20px; }
+.table { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; }
+.drugGrid { display: grid; grid-template-columns: minmax(180px, 2fr) minmax(140px, 1.2fr) 100px 110px minmax(200px, 2fr) 150px 80px; gap: 12px; min-width: 1000px; }
+.cellMain { font-size: 15px; font-weight: 600; color: var(--ink); }
+.cellSub { display: block; font-size: 13px; color: var(--muted); }
+.mono { font-family: var(--mono); font-size: 14px; }
+.tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; background: var(--chip); color: var(--text); font-size: 12px; }
+.tagGroup { background: var(--doctor-bg); color: var(--doctor-fg); }
+.flag { padding: 3px 8px; border-radius: 999px; font: 600 12px/1.2 var(--sans); background: var(--warn-bg); color: var(--warn-ink); }
+.flagOk { background: var(--news-normal-bg); color: var(--news-normal-fg); }
+.flagOff { background: var(--chip); color: var(--muted); }
+.flagDanger { background: var(--danger-bg); color: var(--danger-ink); }
+.linkBtn { padding: 6px 0; border: none; background: none; color: var(--teal); font: 600 14px/1 var(--sans); cursor: pointer; }
+.drawer { position: fixed; inset-block: 0; inset-inline-end: 0; z-index: 40; width: min(460px, 100%); overflow-y: auto; background: var(--paper); box-shadow: var(--drawer-shadow); }
+.drawerForm { display: flex; flex-direction: column; gap: 14px; padding: 28px; }
+.drawerHead { display: flex; align-items: center; gap: 12px; }
+.drawerTitle { flex: 1; margin: 0; font: 600 24px/1.2 var(--serif); color: var(--ink); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tagBox { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--paper); }
+.tagBox:focus-within { border-color: var(--teal); box-shadow: 0 0 0 3px #cbeaee; }
+.tagX { padding: 0 2px; border: none; background: none; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; }
+.tagEntry { flex: 1 1 120px; min-width: 80px; padding: 4px 2px; border: none; outline: none; background: transparent; color: var(--ink); font: 400 16px/1.4 var(--sans); }
+
+/* ── Dispensing (Task 10) ───────────────────────────────────────────────── */
+.filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
+.filterField { min-width: 170px; }
+.wardBlock { display: flex; flex-direction: column; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
+.wardHead { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.wardName { flex: 1; margin: 0; font: 600 22px/1.2 var(--serif); color: var(--ink); }
+.roundTable { overflow-x: auto; }
+.doseGrid { display: grid; grid-template-columns: 56px 70px minmax(140px, 1.2fr) minmax(150px, 1.3fr) 56px minmax(260px, 1.8fr) 80px; gap: 12px; align-items: center; min-width: 960px; }
+.sentRow { color: var(--muted); background: var(--canvas); }
+.shortBox { display: flex; flex-direction: column; gap: 4px; margin: 12px 20px 0; padding: 10px 12px; border-radius: 10px; background: var(--danger-bg); border: 1px solid var(--danger-line); color: var(--danger-ink); font-size: 14px; }
+.num { font-variant-numeric: tabular-nums; }
+.lowNum { color: var(--danger); font-weight: 600; }
+.lotExpiring { color: var(--warn-ink); font-weight: 600; }
+.lotExpired { color: var(--danger); font-weight: 600; }
+
+/* ── Stock (Task 11) ────────────────────────────────────────────────────── */
+.stockLayout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; align-items: start; }
+
+@media (max-width: 1200px) {
+  .stockLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.stockGrid { display: grid; grid-template-columns: minmax(170px, 1.3fr) 110px 170px minmax(260px, 2fr); gap: 12px; align-items: start; min-width: 760px; }
+.side { display: flex; flex-direction: column; gap: 16px; }
+.card { display: flex; flex-direction: column; gap: 12px; padding: 20px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
+.cardTitle { margin: 0; font: 600 20px/1.2 var(--serif); color: var(--ink); }
+.lots { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.lotRow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 14px; }
+.reorderRow { padding: 6px 0; border-bottom: 1px solid var(--line-soft); font-size: 15px; }

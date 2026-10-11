@@ -109,19 +109,6 @@
   border-radius: 4px;
 }
 
-.logoutBtn {
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  color: var(--teal-deep);
-  background: transparent;
-  border: 1px solid var(--proto-line);
-  padding: 4px 7px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
 /* ── Tab bar ───────────────────────────────────────────────────────────── */
 
 .tabBar {

@@ -11,11 +11,12 @@ import { AuthFrame } from "./AuthFrame";
 import auth from "./Auth.module.css";
 import styles from "@/app/page.module.css";
 
-/** Exactly the three sign-up roles; `admin` is never a sign-up choice. */
+/** The four sign-up roles; `admin` is never a sign-up choice. */
 const ROLES: { value: SignupRole; label: Key }[] = [
   { value: "patient", label: "shared.rolePatient" },
   { value: "nurse", label: "admin.roleNurse" },
   { value: "doctor", label: "admin.roleDoctor" },
+  { value: "pharmacist", label: "pharmacy.rolePharmacist" },
 ];
 
 export function RegisterForm() {
@@ -27,6 +28,7 @@ export function RegisterForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ErrorInfo | null>(null);
   const [done, setDone] = useState(false);
+  const picksDoctor = role === "patient" || role === "nurse";
   const set = (k: keyof typeof f) => (v: string) => setF((s) => ({ ...s, [k]: v }));
 
   useEffect(() => {
@@ -64,8 +66,8 @@ export function RegisterForm() {
         password: f.password,
         role,
         ...(f.note.trim() ? { note: f.note.trim() } : {}),
-        // Doctors don't pick a doctor; the server rejects the combination.
-        ...(role !== "doctor" && f.doctor ? { requested_doctor_id: f.doctor } : {}),
+        // Doctors and pharmacists don't pick a doctor; the server rejects the combination.
+        ...(picksDoctor && f.doctor ? { requested_doctor_id: f.doctor } : {}),
       });
       setF((s) => ({ ...s, password: "", confirm: "" }));
       setDone(true);
@@ -132,7 +134,7 @@ export function RegisterForm() {
             )}
           </select>
         </label>
-        {role !== "doctor" && doctors.length ? (
+        {picksDoctor && doctors.length ? (
           <label className={styles.field}>
             <span className={styles.fieldLabel}>{t("auth.fieldDoctor")}</span>
             <select className={auth.select} value={f.doctor} onChange={(e) => set("doctor")(e.target.value)}>

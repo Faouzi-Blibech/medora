@@ -1,14 +1,16 @@
+"""Prescribing (api.md 1.12 → Prescriptions). The life cycle lives in app/services/pharmacy/workflow.py."""
+
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from app.auth.deps import check_patient_access, require_roles
+from app.auth.deps import can_access, require_roles
 from app.db import get_db
-from app.errors import not_found
-from app.ids import new_id
-from app.models import Prescription, User
-from app.schemas import PrescriptionIn, PrescriptionPatch, PrescriptionPublished
-from app.services import schedule
+from app.errors import forbidden, not_found
+from app.iot import publisher
+from app.models import Patient, Prescription, User
+from app.schemas import PrescriptionCheckIn, PrescriptionIn, PrescriptionPatch
 from app.services.audit import audit
+from app.services.pharmacy import workflow as W
 
 router = APIRouter(prefix="/prescriptions", tags=["prescriptions"])
 
@@ -17,40 +19,61 @@ def _ip(request: Request) -> str:
     return request.client.host if request.client else ""
 
 
-def _published(db: Session, rx: Prescription) -> PrescriptionPublished:
-    """Regenerate doses, push the schedule, and shape the api.md Prescription response."""
-    schedule.rebuild_doses(db, rx)
-    sent = schedule.push_schedule(db, rx.patient_id)
-    dev = schedule.device_of(db, rx.patient_id)
-    out = PrescriptionPublished.model_validate(
-        {**{k: getattr(rx, k) for k in ("id", "patient_id", "doctor_id", "items", "care_plan", "active",
-                                        "created_at")},
-         "schedule_version": dev.schedule_version if dev else None, "published_to_device": sent})
+def _finish(db: Session, out: W.Outcome) -> dict:
+    """Doses + device schedule, then commit, then the WS frames (never for a rolled-back change)."""
+    sent, version = W.apply_doses(db, out)
+    frames = W.status_frames(db, out)
+    body = {**W.rx_out(db, out.rx), "schedule_version": version, "published_to_device": sent}
     db.commit()
-    return out
+    for f in frames:
+        publisher.publish_ws_frame(f)
+    return body
 
 
-@router.post("", status_code=201, response_model=PrescriptionPublished)
+@router.post("/check")
+def check(body: PrescriptionCheckIn, request: Request, user: User = Depends(require_roles("doctor")),
+          db: Session = Depends(get_db)) -> dict:
+    """Dry run while the doctor types: the warnings the pharmacist will see. Writes only the audit row."""
+    patient = db.get(Patient, body.patient_id)
+    if patient is None:
+        raise not_found("patient")
+    if not can_access(db, user, patient, write=True):
+        raise forbidden("not your patient")
+    items = [i.model_dump() for i in body.items]
+    W.ensure_drugs(db, items)
+    old = W.replace_target(db, body.replaces_id, patient.id, lock_row=False) if body.replaces_id else None
+    checks = W.checks_for(db, patient, items, W.exclusions(db, old))
+    audit(db, user, "read", "prescription_check", patient.id, patient_id=patient.id, ip=_ip(request))
+    db.commit()
+    return {"checks": [c.as_dict() for c in checks]}
+
+
+@router.post("", status_code=201)
 def create(body: PrescriptionIn, request: Request, user: User = Depends(require_roles("doctor")),
-           db: Session = Depends(get_db)):
-    check_patient_access(db, user, body.patient_id, write=True, resource="prescription", ip=_ip(request))
-    rx = Prescription(id=new_id(db, "rx"), patient_id=body.patient_id, doctor_id=user.id,
-                      items=[i.model_dump() for i in body.items], care_plan=body.care_plan, active=True)
-    db.add(rx)
-    db.flush()
-    db.refresh(rx)
-    audit(db, user, "create", "prescription", rx.id, patient_id=rx.patient_id, ip=_ip(request))
-    return _published(db, rx)
+           db: Session = Depends(get_db)) -> dict:
+    patient = db.get(Patient, body.patient_id)
+    if patient is None:
+        raise not_found("patient")
+    if not can_access(db, user, patient, write=True):
+        raise forbidden("not your patient")
+    out = W.create(db, user, patient, body)  # every 409/422 comes before the first audit row
+    audit(db, user, "update", "prescription", patient.id, patient_id=patient.id, ip=_ip(request))
+    audit(db, user, "create", "prescription", out.rx.id, patient_id=patient.id, ip=_ip(request))
+    for prev in out.touched[1:]:
+        audit(db, user, "update", "prescription", prev.id, patient_id=patient.id, ip=_ip(request))
+    return _finish(db, out)
 
 
-@router.patch("/{rx_id}", response_model=PrescriptionPublished)
-def patch(rx_id: str, body: PrescriptionPatch, request: Request, user: User = Depends(require_roles("doctor")),
-          db: Session = Depends(get_db)):
+@router.patch("/{rx_id}")
+def stop(rx_id: str, body: PrescriptionPatch, request: Request, user: User = Depends(require_roles("doctor")),
+         db: Session = Depends(get_db)) -> dict:
     rx = db.get(Prescription, rx_id)
     if rx is None:
         raise not_found("prescription")
-    # the attending doctor may stop or restart any prescription of their own patient
-    check_patient_access(db, user, rx.patient_id, write=True, resource="prescription", ip=_ip(request))
-    rx.active = body.active
-    db.flush()
-    return _published(db, rx)
+    patient = db.get(Patient, rx.patient_id)
+    if patient is None or not can_access(db, user, patient, write=True):  # access first, then the row lock
+        raise forbidden("not your patient")
+    rx = W.lock(db, rx_id)
+    out = W.stop(db, rx)  # a 409 comes before the audit row
+    audit(db, user, "update", "prescription", rx.id, patient_id=rx.patient_id, ip=_ip(request))
+    return _finish(db, out)

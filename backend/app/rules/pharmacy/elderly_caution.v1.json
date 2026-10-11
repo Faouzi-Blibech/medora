@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "note": "Illustrative Beers-style list, not a clinical reference; to be validated by the hospital's pharmacists.",
+  "min_age": 75,
+  "dci": ["Diazepam", "Alprazolam", "Amitriptyline", "Haloperidol", "Digoxin", "Ibuprofen", "Diclofenac", "Ketoprofen", "Tramadol", "Gliclazide"]
+}
