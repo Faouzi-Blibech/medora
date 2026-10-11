@@ -134,6 +134,35 @@ export function Home() {
             </section>
           )}
 
+          {desktop && !failed && !loading && lastTs ? (
+            <section className={`${styles.card} ${styles.medsCard}`} aria-label={t("patient.homeVitalsTitle")}>
+              <h2 className={styles.cardTitle}>{t("patient.homeVitalsTitle")}</h2>
+              <div className={styles.medRow}>
+                <span className={styles.medText}>
+                  <span className={styles.medName}>{t("patient.heartRate")}</span>
+                </span>
+                <span className={styles.medTime}>
+                  {lastVital("hr") ?? "—"} <small style={{ whiteSpace: "nowrap" }}>{t("patient.beatsMin")}</small>
+                </span>
+              </div>
+              <div className={styles.medRow}>
+                <span className={styles.medText}>
+                  <span className={styles.medName}>{t("patient.oxygen")}</span>
+                </span>
+                <span className={styles.medTime}>{lastVital("spo2") ?? "—"} %</span>
+              </div>
+              <div className={styles.medRow}>
+                <span className={styles.medText}>
+                  <span className={styles.medName}>{t("patient.temperature")}</span>
+                </span>
+                <span className={styles.medTime}>{lastVital("temp") ?? "—"} °C</span>
+              </div>
+              <Link href="/patient/vitals" className={styles.examNote}>
+                {t("patient.homeVitalsLink", { time: tunisTime(lastTs) })}
+              </Link>
+            </section>
+          ) : null}
+
           {!failed && !loading && (data?.exams ?? []).length > 0 ? (
             <section className={`${styles.card} ${styles.medsCard}`} aria-label={t("patient.beforeVisit")}>
               <h2 className={styles.cardTitle}>{t("patient.beforeVisit")}</h2>
@@ -188,35 +217,6 @@ export function Home() {
             <section className={`${styles.card} ${styles.medsCard}`} aria-label={t("patient.homeRequestTitle")}>
               <h2 className={styles.cardTitle}>{t("patient.homeRequestTitle")}</h2>
               <p className={styles.examNote}>{t("patient.homeRequestText")}</p>
-            </section>
-          ) : null}
-
-          {desktop && !failed && !loading && lastTs ? (
-            <section className={`${styles.card} ${styles.medsCard}`} aria-label={t("patient.homeVitalsTitle")}>
-              <h2 className={styles.cardTitle}>{t("patient.homeVitalsTitle")}</h2>
-              <div className={styles.medRow}>
-                <span className={styles.medText}>
-                  <span className={styles.medName}>{t("patient.heartRate")}</span>
-                </span>
-                <span className={styles.medTime}>
-                  {lastVital("hr") ?? "—"} <small>{t("patient.beatsMin")}</small>
-                </span>
-              </div>
-              <div className={styles.medRow}>
-                <span className={styles.medText}>
-                  <span className={styles.medName}>{t("patient.oxygen")}</span>
-                </span>
-                <span className={styles.medTime}>{lastVital("spo2") ?? "—"} %</span>
-              </div>
-              <div className={styles.medRow}>
-                <span className={styles.medText}>
-                  <span className={styles.medName}>{t("patient.temperature")}</span>
-                </span>
-                <span className={styles.medTime}>{lastVital("temp") ?? "—"} °C</span>
-              </div>
-              <Link href="/patient/vitals" className={styles.examNote}>
-                {t("patient.homeVitalsLink", { time: tunisTime(lastTs) })}
-              </Link>
             </section>
           ) : null}
 
