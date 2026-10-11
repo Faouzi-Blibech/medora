@@ -141,21 +141,21 @@ export function Home() {
                 <span className={styles.medText}>
                   <span className={styles.medName}>{t("patient.heartRate")}</span>
                 </span>
-                <span className={styles.medTime}>
-                  {lastVital("hr") ?? "—"} <small style={{ whiteSpace: "nowrap" }}>{t("patient.beatsMin")}</small>
+                <span className={styles.medTime} style={{ whiteSpace: "nowrap" }}>
+                  {lastVital("hr") ?? "—"} <small>{t("patient.beatsMin")}</small>
                 </span>
               </div>
               <div className={styles.medRow}>
                 <span className={styles.medText}>
                   <span className={styles.medName}>{t("patient.oxygen")}</span>
                 </span>
-                <span className={styles.medTime}>{lastVital("spo2") ?? "—"} %</span>
+                <span className={styles.medTime} style={{ whiteSpace: "nowrap" }}>{lastVital("spo2") ?? "—"} %</span>
               </div>
               <div className={styles.medRow}>
                 <span className={styles.medText}>
                   <span className={styles.medName}>{t("patient.temperature")}</span>
                 </span>
-                <span className={styles.medTime}>{lastVital("temp") ?? "—"} °C</span>
+                <span className={styles.medTime} style={{ whiteSpace: "nowrap" }}>{lastVital("temp") ?? "—"} °C</span>
               </div>
               <Link href="/patient/vitals" className={styles.examNote}>
                 {t("patient.homeVitalsLink", { time: tunisTime(lastTs) })}
