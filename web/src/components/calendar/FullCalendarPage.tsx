@@ -3,6 +3,7 @@
 // /calendar: the health calendar full width, for anyone signed in. Mock mode has no session,
 // so it shows the patient's view; real mode uses the signed-in role (a dead token → sign-in,
 // via the shared 401 rule in lib/api.ts).
+import { Logo } from "@/components/brand/Logo";
 import Link from "next/link";
 import { useT } from "@/i18n/I18nProvider";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -22,8 +23,7 @@ export function FullCalendarPage() {
     <div className={styles.page}>
       <header className={styles.head}>
         <Link href={role ? HOME[role] : "/"} className={styles.wordmark}>
-          <span className={styles.mark} aria-hidden="true" />
-          <span className={styles.name}>Medora</span>
+          <Logo tone="light" size={28} />
         </Link>
         <span className={styles.tag}>{t("common.prototypeTag")}</span>
         <span className={styles.flex} />
