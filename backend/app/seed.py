@@ -51,6 +51,11 @@ STAFF = [
     ("u-0008", "pharmacist@ward.tn", "Pharm. Salma", "pharmacist", None, None),
 ]
 PHARMACIST_ID = "u-0008"
+
+
+def _pharmacist(db: Session) -> str | None:
+    """The seed pharmacist's id: u-0008, or whatever id pharmacist@ward.tn got when u-0008 was already taken."""
+    return db.scalar(select(User.id).where(User.email == "pharmacist@ward.tn"))
 STAFF_ROW_ROLES = ("doctor", "nurse")  # only these have a ward or supervisor
 
 # (first, last, dob, sex, allergies, history)
@@ -90,8 +95,11 @@ def _patient_id(i: int) -> str:
 
 def _upsert_missing_staff(db: Session, pw: str) -> None:
     """Staff added to STAFF after a database was first seeded (e.g. the department nurses)."""
+    reserve_upto(db, "u", 8)
     for uid, email, name, role, ward, rfid in STAFF:
-        if db.get(User, uid) is None and db.scalar(select(User).where(User.email == email)) is None:
+        if db.scalar(select(User).where(User.email == email)) is None:
+            if db.get(User, uid) is not None:  # the id went to a self-registered account before this staff existed
+                uid = new_id(db, "u")
             db.add(User(id=uid, email=email, name=name, role=role, password_hash=pw))
             db.flush()
         if role in STAFF_ROW_ROLES and db.get(Staff, uid) is None and db.get(User, uid) is not None:
@@ -184,9 +192,10 @@ def _pharmacy(db: Session, now: datetime) -> None:
     F.load_formulary(db)
     backfill_drug_ids(db)
     rx = db.get(Prescription, "rx-0001")
-    if rx is not None and rx.status == "validated" and rx.reviewed_by is None and db.get(User, PHARMACIST_ID):
-        rx.reviewed_by, rx.reviewed_at = PHARMACIST_ID, rx.created_at
-        db.add(PrescriptionReview(id=new_id(db, "pr"), prescription_id=rx.id, pharmacist_id=PHARMACIST_ID,
+    ph = _pharmacist(db)
+    if rx is not None and rx.status == "validated" and rx.reviewed_by is None and ph:
+        rx.reviewed_by, rx.reviewed_at = ph, rx.created_at
+        db.add(PrescriptionReview(id=new_id(db, "pr"), prescription_id=rx.id, pharmacist_id=ph,
                                   decision="validated", comment=None, checks_snapshot=[]))
     if db.scalar(select(Prescription.id).where(Prescription.care_plan == DEMO_CARE_PLAN)) is None:
         checks = W.checks_for(db, db.get(Patient, "p-0001"), DEMO_ITEMS, set())
@@ -198,6 +207,33 @@ def _pharmacy(db: Session, now: datetime) -> None:
     db.flush()
 
 
+# drug id -> seed quantity (others: max(2 x min_stock, 50)). Paracetamol 500 sits exactly at min_stock, so the 20:00
+# Cardiology round tips it under (the demo's low-stock alert); enoxaparin starts under min_stock.
+SEED_QTY = {"d-0001": 200, "d-0014": 6}
+
+
+def _seed_lot(db: Session, drug_id: str, number: str, expiry: date, qty: int, by: str) -> None:
+    lot = StockLot(id=new_id(db, "lot"), drug_id=drug_id, lot_number=number, expiry_date=expiry, quantity=qty)
+    db.add(lot)
+    db.flush()
+    db.add(StockMovement(id=new_id(db, "sm"), drug_id=drug_id, lot_id=lot.id, delta=qty, reason="receipt",
+                         by_user_id=by))
+
+
+def _stock(db: Session) -> None:
+    """Phase B demo stock (spec 7). Skipped once any lot exists, or without the seed pharmacist."""
+    ph = _pharmacist(db)
+    if db.scalar(select(StockLot.id).limit(1)) is not None or ph is None:
+        return
+    today = today_local()
+    for d in db.scalars(select(Drug).order_by(Drug.id)):
+        qty = SEED_QTY.get(d.id, max(2 * d.min_stock, 50))
+        _seed_lot(db, d.id, f"L{d.id[2:]}-A", today + timedelta(days=365), qty, ph)
+    _seed_lot(db, "d-0032", "L0032-B", today + timedelta(days=10), 30, ph)  # amlodipine, expiring: FEFO takes it first
+    _seed_lot(db, "d-0018", "L0018-X", today - timedelta(days=5), 20, ph)  # ibuprofen, expired: waiting for write-off
+    db.flush()
+
+
 if __name__ == "__main__":
     check_secrets(get_settings())
     with SessionLocal() as s:
@@ -206,28 +242,3 @@ if __name__ == "__main__":
         s.commit()
     print("seeded" if created else "already seeded, nothing to do")
     print(f"demo radiographs: {n} added")
-
-
-# drug id -> seed quantity (others: max(2 x min_stock, 50)). Paracetamol 500 sits exactly at min_stock, so the 20:00
-# Cardiology round tips it under (the demo's low-stock alert); enoxaparin starts under min_stock.
-SEED_QTY = {"d-0001": 200, "d-0014": 6}
-
-
-def _seed_lot(db: Session, drug_id: str, number: str, expiry: date, qty: int) -> None:
-    lot = StockLot(id=new_id(db, "lot"), drug_id=drug_id, lot_number=number, expiry_date=expiry, quantity=qty)
-    db.add(lot)
-    db.flush()
-    db.add(StockMovement(id=new_id(db, "sm"), drug_id=drug_id, lot_id=lot.id, delta=qty, reason="receipt",
-                         by_user_id=PHARMACIST_ID))
-
-
-def _stock(db: Session) -> None:
-    """Phase B demo stock (spec 7). Skipped once any lot exists, or without the seed pharmacist."""
-    if db.scalar(select(StockLot.id).limit(1)) is not None or db.get(User, PHARMACIST_ID) is None:
-        return
-    today = today_local()
-    for d in db.scalars(select(Drug).order_by(Drug.id)):
-        _seed_lot(db, d.id, f"L{d.id[2:]}-A", today + timedelta(days=365), SEED_QTY.get(d.id, max(2 * d.min_stock, 50)))
-    _seed_lot(db, "d-0032", "L0032-B", today + timedelta(days=10), 30)  # amlodipine, expiring: FEFO takes it first
-    _seed_lot(db, "d-0018", "L0018-X", today - timedelta(days=5), 20)  # ibuprofen, expired: waiting for write-off
-    db.flush()
