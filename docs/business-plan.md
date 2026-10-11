@@ -41,13 +41,13 @@ The context in Tunisia makes this the right moment:
 | Pilot impact dashboard | Measured indicators: alert response time, doses on time, wait to appointment | |
 | Patient app | Phone and desktop: medicines of the day, vitals in plain words, appointments, assistant | |
 
-Coming from the team now:
-- **Pharmacy module (Hedi):** dispensing and stock, linked to prescriptions.
-- **Computer vision and OCR (Wali):** reads exam reports and imaging documents a patient brings and checks them against the record.
+Also built by the team (merged 2026-10-11):
+- **Hospital pharmacy (Hedi):** pharmacist review of every prescription (allergy, dose and interaction checks), dispensing by lot with first-expiry-first-out, nurse receipt, stock with reorder alerts.
+- **Radiograph reading (Wali):** a local vision model drafts a report for an X-ray image, including outside X-rays a patient brings; the doctor edits and confirms it.
 
 **Honesty, which is also a selling point:**
 - Vitals are simulated in the prototype; the bedside unit has no sensors yet.
-- The AI is not clinically validated and never reads images to diagnose.
+- The AI is not clinically validated. On X-rays it only drafts a report that a doctor must edit and confirm; it never diagnoses.
 - Everything runs on the hospital's own server.
 - The demo works with the internet off.
 
@@ -167,7 +167,7 @@ Beyond these figures:
 |---|---|---|
 | Personal and health data | Organic Law 2004-63; health data is sensitive and its processing needs **prior authorisation from the INPDP** (Decree 2007-3004) | File the declaration / authorisation request with the INPDP for the pilot site; data stays on the hospital's server; DPA contract with the hospital |
 | Cross-border transfer | Only to adequate countries or with INPDP authorisation | Default: no transfer. The optional cloud LLM receives no names, phone numbers or IDs (already stripped); keep it off in the pilot unless authorised |
-| Software as a medical device | The AI gives decision support, never a diagnosis; a person confirms every output | Keep this scope; check with the Ministry of Health's pharmacy and medicines directorate whether registration is needed; plan ISO 13485 / CE only when real sensors are added |
+| Software as a medical device | The AI gives decision support, never a diagnosis; a person confirms every output, including the radiograph draft reports, which are the closest feature to a medical device | Keep this scope; check with the Ministry of Health's pharmacy and medicines directorate whether registration is needed; plan ISO 13485 / CE only when real sensors are added |
 | Telemedicine | 2022 decrees | Only relevant if the doctor assistant is used for remote care |
 | Information security | Hospital IT policy | Audit log (done), roles and access (done), backups, then ISO 27001 practices |
 | Clinical honesty | No validated-AI claims | Keep "prototype, simulated vitals, AI not validated" in the UI and the pitch until a study exists |
