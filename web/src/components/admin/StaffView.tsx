@@ -24,11 +24,12 @@ import styles from "./StaffView.module.css";
 
 type StaffRole = StaffMember["role"];
 
-const ROLE_LABEL: Record<StaffRole, Key> = { doctor: "admin.roleDoctor", nurse: "admin.roleNurse", admin: "admin.roleAdmin" };
+const ROLE_LABEL: Record<StaffRole, Key> = { doctor: "admin.roleDoctor", nurse: "admin.roleNurse", admin: "admin.roleAdmin", pharmacist: "pharmacy.rolePharmacist" };
 const ROLE_COLORS: Record<StaffRole, [string, string]> = {
   doctor: ["var(--doctor-bg)", "var(--doctor-fg)"],
   nurse: ["var(--ai-bg)", "var(--news-normal-fg)"],
   admin: ["var(--segment)", "var(--text)"],
+  pharmacist: ["var(--warn-bg)", "var(--warn-ink)"],
 };
 const STATUS_LABEL: Record<StaffMember["status"], Key> = {
   active: "accounts.statusActive",
@@ -46,6 +47,7 @@ const WARDS: { value: string; ward: string | null; label: Key }[] = [
 const ALL_WARDS = "All wards";
 const ROLE_HELP: Partial<Record<StaffRole, Key>> = {
   nurse: "admin.roleHelpNurse",
+  pharmacist: "pharmacy.roleHelpPharmacist",
 };
 const DESIGN_DRAFT = { name: "Nour Hammami", email: "n.hammami@hr-ward.tn", role: "nurse" as StaffRole, scope: WARDS[0].value };
 const EMPTY_DRAFT = { name: "", email: "", role: "nurse" as StaffRole, scope: WARDS[0].value };
@@ -284,7 +286,7 @@ export function StaffView() {
               {t("admin.staffRole")}
             </span>
             <div role="radiogroup" aria-labelledby="role-label" className={styles.segment}>
-              {(["doctor", "nurse", "admin"] as StaffRole[]).map((r) => (
+              {(["doctor", "nurse", "pharmacist", "admin"] as StaffRole[]).map((r) => (
                 <button
                   key={r}
                   type="button"

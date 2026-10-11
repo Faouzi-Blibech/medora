@@ -27,6 +27,7 @@ export const PENDING: PendingUser[] = [
   { id: "u-0020", name: "Amel Cherif", email: "a.cherif@example.tn", note: "Cardiology", requested_role: "nurse", requested_doctor_id: "u-0001", requested_doctor_name: "Dr Trabelsi", status: "pending", created_at: at(TODAY, "08:20") },
   { id: "u-0021", name: "Karim Zouari", email: "k.zouari@example.tn", note: "Pulmonology", requested_role: "doctor", requested_doctor_id: null, requested_doctor_name: null, status: "pending", created_at: at(TODAY, "07:55") },
   { id: "u-0022", name: "Salma Hadded", email: "s.hadded@example.tn", note: null, requested_role: "patient", requested_doctor_id: "u-0010", requested_doctor_name: "Dr Ben Romdhane", status: "pending", created_at: at(TODAY, "07:10") },
+  { id: "u-0024", name: "Rim Jebali", email: "r.jebali@example.tn", note: "Pharmacie", requested_role: "pharmacist", requested_doctor_id: null, requested_doctor_name: null, status: "pending", created_at: at(TODAY, "08:05") },
   { id: "u-0023", name: "Test Person", email: "t.person@example.tn", note: "assistant", requested_role: "nurse", requested_doctor_id: "u-0001", requested_doctor_name: "Dr Trabelsi", status: "rejected", created_at: at("2026-10-03", "16:00") },
 ];
 
