@@ -14,9 +14,10 @@ from app.iot import publisher
 from app.iot.ingest import frame
 from app.models import Admission, Note, Prescription, User, Vital
 from app.schemas import (NoteIn, NoteOut, PatientListItem, PatientOut, PatientPatch, PatientSummary,
-                         PrescriptionOut, VitalIn, VitalOut, iso)
+                         VitalIn, VitalOut, iso)
 from app.services import patients as P
 from app.services.audit import audit
+from app.services.pharmacy import workflow as W
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 
@@ -115,15 +116,16 @@ def record_vitals(patient_id: str, body: VitalIn, request: Request,
     return out
 
 
-@router.get("/{patient_id}/prescriptions", response_model=list[PrescriptionOut])
+@router.get("/{patient_id}/prescriptions")
 def get_prescriptions(patient_id: str, request: Request,
                       user: User = Depends(require_roles("doctor", "nurse", "patient")),
-                      db: Session = Depends(get_db)):
+                      db: Session = Depends(get_db)) -> list[dict]:
     check_patient_access(db, user, patient_id, resource="prescription", ip=_ip(request))
     rows = db.scalars(select(Prescription).where(Prescription.patient_id == patient_id)
                       .order_by(Prescription.created_at.desc(), Prescription.id.desc())).all()
+    out = [W.rx_out(db, r, for_patient=user.role == "patient") for r in rows]
     db.commit()
-    return rows
+    return out
 
 
 def _note_out(db: Session, n: Note) -> NoteOut:

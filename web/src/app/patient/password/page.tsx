@@ -1,10 +1,5 @@
-import { ChangePasswordPage } from "@/components/auth/ChangePasswordPage";
-import { PatientScreen } from "@/components/patient/PatientScreen";
+import { redirect } from "next/navigation";
 
 export default function PatientPasswordPage() {
-  return (
-    <PatientScreen>
-      <ChangePasswordPage />
-    </PatientScreen>
-  );
+  redirect("/patient/settings");
 }

@@ -14,6 +14,7 @@ const ROLES = [
   { href: "/doctor", role: "shared.roleDoctor", name: "Dr Trabelsi", sub: "shared.subDoctor", ini: "DT" },
   { href: "/nurse", role: "shared.roleNurse", name: "Nurse Ines", sub: "shared.subNurse", ini: "NI" },
   { href: "/admin", role: "shared.roleAdmin", name: "Mme Gharbi", sub: "shared.subAdmin", ini: "MG" },
+  { href: "/pharmacist", role: "pharmacy.rolePharmacist", name: "Pharm. Salma", sub: "pharmacy.subPharmacist", ini: "PS" },
   { href: "/patient", role: "shared.rolePatient", name: "Amira", sub: "shared.subPatient", ini: "AB" },
 ] as const satisfies readonly { href: string; role: Key; name: string; sub: Key; ini: string }[];
 

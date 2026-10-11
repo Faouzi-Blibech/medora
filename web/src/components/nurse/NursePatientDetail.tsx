@@ -18,10 +18,12 @@ import { addNote, getDoses, getNotes, getPatient, getPrescriptions, getVitals } 
 import { useDemoFlags } from "@/lib/demo";
 import { news2Word } from "@/lib/labels";
 import { level, PULSE } from "@/lib/news2";
+import { isPendingUrgent, isRunning } from "@/lib/pharmacy";
 import { dayLabel, now, pausedAt, tunisDate, tunisTime, tunisTimeSeconds, USE_MOCKS } from "@/lib/time";
 import type { Alert, Dose, Note, Patient, Prescription, Vital } from "@/lib/types";
 import { useMe } from "@/lib/useMe";
 import { DosePill } from "./DosePill";
+import { DosePharmacyNote, PendingReviewBadge } from "./PharmacyBadge";
 import {
   doseView,
   hrPoints,
@@ -328,6 +330,8 @@ export function NursePatientDetail({ id }: { id: string }) {
                           <span className={styles.doseSub} style={v.subAlert ? { color: "var(--danger)" } : undefined}>
                             {v.sub}
                           </span>
+                          {v.pendingReview ? <PendingReviewBadge /> : null}
+                          <DosePharmacyNote state={v.pharmacy} canGive={v.canGive} />
                         </div>
                         <DosePill status={v.status} text={v.statusText} />
                       </div>
@@ -339,11 +343,12 @@ export function NursePatientDetail({ id }: { id: string }) {
                   <h3 className={styles.cardTitle}>{t("nurse.prescriptions")}</h3>
                   <span className={styles.readOnly}>{t("nurse.readOnly")}</span>
                 </div>
-                {data.prescriptions.length === 0 ? <span className={styles.none}>{t("nurse.noRx")}</span> : null}
-                {data.prescriptions.flatMap((rx) =>
+                {data.prescriptions.filter(isRunning).length === 0 ? <span className={styles.none}>{t("nurse.noRx")}</span> : null}
+                {data.prescriptions.filter(isRunning).flatMap((rx) =>
                   rx.items.map((item, i) => (
                     <div key={`${rx.id}-${i}`} className={styles.rxRow}>
                       <span className={styles.rxMed}>{item.med}</span>
+                      {isPendingUrgent(rx) ? <PendingReviewBadge /> : null}
                       <span className={styles.rxTimes}>{item.times.join(", ")}</span>
                       <span className={styles.rxSlot}>{item.slot != null ? t("nurse.slot", { n: item.slot }) : t("nurse.reminderOnly")}</span>
                     </div>

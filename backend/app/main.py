@@ -10,7 +10,9 @@ from app import errors
 from app.config import check_secrets, get_settings
 from app.db import engine
 from app.iot import publisher
-from app.routers import access, ai, alerts, appointments, auth, devices, doses, exams, health_events, healthwatch, integrations, patients, prescriptions, staff, users
+from app.routers import (access, ai, alerts, appointments, auth, devices, dispensations, doses, drugs, exams,
+                         health_events, healthwatch, integrations, patients, pharmacy, pharmacy_stock, prescriptions,
+                         radiology, staff, users)
 from app.ws import relay
 from app.ws import router as ws_router
 from app.ws.hub import hub
@@ -43,6 +45,10 @@ app.include_router(access.router)
 app.include_router(patients.router)
 app.include_router(alerts.router)
 app.include_router(prescriptions.router)
+app.include_router(drugs.router)
+app.include_router(pharmacy.router)
+app.include_router(pharmacy_stock.router)
+app.include_router(dispensations.router)
 app.include_router(devices.router)
 app.include_router(doses.router)
 app.include_router(staff.router)
@@ -53,6 +59,7 @@ app.include_router(ai.router)
 app.include_router(exams.router)
 app.include_router(health_events.router)
 app.include_router(healthwatch.router)
+app.include_router(radiology.router)
 app.include_router(ws_router.router)
 
 

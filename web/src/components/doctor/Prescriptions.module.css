@@ -27,7 +27,7 @@
 
 .rxGrid {
   display: grid;
-  grid-template-columns: minmax(150px, 1.5fr) minmax(110px, 1fr) 128px 64px 48px;
+  grid-template-columns: minmax(0, 1fr) 190px 150px 90px minmax(60px, max-content);
   gap: 14px;
 }
 
@@ -358,3 +358,25 @@
   line-height: 1.4;
   color: var(--danger-ink);
 }
+
+/* ── Pharmacy (spec 2026-10-10 §6) ──────────────────────────────────────── */
+.badgeLine { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 13px; color: var(--muted); }
+.resubmit { color: var(--danger-ink); white-space: nowrap; }
+.editBanner { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 10px; background: var(--teal-tint); border: 1px solid var(--teal-line); font-size: 14px; color: var(--ink); }
+.picker { position: relative; }
+.picker .input { width: 100%; }
+.inputBad { border-color: var(--danger); }
+.listbox { position: absolute; z-index: 20; inset-inline: 0; top: calc(100% + 4px); max-height: 320px; overflow-y: auto; margin: 0; padding: 4px; list-style: none; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: var(--drawer-shadow); }
+.option { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.optionOn { background: var(--teal-tint); }
+.optMain { font-size: 15px; font-weight: 600; color: var(--ink); }
+.optSub { font-size: 13px; color: var(--muted); }
+.checkPanel { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); }
+.checkHead { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: var(--ink); }
+.checkLead { font-size: 13px; font-weight: 400; color: var(--muted); }
+.checkFailed { font-size: 14px; color: var(--warn-ink); }
+.overrideBox { border-color: var(--danger); }
+.urgentRow { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.urgentRow input { width: 20px; height: 20px; margin-top: 2px; }
+.urgentText { display: flex; flex-direction: column; gap: 2px; font-size: 15px; font-weight: 600; color: var(--ink); }
+.urgentHint { font-size: 13px; font-weight: 400; color: var(--muted); }
