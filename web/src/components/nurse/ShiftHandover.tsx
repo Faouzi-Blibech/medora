@@ -1,7 +1,7 @@
 "use client";
 
 // Nurse / Shift handover (/nurse/handover): one SBAR card per patient, drafted by rules from the last
-// 8/12/24 h of the record (optional LLM narrative). The outgoing nurse reads it and confirms (api.md 1.15).
+// 8/12/24 h of the record (optional LLM narrative). The outgoing nurse reads it and confirms (api.md 1.17).
 import { useCallback, useEffect, useState } from "react";
 import { AiBadge } from "@/components/AiBadge";
 import { News2Badge } from "@/components/News2Badge";

@@ -1,15 +1,15 @@
-"""nurse shift handovers: handovers (data-model 1.8)
+"""nurse shift handovers: handovers (data-model 1.10)
 
-Revision ID: 0008
-Revises: 0007
+Revision ID: 0011
+Revises: 0010
 """
 
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision = "0008"
-down_revision = "0007"
+revision = "0011"
+down_revision = "0010"
 branch_labels = None
 depends_on = None
 

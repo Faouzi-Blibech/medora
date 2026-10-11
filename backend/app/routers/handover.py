@@ -1,4 +1,4 @@
-"""Nurse shift handover routes (owner: Faouzi). Contract: api.md → Shift handover (1.15).
+"""Nurse shift handover routes (owner: Faouzi). Contract: api.md → Shift handover (1.17).
 
 GET drafts an SBAR handover per patient from the last N hours (rules; optional LLM narrative). The outgoing nurse
 confirms it; the confirmed draft is stored in `handovers` with `human_confirmed_by` (AI-output convention).

@@ -31,3 +31,37 @@ def make_patient(db, *, attending: str | None = None, ward: str = "Cardiology", 
     db.add(p)
     db.flush()
     return p
+
+
+def pharmacist(client, db, email: str = "ph.t@ward.tn", name: str = "Pharm Test") -> dict:
+    """An active pharmacist account (no staff row) and its auth headers."""
+    make_user(db, email, role="pharmacist", name=name)
+    return login(client, email)
+
+
+def make_drug(db, *, dci: str = "Testamycin", strength: str = "100 mg", min_stock: int = 5, **kw):
+    """A formulary drug that no seed lot or seed prescription uses (Phase B tests own their stock)."""
+    from app.ids import new_id
+    from app.models import Drug
+
+    d = Drug(id=new_id(db, "d"), dci=dci, brand_names=[], form="tablet", strength=strength, unit_mg=100,
+             max_daily_mg=10000, atc_code="", allergy_classes=[], interaction_groups=[], high_alert=False,
+             min_stock=min_stock, active=True, **kw)
+    db.add(d)
+    db.flush()
+    return d
+
+
+def make_lot(db, drug, number: str, days: int, qty: int):
+    """A lot expiring `days` from today (negative = already expired), written directly (no movement)."""
+    from datetime import timedelta
+
+    from app.ids import new_id
+    from app.models import StockLot
+    from app.services.schedule import today_local
+
+    lot = StockLot(id=new_id(db, "lot"), drug_id=drug.id, lot_number=number,
+                   expiry_date=today_local() + timedelta(days=days), quantity=qty)
+    db.add(lot)
+    db.flush()
+    return lot

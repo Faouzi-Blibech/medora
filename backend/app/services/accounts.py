@@ -1,6 +1,6 @@
 """Who may approve, reject, disable and enable whom (spec §6.2–6.5, signup-v2).
 
-Hospital admin: any account, any role. Doctor: only requests that name him, only as patient or nurse (a nurse joins
+Hospital admin: any account, any role (only the admin approves a pharmacist). Doctor: only requests that name him, only as patient or nurse (a nurse joins
 his team; a patient is linked to one of his records or gets a new record with him as attending), and only his team
 members afterwards. Routers call these and then audit + commit."""
 
@@ -14,7 +14,7 @@ from app.ids import new_id
 from app.models import Patient, Staff, User
 from app.schemas import iso
 
-ROLES = ("patient", "nurse", "doctor", "admin")
+ROLES = ("patient", "nurse", "doctor", "pharmacist", "admin")
 DOCTOR_MAY_APPROVE = ("patient", "nurse")
 
 
@@ -77,7 +77,7 @@ def approve(db: Session, approver: User, target: User, role: str, ward: str | No
     if not can_review(approver, target):
         raise forbidden("this request is not addressed to you")
     if role not in ROLES:
-        raise ApiError(422, "invalid", "role: patient, nurse, doctor or admin")
+        raise ApiError(422, "invalid", "role: patient, nurse, doctor, pharmacist or admin")
     if patient_id and role != "patient":
         raise ApiError(422, "invalid", "patient_id: only for the patient role")
     if target.status not in ("pending", "rejected"):

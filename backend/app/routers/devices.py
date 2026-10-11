@@ -10,7 +10,7 @@ from app.errors import ApiError, forbidden, not_found
 from app.ids import new_id
 from app.integrations import n8n
 from app.iot import publisher
-from app.models import Admission, Device, MedDose, Patient, User
+from app.models import Admission, Device, MedDose, Patient, Prescription, User
 from app.schemas import AssignIn, CommandIn, iso
 from app.services import schedule
 from app.services.audit import audit
@@ -113,5 +113,10 @@ def command(device_id: str, body: CommandIn, request: Request,
             dose = db.get(MedDose, body.dose_id)
             if dose is None or dose.patient_id != adm.patient_id:
                 raise ApiError(422, "invalid", "dose_id: not a dose of this unit's patient")
+            rx = db.get(Prescription, dose.prescription_id)
+            if rx is not None and not rx.active:  # a stopped, rejected or superseded prescription: no medication
+                raise ApiError(409, "bad_status", f"prescription is {rx.status}: this dose must not be given")
+            if dose.status == "taken":  # already given: releasing it again would double the dose
+                raise ApiError(409, "bad_status", "this dose was already given")
     db.commit()
     return {"published": publisher.publish_command(device_id, body.model_dump(exclude_none=True))}

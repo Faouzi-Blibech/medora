@@ -93,7 +93,7 @@ def test_schedule_cap_logged(db, seeded, caplog):
 def test_staff_list(client):
     h = login(client, "admin@ward.tn")
     rows = client.get("/staff", headers=h).json()
-    assert {r["id"] for r in rows} == {"u-0001", "u-0002", "u-0003", "u-0004", "u-0006", "u-0007"}
+    assert {r["id"] for r in rows} == {"u-0001", "u-0002", "u-0003", "u-0004", "u-0006", "u-0007", "u-0008"}
     ines = next(r for r in rows if r["id"] == "u-0002")
     assert ines == {"id": "u-0002", "name": "Nurse Ines", "email": "nurse@ward.tn", "role": "nurse", "status": "active",
                     "ward": "Cardiology", "scope": "Cardiology", "last_login_at": None}

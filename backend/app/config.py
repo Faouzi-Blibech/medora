@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     llm_local_base_url: str = "http://localhost:11434"
     llm_local_model: str = "qwen2.5:7b-instruct"
     llm_timeout_s: float = 15.0
+    vision_provider: str = "none"  # none | local — radiograph images never go to a hosted API
+    llm_vision_model: str = "qwen3-vl:4b"
+    llm_vision_timeout_s: float = 180.0
+    radiology_report_lang: str = "fr"  # fr | en
 
     @model_validator(mode="after")
     def _harden_jwt_secret(self) -> "Settings":

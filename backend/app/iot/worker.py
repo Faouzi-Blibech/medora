@@ -7,6 +7,7 @@ A bad message is logged and dropped; it never stops the loop.
 
 import json
 import logging
+import threading
 import time
 
 import paho.mqtt.client as mqtt
@@ -15,6 +16,7 @@ from sqlalchemy import inspect
 from app.config import get_settings
 from app.db import SessionLocal, engine
 from app.iot import ingest, mqtt_auth, publisher
+from app.services import radiology as radiology_jobs
 
 log = logging.getLogger("ward.worker")
 TOPICS = [("hospital/device/+/vitals", 1), ("hospital/device/+/events", 1), ("hospital/device/+/status", 1)]
@@ -79,6 +81,8 @@ def main() -> None:
     client.on_connect = on_connect
     client.on_message = on_message
     publisher.use(client)
+    threading.Thread(target=radiology_jobs.run_forever, args=(threading.Event(),), daemon=True,
+                     name="radiograph-jobs").start()
     while True:
         try:
             client.connect(s.mqtt_host, s.mqtt_port)
