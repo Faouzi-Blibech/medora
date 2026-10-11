@@ -134,7 +134,7 @@ export function WardBoard() {
             className={styles.error}
           />
         ) : (
-          <div className={styles.grid}>
+          <div className={`${styles.grid} ward-stagger`}>
             {boardState === "loading" || !beds
               ? Array.from({ length: 8 }, (_, i) => <BedCardSkeleton key={i} />)
               : beds.map((b, i) => (

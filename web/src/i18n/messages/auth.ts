@@ -3,6 +3,10 @@ import { messages } from "../define";
 // Public account screens (sign-up, code reset), change password, and the error messages for the auth codes.
 export const auth = messages({
   en: {
+    pitchTitle: "One shared record for the whole ward.",
+    pitchPoint1: "Doctors, nurses, admins and patients see the same up-to-date record.",
+    pitchPoint2: "Doses, alerts and follow-ups run on their own; the care team stays in charge.",
+    pitchPoint3: "The AI only suggests. A person always confirms.",
     accountLinks: "Account options",
     createAccount: "Create an account",
     haveCode: "I have a code",
@@ -69,6 +73,10 @@ export const auth = messages({
     settingsSessionHint: "Log out of Ward on this device.",
   },
   fr: {
+    pitchTitle: "Un seul dossier partagé pour tout le service.",
+    pitchPoint1: "Médecins, infirmiers, administration et patients voient le même dossier à jour.",
+    pitchPoint2: "Doses, alertes et suivis s'enchaînent seuls ; l'équipe soignante garde la main.",
+    pitchPoint3: "L'IA ne fait que suggérer. Une personne confirme toujours.",
     accountLinks: "Options du compte",
     createAccount: "Créer un compte",
     haveCode: "J’ai un code",
@@ -135,6 +143,10 @@ export const auth = messages({
     settingsSessionHint: "Se déconnecter de Ward sur cet appareil.",
   },
   ar: {
+    pitchTitle: "ملف واحد مشترك للقسم بأكمله.",
+    pitchPoint1: "الأطباء والممرضون والإدارة والمرضى يرون نفس الملف المحدّث.",
+    pitchPoint2: "الجرعات والتنبيهات والمتابعة تسير تلقائيًا، ويبقى القرار للفريق الطبي.",
+    pitchPoint3: "الذكاء الاصطناعي يقترح فقط، والقرار دائمًا لشخص من الفريق.",
     accountLinks: "خيارات الحساب",
     createAccount: "إنشاء حساب",
     haveCode: "لدي رمز",

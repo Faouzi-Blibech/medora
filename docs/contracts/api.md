@@ -1,6 +1,6 @@
 # REST + WebSocket contract — v1.0
 
-> **Version:** 1.15 (2026-10-11) · **Owners:** Wali (core, IoT, alerts), Faouzi (appointments, AI, integrations, exams, notebook), Hedi (pharmacy)
+> **Version:** 1.16 (2026-10-11) · **Owners:** Wali (core, IoT, alerts), Faouzi (appointments, AI, integrations, exams, notebook), Hedi (pharmacy)
 > Any change: open a PR that bumps the version above, add a changelog line, and announce it in the team chat.
 
 ## Conventions
@@ -104,6 +104,7 @@ Codes (`reset-code`):
 | `GET /patients/{id}` | doctor (own), nurse (ward), patient (self) | → `Patient` |
 | `PATCH /patients/{id}` | doctor (own), nurse (ward; allergies + notes only) | partial `Patient` → `Patient` |
 | `GET /patients/{id}/vitals?from=&to=` | doctor, nurse, patient (self) | → `[Vital]`, default last 24 h, max 5000 points |
+| `POST /patients/{id}/vitals` | nurse, doctor (write access) | `{hr?, spo2?, temp?}` (at least one; hr 20–250, spo2 50–100, temp 30–45) → 201 `Vital` with `source: "manual"`, `nurse_id` = the author. Scored with NEWS2 and alerted exactly like a feed reading (same `vital`/`alert` WS frames). 409 if the same author saved one this second. |
 | `GET /patients/{id}/prescriptions` | doctor, nurse, patient (self) | → `[Prescription]` |
 | `GET /patients/{id}/notes` · `POST /patients/{id}/notes` | doctor, nurse | `{"text"}` → `Note` |
 
@@ -538,6 +539,7 @@ Still proposed: `GET /offers/{id}`, `POST /offers/{id}/accept` and `GET /patient
 
 ## Changelog
 
+- **1.16** (2026-10-11): `POST /patients/{id}/vitals`: a reading taken by hand on a nurse round (source `manual`), so vitals have a real collection path besides the simulated bedside feed. Owner: Faouzi (route in Wali's `patients.py`).
 - **1.15** (2026-10-11): hospital pharmacy. Role `pharmacist` (sign-up; only the admin approves). Drug catalogue (`/drugs`). Prescriptions gain a pharmacy status, `urgent`, versions (`replaces_id`, 409 `conflict` while a later version is live), `checks` (incl. `dose_unverified` and moderate cross-reactivity `allergy`), `override_reason` and review fields; `POST /prescriptions/check` dry run; 422 `override_required`/`unknown_drug`; `PATCH` only stops. Pharmacist worklist, review and decisions (`/pharmacy/*`), WS `prescription_status`; `POST /doses/{id}/given` and `dispense_now` refuse doses of inactive prescriptions. Dispensing, nurse receipt, stock and the dose `pharmacy` field. Owner: Hedi.
 - **1.14** (2026-10-10): radiograph reading — `GET/PUT /exam-results/{id}/reading`, `POST /patients/{id}/radiographs`, `results[].reading`, exam codes `xray`/`xray_outside`, WS frame `radiograph_reading`.
 - **1.13** (2026-10-10): health calendar — `GET/POST /health-events`, `PATCH/DELETE /health-events/{id}`, `POST /health-events/{id}/notify`, `GET/PUT /me/health-prefs`, n8n callbacks `GET /integrations/n8n/health-events/due` and `POST /integrations/n8n/health-events/{id}/announced`.

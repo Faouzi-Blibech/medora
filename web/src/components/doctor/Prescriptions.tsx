@@ -72,6 +72,7 @@ export interface PrescriptionsProps {
 export function Prescriptions({ patient, prescriptions, actorId, onSaved, readOnly = false }: PrescriptionsProps) {
   const { t } = useT();
   const formId = `rx-form-${patient.id}`;
+  const [formOpen, setFormOpen] = useState(false);
   const blank = (): Draft => ({
     choice: null,
     doseMg: "",
@@ -150,6 +151,7 @@ export function Prescriptions({ patient, prescriptions, actorId, onSaved, readOn
     setErrors({});
     setServerCritical(null);
     setFormKey((k) => k + 1);
+    setFormOpen(false);
   }
 
   /** "Edit and resubmit" (changes requested) and "Edit" (validated): the form, pre-filled, as a new version. */
@@ -171,7 +173,8 @@ export function Prescriptions({ patient, prescriptions, actorId, onSaved, readOn
     setErrors({});
     setServerCritical(null);
     setFormKey((k) => k + 1);
-    document.getElementById(formId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setFormOpen(true);
+    requestAnimationFrame(() => document.getElementById(formId)?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
   function firstDose(): string {
@@ -338,7 +341,11 @@ export function Prescriptions({ patient, prescriptions, actorId, onSaved, readOn
         );
       })}
 
-      {readOnly ? null : (
+      {readOnly ? null : !formOpen ? (
+        <button type="button" className={styles.addRx} onClick={() => setFormOpen(true)}>
+          + {t("doctor.newRx")}
+        </button>
+      ) : (
         <div id={formId} className={styles.form}>
           <span className={styles.formTitle}>
             {ed ? t("pharmacy.editingTitle", { med: ed.rx.items[ed.index]?.med ?? "" }) : t("doctor.newRx")}

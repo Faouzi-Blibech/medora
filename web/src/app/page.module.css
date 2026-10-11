@@ -1,28 +1,125 @@
-/* The landing page sits on the design-canvas backdrop (#DCE4E7); app pages use --canvas. */
+/* Public pages: the ink brand panel on one side, the form panel on the other (stacked on phones). */
 .page {
   min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
   background: var(--backdrop);
-  padding: 56px 64px 96px;
-}
-
-.inner {
-  max-width: 980px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
 }
 
 .brand {
-  align-self: flex-start;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 40px;
+  padding: 48px 56px;
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* A slow teal glow behind the pitch. */
+.brand::before {
+  content: "";
+  position: absolute;
+  inset: auto -30% -40% auto;
+  width: 520px;
+  height: 520px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(95, 208, 214, 0.28), rgba(95, 208, 214, 0) 65%);
+  animation: wardDrift 14s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes wardDrift {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(-60px, -40px) scale(1.12);
+  }
+}
+
+.brandTop,
+.pitch {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 24px 26px;
-  background: var(--ink);
-  color: var(--paper);
-  border-radius: 14px;
-  box-shadow: var(--shadow-frame);
+}
+
+.pitch {
+  gap: 22px;
+  animation: wardRise 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+}
+
+.pitchTitle {
+  margin: 0;
+  max-width: 460px;
+  font: 600 38px/1.12 var(--serif);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.points {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 440px;
+}
+
+.points li {
+  position: relative;
+  padding-inline-start: 22px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.82);
+  animation: wardRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.points li:nth-child(1) {
+  animation-delay: 0.2s;
+}
+.points li:nth-child(2) {
+  animation-delay: 0.3s;
+}
+.points li:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.points li::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--teal-bright);
+}
+
+.brand > [role="group"] {
+  position: relative;
+  align-self: flex-start;
+}
+
+.panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+}
+
+.inner {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  animation: wardRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .wordmark {
@@ -61,7 +158,7 @@
 
 .title {
   margin: 0;
-  font: 600 56px/1.05 var(--serif);
+  font: 600 46px/1.05 var(--serif);
   color: var(--ink);
   letter-spacing: -0.015em;
 }
@@ -77,8 +174,8 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
 }
 
 .card {
@@ -140,17 +237,31 @@
   font-size: 18px;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .page {
-    padding: 32px 16px 56px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .brand {
+    padding: 28px 20px 24px;
+    gap: 20px;
+  }
+
+  .pitchTitle {
+    font-size: 26px;
+  }
+
+  .points {
+    display: none;
+  }
+
+  .panel {
+    align-items: flex-start;
+    padding: 28px 16px 48px;
   }
 
   .title {
-    font-size: 40px;
-  }
-
-  .grid {
-    grid-template-columns: minmax(0, 1fr);
+    font-size: 36px;
   }
 }
 
@@ -159,11 +270,11 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 420px;
-  padding: 24px;
+  padding: 28px;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(15, 45, 68, 0.08);
 }
 
 .field {
@@ -193,13 +304,14 @@
 }
 
 .submit {
-  align-self: flex-start;
+  align-self: stretch;
+  margin-top: 4px;
   font: 600 15px/1 var(--sans);
   color: var(--paper);
   background: var(--ink);
   border: none;
   border-radius: 8px;
-  padding: 13px 18px;
+  padding: 14px 18px;
   cursor: pointer;
 }
 
