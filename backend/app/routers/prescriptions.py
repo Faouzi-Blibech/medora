@@ -3,11 +3,11 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from app.auth.deps import can_access, check_patient_access, require_roles
+from app.auth.deps import can_access, require_roles
 from app.db import get_db
 from app.errors import forbidden, not_found
 from app.iot import publisher
-from app.models import Patient, User
+from app.models import Patient, Prescription, User
 from app.schemas import PrescriptionCheckIn, PrescriptionIn, PrescriptionPatch
 from app.services.audit import audit
 from app.services.pharmacy import workflow as W
@@ -51,8 +51,13 @@ def check(body: PrescriptionCheckIn, request: Request, user: User = Depends(requ
 @router.post("", status_code=201)
 def create(body: PrescriptionIn, request: Request, user: User = Depends(require_roles("doctor")),
            db: Session = Depends(get_db)) -> dict:
-    patient = check_patient_access(db, user, body.patient_id, write=True, resource="prescription", ip=_ip(request))
-    out = W.create(db, user, patient, body)
+    patient = db.get(Patient, body.patient_id)
+    if patient is None:
+        raise not_found("patient")
+    if not can_access(db, user, patient, write=True):
+        raise forbidden("not your patient")
+    out = W.create(db, user, patient, body)  # every 409/422 comes before the first audit row
+    audit(db, user, "update", "prescription", patient.id, patient_id=patient.id, ip=_ip(request))
     audit(db, user, "create", "prescription", out.rx.id, patient_id=patient.id, ip=_ip(request))
     for prev in out.touched[1:]:
         audit(db, user, "update", "prescription", prev.id, patient_id=patient.id, ip=_ip(request))
@@ -62,6 +67,13 @@ def create(body: PrescriptionIn, request: Request, user: User = Depends(require_
 @router.patch("/{rx_id}")
 def stop(rx_id: str, body: PrescriptionPatch, request: Request, user: User = Depends(require_roles("doctor")),
          db: Session = Depends(get_db)) -> dict:
+    rx = db.get(Prescription, rx_id)
+    if rx is None:
+        raise not_found("prescription")
+    patient = db.get(Patient, rx.patient_id)
+    if patient is None or not can_access(db, user, patient, write=True):  # access first, then the row lock
+        raise forbidden("not your patient")
     rx = W.lock(db, rx_id)
-    check_patient_access(db, user, rx.patient_id, write=True, resource="prescription", ip=_ip(request))
-    return _finish(db, W.stop(db, rx))
+    out = W.stop(db, rx)  # a 409 comes before the audit row
+    audit(db, user, "update", "prescription", rx.id, patient_id=rx.patient_id, ip=_ip(request))
+    return _finish(db, out)

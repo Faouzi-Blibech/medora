@@ -29,6 +29,8 @@ TEXT_STOP = NAME_STOP | frozenset({
     "comprimes", "capsule", "capsules", "gelule", "gelules", "injection", "injectable", "syrup", "sirop", "solution",
     "ampoule", "patient", "with", "from", "contre", "avec", "pour", "dans", "that", "drug", "medicament",
     "medication", "dose", "daily", "perfusion", "oral", "حساسيه", "تحسس"})
+# Allergy classes that may react with another: an allergy to the key is a weaker warning for these drug classes.
+CROSS_REACTIVE = {"penicillin": ("cephalosporin", "carbapenem")}
 _CLITICS = "(?:وبال|ولل|وال|فال|بال|كال|لل|ال|و|ف|ب|ل|ك)"
 
 
@@ -285,6 +287,16 @@ class _Ctx:
                         best, best_key = cand, key
         return best, False
 
+    def cross_reactivity(self, drug_classes) -> tuple[str, str, str] | None:
+        """(allergy text, patient's class, drug's class) when the patient is allergic to a class that may react
+        with one of the drug's classes (penicillin -> cephalosporin, carbapenem); None otherwise."""
+        for mine, others in CROSS_REACTIVE.items():
+            if mine in self.classes:
+                for c in drug_classes:
+                    if c in others:
+                        return self.classes[mine], mine, c
+        return None
+
     def name_allergy(self, d: DrugInfo) -> str | None:
         """An allergy text that contains the drug's DCI, a brand or a language variant."""
         for t in self.terms(d):
@@ -324,7 +336,15 @@ def _single(i: int, item: dict, d: DrugInfo, ctx: _Ctx, exact: bool) -> list[Che
     if hit:
         out.append(Check("allergy", "critical", i, d.id, {"med": med, "allergy": hit[1], "class": hit[0]},
                          f"{d.dci}: the patient is allergic to {hit[1]} ({hit[0]})"))
+    elif (cross := ctx.cross_reactivity(d.allergy_classes)):
+        out.append(Check("allergy", "moderate", i, d.id,
+                         {"med": med, "allergy": cross[0], "class": cross[1], "cross_class": cross[2],
+                          "cross_reactivity": True},
+                         f"{d.dci}: cross-reactivity possible with the {cross[1]} allergy ({cross[0]})"))
     daily = daily_mg(item, d, use_units=exact) if d.max_daily_mg else None
+    if d.max_daily_mg and daily is None:  # never skip silently: the pharmacist must know the maths was not done
+        out.append(Check("dose_unverified", "info", i, d.id, {"med": med},
+                         f"{d.dci}: the daily dose could not be computed, check it by hand"))
     if daily is not None and daily > round(float(d.max_daily_mg), 6):
         sev = "critical" if daily > 2 * d.max_daily_mg else "major"
         out.append(Check("max_daily_dose", sev, i, d.id,
@@ -365,6 +385,11 @@ def run_checks(patient: PatientInfo, items: list[dict], running: list[RunningIte
             if hit:
                 out.append(Check("allergy", "critical", i, None, {"med": med, "allergy": hit[0], "class": hit[1]},
                                  f"{med}: the patient may be allergic to {hit[0]} ({hit[1]})"))
+            elif (cross := ctx.cross_reactivity(allergy_classes(med, rules))):
+                out.append(Check("allergy", "moderate", i, None,
+                                 {"med": med, "allergy": cross[0], "class": cross[1], "cross_class": cross[2],
+                                  "cross_reactivity": True},
+                                 f"{med}: cross-reactivity possible with the {cross[1]} allergy ({cross[0]})"))
             continue
         cands.append((i, it, d))
         out += _single(i, it, d, ctx, exact)

@@ -12,7 +12,7 @@ from app.errors import ApiError, not_found
 from app.ids import new_id
 from app.integrations import n8n
 from app.iot.ingest import frame
-from app.models import Drug, Patient, Prescription, PrescriptionReview, Staff, User
+from app.models import Drug, MedDose, Patient, Prescription, PrescriptionReview, Staff, User
 from app.schemas import iso
 from app.services import schedule
 from app.services.accounts import active_doctor
@@ -50,13 +50,15 @@ def lock(db: Session, rx_id: str) -> Prescription:
     return rx
 
 
-def chain(db: Session, rx: Prescription, limit: int = 20) -> list[Prescription]:
-    """The versions rx replaces, nearest first (its replaces_id, then that one's, …)."""
+def chain(db: Session, rx: Prescription, limit: int = 20, *, lock_rows: bool = False) -> list[Prescription]:
+    """The versions rx replaces, nearest first (its replaces_id, then that one's, …). `lock_rows` takes each one
+    under FOR UPDATE and re-reads it, always newest to oldest, so every path locks in the same order."""
     out: list[Prescription] = []
     seen = {rx.id}
     cur = rx.replaces_id
     while cur and cur not in seen and len(out) < limit:
-        prev = db.get(Prescription, cur)
+        prev = db.scalar(select(Prescription).where(Prescription.id == cur).with_for_update()
+                         .execution_options(populate_existing=True)) if lock_rows else db.get(Prescription, cur)
         if prev is None:
             break
         out.append(prev)
@@ -105,6 +107,20 @@ def replace_target(db: Session, replaces_id: str, patient_id: str, *, lock_row: 
     return old
 
 
+def has_live_descendant(db: Session, rx: Prescription, limit: int = 50) -> bool:
+    """True when any later version of rx, at any depth, is live (pending, changes requested or validated). A fork
+    of the chain would run two versions of one therapy at once."""
+    frontier, seen = [rx.id], {rx.id}
+    while frontier and len(seen) < limit:
+        kids = db.execute(select(Prescription.id, Prescription.status)
+                          .where(Prescription.replaces_id.in_(frontier))).all()
+        if any(status in LIVE for _, status in kids):
+            return True
+        frontier = [i for i, _ in kids if i not in seen]
+        seen.update(frontier)
+    return bool(frontier)  # a chain deeper than `limit` is refused rather than guessed at
+
+
 def exclusions(db: Session, old: Prescription | None) -> set[str]:
     return set() if old is None else {old.id, *(p.id for p in chain(db, old))}
 
@@ -122,12 +138,10 @@ def create(db: Session, doctor: User, patient: Patient, body) -> Outcome:
     items = [i.model_dump() for i in body.items]
     ensure_drugs(db, items)
     old = replace_target(db, body.replaces_id, patient.id, lock_row=True) if body.replaces_id else None
-    if old is not None:
-        newer = db.scalar(select(Prescription.id).where(Prescription.replaces_id == old.id,
-                                                        Prescription.status.in_(LIVE)).limit(1))
-        if old.status not in LIVE or newer is not None:
-            raise ApiError(409, "conflict", "replaces_id is not the latest version")
-    checks = checks_for(db, patient, items, exclusions(db, old))
+    older = chain(db, old, lock_rows=True) if old is not None else []  # superseded below: lock them now
+    if old is not None and (old.status not in LIVE or has_live_descendant(db, old)):
+        raise ApiError(409, "conflict", "replaces_id is not the latest version")
+    checks = checks_for(db, patient, items, {old.id, *(p.id for p in older)} if old is not None else set())
     reason = (body.override_reason or "").strip() or None
     if reason is None and any(c.severity == "critical" for c in checks):
         raise ApiError(422, "override_required", "a critical check needs an override_reason")
@@ -140,7 +154,7 @@ def create(db: Session, doctor: User, patient: Patient, body) -> Outcome:
     db.flush()
     db.refresh(rx)
     out = Outcome(rx=rx, touched=[rx], doses_changed=rx.active)
-    for prev in [old, *chain(db, old)] if old is not None else []:
+    for prev in [old, *older] if old is not None else []:
         if prev.status in ("pending_pharmacy", "changes_requested") and not prev.active:
             set_status(prev, "superseded")  # it never ran: the new version takes its place now
             out.touched.append(prev)
@@ -165,9 +179,17 @@ def stop(db: Session, rx: Prescription) -> Outcome:
 def apply_doses(db: Session, out: Outcome) -> tuple[bool, int | None]:
     """Rebuild the doses of every touched prescription; publish the device schedule if any `active` flipped.
     Returns (published_to_device, the device's schedule_version)."""
+    ids = [r.id for r in out.touched]
+
+    def scheduled() -> set[str]:
+        return set(db.scalars(select(MedDose.id).where(MedDose.prescription_id.in_(ids),
+                                                       MedDose.status == "scheduled")))
+
+    before = scheduled()
     for r in out.touched:
         schedule.rebuild_doses(db, r)
-    sent = schedule.push_schedule(db, out.rx.patient_id) if out.doses_changed else False
+    changed = out.doses_changed or scheduled() != before  # the device must never keep a dose id that is gone
+    sent = schedule.push_schedule(db, out.rx.patient_id) if changed else False
     dev = schedule.device_of(db, out.rx.patient_id)
     return sent, dev.schedule_version if dev else None
 
@@ -202,7 +224,7 @@ def decide(db: Session, pharmacist: User, rx_id: str, decision: str, comment: st
     rx = lock(db, rx_id)
     if rx.status != "pending_pharmacy":
         raise ApiError(409, "bad_status", f"prescription is {rx.status}")
-    ancestors = chain(db, rx)
+    ancestors = chain(db, rx, lock_rows=True)  # re-read under lock: a stop that just committed is seen
     checks = checks_for(db, db.get(Patient, rx.patient_id), rx.items, {rx.id, *(a.id for a in ancestors)})
     if decision == "validated" and checks and not acknowledged:
         raise ApiError(422, "ack_required", "tick 'warnings reviewed' before validating")

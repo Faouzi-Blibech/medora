@@ -25,16 +25,35 @@ def formulary_entries(path: Path = FORMULARY) -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))["drugs"]
 
 
+# Fields the safety checks read. The loader keeps these in step with the file for seeded drugs, so a new rule group
+# reaches an existing database; everything else (names, stock, `active`) belongs to the pharmacist after seeding.
+RULE_FIELDS = ("unit_mg", "max_daily_mg", "atc_code", "allergy_classes", "interaction_groups", "high_alert")
+
+
+def _same(a, b) -> bool:
+    if isinstance(a, (Decimal, int, float)) and isinstance(b, (Decimal, int, float)) and not isinstance(a, bool):
+        return float(a) == float(b)
+    return a == b
+
+
 def load_formulary(db: Session, path: Path = FORMULARY) -> int:
-    """Insert the file's drugs that are not in the table yet (matched by id). Never overwrites: a pharmacist's edits
-    win. Advances the `d` sequence (shared with dose ids) past the file's ids. Returns how many rows were inserted."""
+    """Insert the file's drugs that are not in the table yet (matched by id), and bring the rule-bearing fields
+    (RULE_FIELDS) of the seeded ones up to the file. A row only counts as seeded when its dci, strength and form
+    match the file's entry, so a drug a pharmacist created through the API is never touched; neither is `active`
+    nor any other field. Advances the `d` sequence (shared with dose ids) past the file's ids. Returns how many
+    rows were inserted."""
     entries = formulary_entries(path)
-    have = set(db.scalars(select(Drug.id)))
+    have = {d.id: d for d in db.scalars(select(Drug))}
     added = 0
     for e in entries:
-        if e["id"] not in have:
+        d = have.get(e["id"])
+        if d is None:
             db.add(Drug(id=e["id"], active=True, **{k: e[k] for k in DRUG_FIELDS}))
             added += 1
+        elif (d.dci, d.strength, d.form) == (e["dci"], e["strength"], e["form"]):
+            for k in RULE_FIELDS:
+                if not _same(getattr(d, k), e[k]):
+                    setattr(d, k, e[k])
     db.flush()
     reserve_upto(db, "d", max(int(e["id"].split("-")[1]) for e in entries))
     return added
@@ -153,7 +172,8 @@ def to_info(d: Drug) -> DrugInfo:
     return DrugInfo(id=d.id, dci=d.dci, brand_names=tuple(d.brand_names or ()), atc_code=d.atc_code or "",
                     unit_mg=_num(d.unit_mg), max_daily_mg=_num(d.max_daily_mg),
                     allergy_classes=tuple(d.allergy_classes or ()),
-                    interaction_groups=tuple(d.interaction_groups or ()), high_alert=bool(d.high_alert))
+                    interaction_groups=tuple(d.interaction_groups or ()), high_alert=bool(d.high_alert),
+                    strength=d.strength or "")
 
 
 def drug_infos(db: Session, ids: set[str]) -> dict[str, DrugInfo]:

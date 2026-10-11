@@ -114,3 +114,21 @@ def test_name_matcher_treats_slash_and_plus_alike():
                 "Amoxicillin/Clavulanic acid 1g/125mg", "Augmentin"):
         assert match_drug(med, drugs).id == "d-0005", med
     assert match_drug("Amoxicillin 500mg", drugs).id == "d-0004"
+
+
+def test_loader_updates_rule_fields_of_seeded_drugs_only(db):
+    load_formulary(db)
+    seeded = db.get(Drug, "d-0003")
+    seeded.interaction_groups, seeded.max_daily_mg, seeded.high_alert = ["stale"], 1, True
+    seeded.min_stock, seeded.active = 9, False
+    own = Drug(id=new_id(db, "d"), dci="Amoxicillin", form="tablet", strength="1 g", brand_names=[], active=True,
+               allergy_classes=[], interaction_groups=["mine"], high_alert=False, min_stock=1)
+    db.add(own)
+    db.flush()
+    assert load_formulary(db) == 0
+    entry = next(e for e in formulary_entries() if e["id"] == "d-0003")
+    got = db.get(Drug, "d-0003")
+    assert (got.interaction_groups, float(got.max_daily_mg), got.high_alert) == (
+        entry["interaction_groups"], float(entry["max_daily_mg"]), entry["high_alert"])
+    assert (got.min_stock, got.active) == (9, False)  # stock and the active flag stay the pharmacist's
+    assert db.get(Drug, own.id).interaction_groups == ["mine"]  # a drug made through the API is never touched

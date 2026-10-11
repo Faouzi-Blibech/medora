@@ -3,7 +3,7 @@ its patient."""
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Body, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.auth.deps import require_roles
@@ -68,8 +68,8 @@ def _decide(db: Session, user: User, request: Request, rx_id: str, decision: str
 
 
 @router.post("/prescriptions/{rx_id}/validate")
-def validate(rx_id: str, body: ValidateIn, request: Request, user: User = Depends(PHARMACIST),
-             db: Session = Depends(get_db)) -> dict:
+def validate(rx_id: str, request: Request, body: ValidateIn = Body(default_factory=ValidateIn),
+             user: User = Depends(PHARMACIST), db: Session = Depends(get_db)) -> dict:
     return _decide(db, user, request, rx_id, "validated", body.comment, body.acknowledged)
 
 

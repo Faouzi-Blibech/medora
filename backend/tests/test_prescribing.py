@@ -185,3 +185,38 @@ def test_units_per_intake_is_1_to_10(client):
         item = {**RX_OK["items"][0], "units_per_intake": n}
         # 10 units can exceed the daily maximum (a critical check), so give a reason: only the range is under test
         assert _post(client, {**RX_OK, "items": [item]}, override_reason="range test").status_code == code
+
+
+def test_a_version_chain_cannot_fork(client, db):
+    v1 = _post(client, RX_OK, urgent=True).json()
+    v2 = _post(client, RX_OK, replaces_id=v1["id"]).json()  # non-urgent: v1 keeps running
+    v3 = _post(client, RX_OK, replaces_id=v2["id"]).json()  # v2 never ran: superseded, v3 is live
+    assert db.get(Prescription, v2["id"]).status == "superseded"
+    stale = _post(client, RX_OK, urgent=True, replaces_id=v1["id"])  # a stale tab edits v1 again
+    assert stale.status_code == 409 and stale.json()["code"] == "conflict"
+    assert _post(client, RX_OK, replaces_id=v2["id"]).status_code == 409
+    assert db.query(Prescription).filter_by(replaces_id=v1["id"]).count() == 1
+    v4 = _post(client, RX_OK, replaces_id=v3["id"])
+    assert v4.status_code == 201 and v4.json()["version"] == 4
+
+
+def test_a_rejected_branch_does_not_block_a_new_version(client, db):
+    ph = pharmacist(client, db)
+    v1 = _post(client, RX_OK, urgent=True).json()
+    v2 = _post(client, RX_OK, replaces_id=v1["id"]).json()
+    r = client.post(f"/pharmacy/prescriptions/{v2['id']}/reject", headers=ph, json={"comment": "no"})
+    assert r.status_code == 200
+    assert _post(client, RX_OK, replaces_id=v1["id"]).status_code == 201
+
+
+def test_stop_is_audited_with_the_prescription_and_checks_access_first(client, db):
+    rx = _post(client, RX_OK).json()
+    h = login(client, DOC)
+    assert client.patch(f"/prescriptions/{rx['id']}", headers=h, json={"active": False}).status_code == 200
+    assert db.scalar(select(AuditLog.id).where(AuditLog.action == "update", AuditLog.resource == "prescription",
+                                               AuditLog.resource_id == rx["id"], AuditLog.patient_id == "p-0001"))
+    before = db.query(AuditLog).count()
+    assert client.patch(f"/prescriptions/{rx['id']}", headers=h, json={"active": False}).status_code == 409
+    assert db.query(AuditLog).count() == before  # a refused request writes no audit row
+    assert client.patch(f"/prescriptions/{rx['id']}", headers=login(client, "nurse@ward.tn"),
+                        json={"active": False}).status_code == 403

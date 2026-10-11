@@ -49,13 +49,16 @@ def worklist_item(db: Session, rx: Prescription) -> dict:
 
 
 def worklist(db: Session, status: str) -> list[dict]:
-    """`status`: pending_pharmacy | changes_requested | all (every status, newest 200). Urgent first, then the
-    highest stored severity, then the oldest."""
+    """`status`: pending_pharmacy | changes_requested (urgent first, then the oldest, so the cap never drops the
+    ones that waited longest) | all (every status, newest 200). Shown urgent first, then the highest stored
+    severity, then the oldest."""
     stmt = select(Prescription)
-    if status != "all":
-        stmt = stmt.where(Prescription.status == status)
-    rows = db.scalars(stmt.order_by(Prescription.created_at.desc(), Prescription.id.desc())
-                      .limit(WORKLIST_LIMIT)).all()
+    if status == "all":
+        stmt = stmt.order_by(Prescription.created_at.desc(), Prescription.id.desc())
+    else:
+        stmt = stmt.where(Prescription.status == status).order_by(Prescription.urgent.desc(),
+                                                                  Prescription.created_at, Prescription.id)
+    rows = db.scalars(stmt.limit(WORKLIST_LIMIT)).all()
     return [worklist_item(db, r) for r in sorted(rows, key=_sort_key)]
 
 

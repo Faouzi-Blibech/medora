@@ -42,14 +42,15 @@ def course_start(rx: Prescription) -> datetime:
 
 
 def rebuild_doses(db: Session, prescription: Prescription) -> list[MedDose]:
-    """Drop the prescription's future `scheduled` doses, then (if active) create `days × times` rows:
-    the first occurrences at or after the moment the prescription was written (a time already past on
-    day 0 moves to the end of the course). Existing rows are kept, so it's idempotent."""
+    """Make the prescription's doses match its items. When active: `days × times` rows from course_start(rx) on (a
+    time already past on day 0 moves to the end of the course). Future `scheduled` rows that are no longer wanted
+    (all of them once inactive) are deleted; rows that still match (same time, slot and meds) keep their ids, so a
+    device or a nurse screen holding a dose id stays valid across a rebuild. Idempotent."""
     rx = prescription
-    db.execute(delete(MedDose).where(MedDose.prescription_id == rx.id, MedDose.status == "scheduled",
-                                     MedDose.scheduled_at > now_utc()))
+    future = list(db.scalars(select(MedDose).where(MedDose.prescription_id == rx.id, MedDose.status == "scheduled",
+                                                   MedDose.scheduled_at > now_utc())))
     if not rx.active:
-        db.flush()
+        _drop(db, future)
         return []
     existing = {(d.scheduled_at, d.slot, tuple(d.meds)): d
                 for d in db.scalars(select(MedDose).where(MedDose.prescription_id == rx.id))}
@@ -71,8 +72,16 @@ def rebuild_doses(db: Session, prescription: Prescription) -> list[MedDose]:
                 db.add(dose)
                 existing[key] = dose
             out.append(dose)
+    keep = {d.id for d in out}
+    _drop(db, [d for d in future if d.id not in keep])
     db.flush()
     return out
+
+
+def _drop(db: Session, doses: list[MedDose]) -> None:
+    if doses:
+        db.execute(delete(MedDose).where(MedDose.id.in_([d.id for d in doses])))
+    db.flush()
 
 
 def todays_doses(db: Session, patient_id: str) -> list[MedDose]:

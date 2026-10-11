@@ -307,3 +307,78 @@ def test_pharmacist_cannot_prescribe_or_read_records(client, db):
     for url in ("/patients", "/patients/p-0001", "/patients/p-0001/vitals", "/patients/p-0001/notes",
                 "/patients/p-0001/prescriptions", "/patients/p-0001/doses"):
         assert client.get(url, headers=ph).status_code == 403, url
+
+
+def _command(client, dose_id):
+    return client.post("/devices/bsu-001/command", headers=login(client, "nurse@ward.tn"),
+                       json={"type": "dispense_now", "dose_id": dose_id})
+
+
+def _n_sched(published):
+    return len([p for p in published if p[0] == "hospital/device/bsu-001/schedule"])
+
+
+def test_dispense_now_refuses_a_dose_of_an_inactive_prescription_or_a_taken_dose(client, db):
+    db.add(Prescription(id="rx-9303", patient_id="p-0001", doctor_id="u-0001", care_plan="", status="stopped",
+                        active=False, urgent=True, items=[{"med": "Z", "times": ["08:00"], "slot": None, "days": 1}]))
+    db.flush()
+    db.add(MedDose(id="d-stp001", prescription_id="rx-9303", patient_id="p-0001",
+                   scheduled_at=schedule.now_utc() - timedelta(hours=1), time_of_day="08:00", meds=["Z"], slot=None,
+                   status="scheduled"))
+    db.flush()
+    r = _command(client, "d-stp001")
+    assert r.status_code == 409 and r.json()["code"] == "bad_status"
+    rx = _rx(client, RX_OK, urgent=True)
+    dose = db.scalars(select(MedDose).where(MedDose.prescription_id == rx["id"])).first()
+    assert _command(client, dose.id).status_code == 200
+    dose.status = "taken"
+    db.flush()
+    assert _command(client, dose.id).status_code == 409
+
+
+def test_validating_an_urgent_prescription_keeps_its_future_dose_ids(client, db, published):
+    ph = pharmacist(client, db)
+    rx = _rx(client, RX_OK, urgent=True)
+
+    def ids():
+        return sorted(d.id for d in db.scalars(select(MedDose).where(MedDose.prescription_id == rx["id"])))
+
+    before = ids()
+    assert len(before) == 3
+    sent = _n_sched(published)
+    r = client.post(f"/pharmacy/prescriptions/{rx['id']}/validate", headers=ph, json={"acknowledged": True})
+    assert r.status_code == 200, r.text
+    assert ids() == before
+    assert _n_sched(published) == sent  # nothing changed for the device: no needless republish
+
+
+def test_the_device_schedule_is_republished_when_the_dose_set_changed(client, db, published):
+    ph = pharmacist(client, db)
+    rx = _rx(client, RX_OK, urgent=True)
+    row = db.get(Prescription, rx["id"])
+    row.items = [{**row.items[0], "times": ["21:30"]}]  # the future doses no longer match the items
+    db.flush()
+    sent = _n_sched(published)
+    r = client.post(f"/pharmacy/prescriptions/{rx['id']}/validate", headers=ph, json={"acknowledged": True})
+    assert r.status_code == 200, r.text
+    assert _n_sched(published) == sent + 1
+
+
+def test_validate_needs_no_json_body(client, db):
+    ph = pharmacist(client, db)
+    rx = _rx(client, RX_OK)
+    r = client.post(f"/pharmacy/prescriptions/{rx['id']}/validate", headers=ph)
+    assert r.status_code == 200, r.text  # RX_OK has no checks, so no acknowledgement is needed
+
+
+def test_worklist_cap_keeps_the_oldest_and_the_urgent(client, db, monkeypatch):
+    from app.services.pharmacy import review
+
+    ph = pharmacist(client, db)
+    pending = len(client.get("/pharmacy/worklist", headers=ph).json())  # what the seed already has
+    monkeypatch.setattr(review, "WORKLIST_LIMIT", pending + 2)
+    first = _rx(client, RX_OK)
+    second = _rx(client, {**RX_OK, "patient_id": "p-0002"})
+    urgent = _rx(client, {**RX_OK, "patient_id": "p-0003"}, urgent=True)
+    got = [w["prescription"]["id"] for w in client.get("/pharmacy/worklist", headers=ph).json()]
+    assert got[0] == urgent["id"] and first["id"] in got and second["id"] not in got and len(got) == pending + 2

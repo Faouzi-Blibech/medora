@@ -296,7 +296,8 @@ def test_fractional_and_string_units(units, expected):
                                    {"units_per_intake": float("inf")}, {"dose_mg": True}, {"times": None},
                                    {"times": "08:00"}, {"times": []}])
 def test_bad_dose_values_do_not_crash(extra):
-    assert run_checks(ADULT, [{**item("d-0001"), **extra}], [], DRUGS) == []  # unknown dose: skipped
+    got = run_checks(ADULT, [{**item("d-0001"), **extra}], [], DRUGS)  # unknown dose: never a crash, never silent
+    assert codes(got) == [("dose_unverified", "info", 0)]
 
 
 def test_numeric_string_dose_and_levothyroxine_float_noise():
@@ -323,9 +324,31 @@ def test_malformed_input_does_not_crash():
     assert run_checks(ADULT, None, None, DRUGS) == []  # type: ignore[arg-type]
 
 
-def test_prn_item_without_times_is_not_dose_checked():
+def test_prn_item_without_times_is_flagged_not_dose_checked():
     prn = {"med": "Paracetamol", "drug_id": "d-0001", "units_per_intake": 99}
-    assert run_checks(ADULT, [prn], [], DRUGS) == []
+    got = run_checks(ADULT, [prn], [], DRUGS)
+    assert codes(got) == [("dose_unverified", "info", 0)] and got[0].params == {"med": "Paracetamol"}
+
+
+def test_no_dose_unverified_without_a_daily_maximum_or_with_a_computable_dose():
+    got = run_checks(ADULT, [{"med": "X", "drug_id": "d-0004", "times": ["08:00"]}], [], DRUGS)
+    assert not any(c.code == "dose_unverified" for c in got)
+    nomax = next(k for k, v in DRUGS.items() if not v.max_daily_mg)
+    got = run_checks(ADULT, [{"med": "X", "drug_id": nomax, "times": []}], [], DRUGS)
+    assert not any(c.code == "dose_unverified" for c in got)
+
+
+def test_penicillin_allergy_cephalosporin_is_a_moderate_cross_reactivity():
+    got = run_checks(PatientInfo(40, ("penicillin",)), [item("d-0008")], [], DRUGS)
+    assert codes(got) == [("allergy", "moderate", 0)]
+    assert got[0].params["cross_reactivity"] is True and got[0].params["cross_class"] == "cephalosporin"
+    direct = run_checks(PatientInfo(40, ("penicillin",)), [item("d-0003")], [], DRUGS)
+    assert codes(direct) == [("allergy", "critical", 0)] and "cross_reactivity" not in direct[0].params
+    carba = DrugInfo(id="d-x", dci="Meropenem", allergy_classes=("carbapenem",))
+    assert codes(run_checks(PatientInfo(40, ("penicillin",)), [item("d-x")], [], {"d-x": carba})) == [
+        ("allergy", "moderate", 0)]
+    free = run_checks(PatientInfo(40, ("penicillin",)), [item(None, med="Ceftriaxone")], [], {})
+    assert ("allergy", "moderate", 0) in codes(free)
 
 
 def test_free_text_item_is_non_formulary_but_still_checked():
