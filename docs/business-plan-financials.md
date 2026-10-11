@@ -1,4 +1,4 @@
-# Ward: business plan with Tunisian prices and a 3-year financial model
+# Medora: business plan with Tunisian prices and a 3-year financial model
 
 > **Status:** draft, 2026-10-11. Companion to [business-plan.md](business-plan.md), which covers the problem, the solution, the competition and the go-to-market story. This file holds the numbers.
 > **Prices** are real Tunisian prices found online in October 2026. The store or source is named on each line, and links are in section 14. Lines marked *est.* are our own estimates and must be replaced with a quote.
@@ -85,13 +85,13 @@ Example: a **40-bed clinic** taking the average package at **2,980 TND/month exc
 | Comparison | Figure | Source |
 |---|---|---|
 | Price of a hospital bed-day in a private clinic | 180–250 TND/day | cliniquetunisie.com, cliniques.tn (directories, not official prices) |
-| Ward's monthly bed revenue at 70 % occupancy | 151,200–210,000 TND | 40 beds × 30 days × 70 % × day price |
-| **Ward's cost as a share of that revenue** | **1.4–2.0 %** | |
-| Bed-days that pay for Ward | **12–17 extra bed-days a month** across the ward, out of 840 | 2,980 ÷ 180 or 250 |
+| Medora's monthly bed revenue at 70 % occupancy | 151,200–210,000 TND | 40 beds × 30 days × 70 % × day price |
+| **Medora's cost as a share of that revenue** | **1.4–2.0 %** | |
+| Bed-days that pay for Medora | **12–17 extra bed-days a month** across the ward, out of 840 | 2,980 ÷ 180 or 250 |
 | Employer cost of an experienced private nurse | 1,515–2,565 TND/month | 1,300–2,200 gross (Tanitjobs 2026 salary guide) plus 16.57 % CNSS |
-| **Ward in nurse terms** | The employer cost of **1.2–2.0** experienced nurses | |
+| **Medora in nurse terms** | The employer cost of **1.2–2.0** experienced nurses | |
 
-**How to say it to a clinic director:** Ward pays for itself if it helps you do one of these:
+**How to say it to a clinic director:** Medora pays for itself if it helps you do one of these:
 - Fill about 2 % more bed-days.
 - Save a little over one nurse's worth of time on the ward, across all shifts.
 - Throw away less expired stock.
@@ -125,7 +125,7 @@ Salaries are gross per month, taken from the Tanitjobs 2026 salary guide. We add
 
 | Role | Gross TND/month | Market range (Tanitjobs 2026) | Starts | Cost per year incl. CNSS |
 |---|---:|---|---|---:|
-| 3 founders, year 1 | 0 paid by Ward | Startup Act allowance from ANETI: 1,000–5,000 net/month per founder, for 1 year and up to 3 founders | Month 1 | 0 |
+| 3 founders, year 1 | 0 paid by Medora | Startup Act allowance from ANETI: 1,000–5,000 net/month per founder, for 1 year and up to 3 founders | Month 1 | 0 |
 | 3 founders, year 2 | 2,500 each | | Month 13 | 104,913 |
 | 3 founders, year 3 | 3,000 each | | Month 25 | 125,895 |
 | Full-stack developer, junior | 1,800 | 1,400–2,200 | Month 13 | 25,179 |
