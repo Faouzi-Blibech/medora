@@ -22,11 +22,14 @@ from app.models import (
     Admission,
     Appointment,
     Device,
+    Drug,
     ExamOrder,
     Patient,
     Prescription,
     PrescriptionReview,
     Staff,
+    StockLot,
+    StockMovement,
     User,
     Vital,
 )
@@ -103,6 +106,7 @@ def seed(db: Session) -> bool:
     if db.scalar(select(User).where(User.email == "doctor@ward.tn")):
         _upsert_missing_staff(db, pw)
         _pharmacy(db, datetime.now(UTC).replace(second=0, microsecond=0))
+        _stock(db)
         seed_health_events(db)
         return False
     now = datetime.now(UTC).replace(second=0, microsecond=0)
@@ -165,6 +169,7 @@ def seed(db: Session) -> bool:
     for prefix, n in [("u", 8), ("p", len(PATIENTS)), ("adm", 1), ("rx", 1), ("a", len(REQUESTS))]:
         reserve_upto(db, prefix, n)
     _pharmacy(db, now)
+    _stock(db)
     return True
 
 
@@ -201,3 +206,28 @@ if __name__ == "__main__":
         s.commit()
     print("seeded" if created else "already seeded, nothing to do")
     print(f"demo radiographs: {n} added")
+
+
+# drug id -> seed quantity (others: max(2 x min_stock, 50)). Paracetamol 500 sits exactly at min_stock, so the 20:00
+# Cardiology round tips it under (the demo's low-stock alert); enoxaparin starts under min_stock.
+SEED_QTY = {"d-0001": 200, "d-0014": 6}
+
+
+def _seed_lot(db: Session, drug_id: str, number: str, expiry: date, qty: int) -> None:
+    lot = StockLot(id=new_id(db, "lot"), drug_id=drug_id, lot_number=number, expiry_date=expiry, quantity=qty)
+    db.add(lot)
+    db.flush()
+    db.add(StockMovement(id=new_id(db, "sm"), drug_id=drug_id, lot_id=lot.id, delta=qty, reason="receipt",
+                         by_user_id=PHARMACIST_ID))
+
+
+def _stock(db: Session) -> None:
+    """Phase B demo stock (spec 7). Skipped once any lot exists, or without the seed pharmacist."""
+    if db.scalar(select(StockLot.id).limit(1)) is not None or db.get(User, PHARMACIST_ID) is None:
+        return
+    today = today_local()
+    for d in db.scalars(select(Drug).order_by(Drug.id)):
+        _seed_lot(db, d.id, f"L{d.id[2:]}-A", today + timedelta(days=365), SEED_QTY.get(d.id, max(2 * d.min_stock, 50)))
+    _seed_lot(db, "d-0032", "L0032-B", today + timedelta(days=10), 30)  # amlodipine, expiring: FEFO takes it first
+    _seed_lot(db, "d-0018", "L0018-X", today - timedelta(days=5), 20)  # ibuprofen, expired: waiting for write-off
+    db.flush()

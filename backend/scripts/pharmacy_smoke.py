@@ -63,14 +63,40 @@ def run_phase_a(c, password: str, patient_id: str = "p-0001") -> dict:
     return {"v1": v1, "v2": done}  # v1 as saved (pending_pharmacy); it is superseded by now
 
 
+def run_phase_b(c, password: str, ward: str = "Cardiology", round_time: str = "20:00") -> dict:
+    """Step 6: the pharmacist prepares the round, the nurse confirms receipt, the stock goes down, and a
+    low-stock alert shows on the pharmacy dashboard."""
+    ph, nurse = _login(c, "pharmacist@ward.tn", password), _login(c, "nurse@ward.tn", password)
+    day = tunis_day()
+    before = _ok(c.get("/pharmacy/summary", headers=ph))
+    view = _ok(c.get("/pharmacy/dispensing", headers=ph, params={"date": day, "round": round_time, "ward": ward}))
+    lines = [{"dose_id": d["dose_id"]} for w in view for p in w["patients"] for d in p["doses"] if not d["dispensed"]]
+    if not lines:
+        print(f"pharmacy smoke: the {ward} {round_time} round of {day} is already dispensed")
+        return {"dispensation": None, "summary_before": before, "summary_after": before}
+    disp = _ok(c.post("/pharmacy/dispensations", headers=ph,
+                      json={"ward": ward, "date": day, "round_time": round_time, "lines": lines}), 201)
+    listed = _ok(c.get("/dispensations", headers=nurse, params={"date": day}))
+    _check(any(d["id"] == disp["id"] for d in listed), "the nurse sees the delivery")
+    _check(_ok(c.post(f"/dispensations/{disp['id']}/receive", headers=nurse))["status"] == "received", "received")
+    after = _ok(c.get("/pharmacy/summary", headers=ph))
+    _check(after["low_stock"] >= 1, "a low-stock alert after the round")
+    return {"dispensation": disp, "summary_before": before, "summary_after": after}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Pharmacy demo-path smoke test")
     ap.add_argument("--base", default="http://localhost:8000")
+    ap.add_argument("--phase", choices=["a", "b", "all"], default="all")
     args = ap.parse_args(argv)
     password = os.environ.get("SEED_PASSWORD", "ward1234")
     with httpx.Client(base_url=args.base, timeout=10) as c:
-        run_phase_a(c, password)
-    print("pharmacy smoke: phase A ok")
+        if args.phase in ("a", "all"):
+            run_phase_a(c, password)
+            print("pharmacy smoke: phase A ok")
+        if args.phase in ("b", "all"):
+            run_phase_b(c, password)
+            print("pharmacy smoke: phase B ok")
     return 0
 
 
