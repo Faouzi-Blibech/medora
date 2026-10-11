@@ -159,3 +159,16 @@ def test_read_http_500_is_unavailable(monkeypatch, local_vision):
     monkeypatch.setattr(llm.httpx, "post", lambda url, timeout, json: FakeResp("", 500))
     status, ai = radiology.read(jpeg_with_exif(), "")
     assert status == "unavailable" and ai["reason"] == "vision model unavailable"
+
+
+def test_a_draft_with_no_finding_never_reads_normal():
+    from app.ai import radiology as R
+    d = R.RadiographDraft(region="Thorax", impression="Examen normal.", possible_conditions=[
+        {"name": "pneumonie", "likelihood": "low", "evidence": ""}])
+    assert R.guard_normal(d, "fr").impression == R.NO_FINDING["fr"]
+    flagged = R.RadiographDraft(impression="Examen normal.", possible_conditions=[
+        {"name": "pneumonie", "likelihood": "medium", "evidence": ""}])
+    assert R.guard_normal(flagged, "fr").impression == "Examen normal."
+    urgent = R.RadiographDraft(impression="Examen normal.", urgent_flags=["pneumothorax"])
+    assert R.guard_normal(urgent, "en").impression == "Examen normal."
+
