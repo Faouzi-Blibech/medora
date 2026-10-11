@@ -8,11 +8,12 @@ from app.models.device import Device, IngestedMessage
 from app.models.exams import ExamOrder, ExamResult
 from app.models.health import HealthEvent, HealthEventPref
 from app.models.patient import Admission, Patient
-from app.models.pharmacy import Drug, PrescriptionReview
+from app.models.pharmacy import (Dispensation, DispensationLine, Drug, PrescriptionReview, StockLot,
+                                 StockMovement)
 from app.models.radiology import RadiographReading
 from app.models.user import Staff, User
 
-__all__ = ["AccessCode", "AiSummary", "Admission", "Alert", "Appointment", "AuditLog", "Device", "Drug", "ExamOrder",
+__all__ = ["AccessCode", "AiSummary", "Admission", "Alert", "Appointment", "AuditLog", "Device", "Dispensation", "DispensationLine", "Drug", "ExamOrder",
            "ChatConversation", "ChatMessage", "ExamResult", "HealthEvent", "HealthEventPref", "IngestedMessage", "MedDose",
            "Note", "NotebookEntry", "Patient", "PatientAccess", "Prescription", "PrescriptionReview", "RadiographReading",
-           "Staff", "User", "Vital"]
+           "Staff", "StockLot", "StockMovement", "User", "Vital"]
