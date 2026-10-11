@@ -183,6 +183,7 @@ class DoseOut(Orm):
     status: str
     taken_method: str | None
     updated_at: Ts
+    pharmacy: str = "none"  # none | sent | received (api 1.12 Phase B)
 
 
 # --- pharmacy (api 1.12) ---
@@ -257,3 +258,16 @@ class AdjustmentIn(BaseModel):
         if v == 0:
             raise ValueError("delta must not be 0")
         return v
+
+
+class DispenseLineIn(BaseModel):
+    dose_id: str = Field(max_length=20)
+    lot_id: str | None = Field(default=None, max_length=20)  # null = FEFO
+
+
+class DispenseIn(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    ward: str = Field(min_length=1, max_length=60)
+    day: date = Field(alias="date")
+    round_time: str = Field(pattern=HHMM)
+    lines: list[DispenseLineIn] = Field(min_length=1, max_length=200)
