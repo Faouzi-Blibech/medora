@@ -1,7 +1,8 @@
 # Medora: business model and business plan
 
 > **Status:** working draft for HackCure @ ESEN, 2026-10-11. Owner: Faouzi.
-> Every figure marked *estimate* or *assumption* is ours and must be checked with a real customer before it goes on a slide as fact. Market figures carry their source in section 17.
+> Every figure marked *estimate* or *assumption* is ours and must be checked with a real customer before it goes on a slide as fact. Market figures carry their source in section 20.
+> **The numbers live in [business-plan-financials.md](business-plan-financials.md)** (Wali): Tunisian prices, the 3-year model, scenarios and funding. This file tells the story and uses the same figures; if the two disagree, the financials file wins.
 
 ## 1. Medora in one sentence
 
@@ -55,10 +56,13 @@ Also built by the team (merged 2026-10-11):
 
 | Segment | Size in Tunisia | Why they buy | Sales cycle | Priority |
 |---|---|---|---|---|
-| **Private clinics** (polyclinics, cardiology, surgery) | ~100 clinics, 7,821 beds (INS 2023) | Quality image, medical tourism (Libya, Algeria, sub-Saharan Africa), nurse shortage, competition between clinics | 2–6 months, one decision maker | **1: beachhead** |
+| **Private clinics** (polyclinics, cardiology, surgery) | ~110 clinics, 7,821 beds (INS 2023) | Quality image, medical tourism (Libya, Algeria, sub-Saharan Africa), nurse shortage, competition between clinics | 2–6 months, one decision maker | **1: beachhead** |
+| **Private doctors' offices** (cabinets de libre pratique) | ~8,600 offices (press estimate, 2022; to check with the INS) | Appointments, patient follow-up on WhatsApp, an assistant over the record, X-ray drafts; the doctor often also works in a clinic | Weeks, the doctor decides alone | **1b: entry product and the way into clinics** |
 | **Public hospitals** (24 university hospitals, 33 regional, 109 district) | 22,888 public beds (INS 2022) | Ministry digitisation programme, need for figures, staff shortage | 12–24 months, public procurement (TUNEPS) | 2: through pilots and programmes |
 | Home care and after discharge | Growing with chronic disease | Follow-up of discharged patients at home | short | 3 |
 | Export (Maghreb, West Africa) | Libya, Algeria, Mauritania, Senegal | Same French/Arabic context, same gaps | after 2 references | 4 |
+
+**Decided on 2026-10-11:** clinics first, sold as one system with **their internal pharmacy** (the pharmacy pack), and doctors' offices as a smaller second product that brings us doctors who also work in clinics. Outside (retail) pharmacies are not a target for now; when a prescription leaves the clinic, the patient chooses the pharmacy (section 18).
 
 **Buyer and users in a clinic:**
 - **Buyer:** the managing director or owner.
@@ -84,59 +88,54 @@ Also built by the team (merged 2026-10-11):
 |---|---|---|
 | Pilot | 1 ward, 10–20 beds, 3 months, setup, training, impact report | Free or at cost (hardware only), against a signed letter of intent and the right to publish the results |
 | Core licence | Shared record, bedside reminders, NEWS2 alerts, handover, impact dashboard, patient app | **45 TND / bed / month** |
-| AI and messaging pack | Assistants, daily summaries, triage, WhatsApp follow-up, health watch | **+20 TND / bed / month** |
-| Bedside unit | Sale, or lease included in the licence | **250 TND** per unit sale, or **+10 TND / bed / month** lease |
-| Setup | Server installation, integration, training (2 days) | **3,000–8,000 TND** one time, depending on size |
+| AI and messaging pack | Assistants, daily summaries, triage, WhatsApp follow-up, health watch, **radiograph draft reports** (no separate imaging line; the GPU workstation is quoted per site) | **+20 TND / bed / month** (assumed taken on 60 % of beds) |
+| Pharmacy pack | The clinic's internal pharmacy: prescription checks, drug catalogue, dispensing by lot (FEFO), stock and reorder | **+15 TND / bed / month** (assumed 50 % of beds) |
+| Bedside unit | Lease (default), or sale | **+10 TND / bed / month** lease, or **250 TND** per unit sale |
+| Setup | Server bundle, installation, training (2 days) | **3,000 + 50 TND per bed**, capped at 8,000 (5,000 for 40 beds) |
+| Public hospitals | Same modules | **70 %** of the private price, annual licence |
+| **Average** | | **74.5 TND / bed / month** excl. VAT, unit lease included |
 | Support | Updates, remote support, quarterly impact report | Included; on-site support at day rate |
+| **Doctor's office** | Appointments, patient app and WhatsApp follow-up, assistant, X-ray drafts, prescriptions; runs on a mini-PC in the office | **60 TND / doctor / month**, plus **1,200 TND** once (mini-PC at cost and installation) |
 
 Why per bed:
 - Hospitals already think in beds.
 - The price scales with the value.
-- Budgets are easy to compute: a 40-bed clinic on the full package pays about 2,600 TND per month.
+- Budgets are easy to compute: a 40-bed clinic on the average package pays **2,980 TND per month** excl. VAT, which is 1.4–2.0 % of the ward's bed revenue (financials, section 4).
+
+The patient side (app, WhatsApp follow-up) is always paid by the clinic or the doctor, never by the patient.
 
 **Public sector variant:**
 - Annual licence per hospital through public procurement.
 - Or a component inside a ministry or donor programme (for example the AFD hospital information system programme), where Medora is the bedside and nursing layer that the electronic record does not cover.
 
-## 7. Unit economics (*estimates*)
+## 7. Unit economics
 
-**Bedside unit, small batch of 100:**
+Full detail with shop-by-shop prices: [financials, sections 2 and 5](business-plan-financials.md).
 
-| Part | Cost (TND) |
+| | Figure |
 |---|---|
-| ESP32-C3 board | 15–25 |
-| 0.96" OLED screen | 10–15 |
-| SG90 servo | 6–10 |
-| DS1307 clock + battery | 5–8 |
-| Buttons, wiring, power supply | 15–25 |
-| 3D-printed enclosure and pill holder | 20–35 |
-| Assembly and test | 15–25 |
-| **Total** | **≈ 90–140** |
+| Bedside unit, parts from Tunisian shops | **≈ 88 TND** (≈ 112 at the dearest shop) |
+| Lease income per unit | 10 TND/month: the unit pays for itself in about 9 months |
+| On-site server bundle (mini PC, UPS, backup disk) | 1,629 TND TTC, paid from the setup fee |
+| 40-bed clinic: monthly revenue | 2,980 TND |
+| Direct cost (WhatsApp messages, unit reserve) | 67 TND/month: gross margin **98 %** |
+| Margin after support (1 technician per 10 clinics) | ≈ 2,785 TND/month |
+| Net upfront cost of winning the clinic (units, setup, commission, travel) | ≈ 5,963 TND |
+| **Payback** | **≈ 2 months** |
 
-Sale at 250 TND gives a gross margin of about 45–60 % on hardware. Certified vital-sign sensors would change this. They are a later phase, and that phase needs a regulatory step (section 10).
+**What the clinic gets for it (the buyer's maths):** Medora costs the same as 1.2–2.0 experienced nurses, or 12–17 extra bed-days a month out of 840. It pays for itself if it fills about 2 % more bed-days, saves a little over one nurse's time across all shifts, or cuts expired stock. The pilot measures all three; we promise to measure, not to deliver.
 
-**Software per bed and month:**
-- **Revenue:** 65 TND on the full package.
-- **Direct cost:** about 8–12 TND (support time, updates, optional LLM calls, WhatsApp gateway).
-- **Gross margin:** about **80–85 %**.
-- **Server:** on-premise mini PC or the hospital's own server. About 3,000–5,000 TND for a clinic, paid by the clinic or included in setup.
+Not in these figures: the GPU workstation that radiograph reading needs, quoted per site.
 
-**Payback for a 40-bed clinic, full package plus leased units:**
+## 8. Market size
 
-| | Amount |
-|---|---|
-| Cost to the clinic | about 3,000 TND / month |
-| One nurse in Tunisia (*assumption*) | 1,800–2,500 TND / month gross |
-| Break-even point | Medora saves the equivalent of 1.2–1.7 nurse positions, about 30–45 minutes per nurse per shift |
-| Supporting numbers to measure in the pilot | Handover time, transcription of vitals, phone calls about appointments |
+At the average price (74.5 TND/bed/month; public beds at 70 %). Detail: [financials, section 11](business-plan-financials.md).
 
-## 8. Market size (bottom-up, *estimates*)
-
-| Level | Beds | At 65 TND / bed / month | Per year |
-|---|---|---|---|
-| Total market (Tunisia, all beds) | ≈ 30,700 (22,888 public + 7,821 private) | 2.0 M TND / month | **≈ 24 M TND** |
-| Reachable (private clinics + 30 % of public beds) | ≈ 14,700 | 0.96 M TND / month | **≈ 11.5 M TND** |
-| Target in 3 years | 900 beds | 58,500 TND / month | **≈ 0.7 M TND** |
+| Level | Beds | Per year |
+|---|---|---|
+| Total market (Tunisia, all beds) | 30,709 (22,888 public + 7,821 private) | **≈ 21.3 M TND** |
+| Reachable (all private beds + 30 % of public beds) | 14,687 | **≈ 11.3 M TND** |
+| Target at the end of year 3 (700 private + 200 public beds) | 900 | **≈ 0.75 M TND** run rate, 6.7 % of the reachable market |
 
 Beyond these figures:
 - Export to the Maghreb multiplies the market several times.
@@ -212,21 +211,21 @@ Beyond these figures:
 - Public tenders (TUNEPS).
 - Donor programmes (AFD, World Bank, EU).
 
-## 12. Three-year projection (*assumptions, conservative*)
+## 12. Three-year projection (base case)
 
-| | Year 1 | Year 2 | Year 3 |
-|---|---|---|---|
-| Paying beds (end of year) | 40 | 300 | 900 |
-| Average beds billed over the year | 15 | 170 | 600 |
-| Licence revenue (65 TND/bed/month) | 11,700 | 132,600 | 468,000 |
-| Setup fees | 5,000 | 30,000 | 80,000 |
-| Hardware revenue (net of leases) | 5,000 | 40,000 | 90,000 |
-| **Revenue (TND)** | **≈ 22,000** | **≈ 203,000** | **≈ 638,000** |
-| Team (people) | 3 founders | 6 | 10 |
-| Main costs | founders' allowance, hardware, legal, pilot | salaries, support, certification work | salaries, sales, export |
-| Funding need | Startup Act allowance + prizes + grants | seed round ≈ 400–600 k TND | from revenue + seed |
+From [financials, section 8](business-plan-financials.md), where the monthly assumptions and the slow and fast cases are.
 
-Change the assumptions in one place: price per bed, beds per clinic (default 40), clinics signed per year.
+| TND | Year 1 | Year 2 | Year 3 |
+|---|---:|---:|---:|
+| Paying beds, end of year | 40 | 300 | 900 |
+| Revenue | 17,410 | 193,430 | 575,030 |
+| Gross margin | 83 % | 89 % | 93 % |
+| EBITDA | −12,959 | −65,328 | **+74,755** |
+| Team | 3 founders | 6 | 10 |
+| Cash at end of year | 20,598 | 239,457 | 129,215 |
+
+- EBITDA turns positive for good in **month 30** (month 26 in the fast case).
+- The slow case (half the clinics, 3 months late) never breaks even in 36 months; its plan B is in the financials, section 9.
 
 ## 13. Funding and use of funds
 
@@ -237,14 +236,16 @@ Change the assumptions in one place: price per bed, beds per clinic (default 40)
 | Startup Tunisia / Smart Capital funds, local VCs and accelerators | Seed investment | after the pilot results |
 | Donor and innovation programmes (AFD Digital Africa, EU, World Bank health digitisation) | Grants, public-hospital pilots | months 3–12 |
 
-**Use of a seed round of about 500 k TND:**
+**Amounts (financials, section 10):** 15 k TND from prizes and an incubator in month 1, a 30 k TND grant in month 4, the Startup Act allowance for the founders in year 1, then a **350 k TND seed round** in month 13.
+
+**Use of the 350 k TND seed:**
 
 | Share | Use |
 |---|---|
-| 40 % | Product and certification: sensors partner, ISO 13485 groundwork, security |
-| 30 % | Sales and pilots: 2 sales and clinical-success hires |
-| 20 % | Hardware stock |
-| 10 % | Legal and compliance |
+| 60 % | Payroll for year 2 and early year 3: developer, sales, support, founders |
+| 15 % | Bedside unit stock and servers for new sites |
+| 15 % | Sales and marketing: commissions, demos, congresses |
+| 10 % | Legal, INPDP, security, ISO 13485 groundwork |
 
 ## 14. Pilot success criteria (what we promise to measure, not the result)
 
@@ -281,14 +282,14 @@ Measured by the pilot impact dashboard, with a baseline taken before go-live:
 - [ ] Faouzi: rehearse the pitch with sections 2, 6, 8 and 14 of this plan; add one slide "Business model" and one slide "Pilot plan".
 - [ ] Faouzi: prepare a one-page brochure (French and Arabic) and the demo video.
 - [ ] All: list 10 target clinics (name, city, ward, contact) and 3 public hospitals; each member brings personal contacts.
-- [ ] Hedi: cost the bedside unit for 20 and 100 units with real supplier prices (replace the estimates in section 7).
+- [x] Wali: bedside unit costed with Tunisian shop prices (financials, section 2). Still to do: quotes for 20 and 100 units.
 - [ ] Wali: write the one-page technical sheet for hospital IT (server specs, network, security, backup).
 
 **Next month**
 - [ ] Faouzi: company registration and Startup Act label application.
 - [ ] Faouzi: INPDP declaration / authorisation request for the pilot site.
 - [ ] All: 5 demos to clinics; target 1 letter of intent.
-- [ ] Faouzi: test the price (45 + 20 TND/bed/month) in every demo and note the reaction; adjust section 6.
+- [ ] Faouzi: test the price (45 + 20 + 15 + 10 TND/bed/month) in every demo and note the reaction; adjust section 6 and the financials.
 - [ ] Hedi and Wali: build 20 units; define the sensor partner track.
 
 **Questions the jury and buyers will ask (prepared answers)**
@@ -296,14 +297,87 @@ Measured by the pilot impact dashboard, with a baseline taken before go-live:
 | Question | Answer |
 |---|---|
 | Who pays? | The clinic, per bed per month; the public hospital, through procurement or a funded programme |
-| How much? | About 65 TND per bed per month all included; pilot free against a letter of intent |
+| How much? | 74.5 TND per bed per month on average, unit lease included; 2,980 TND a month for a 40-bed clinic; pilot free against a letter of intent |
 | Why not an existing hospital system? | They stop at the desk; Medora works at the bedside and plugs into them |
 | Is the AI safe? | It only suggests; red-flag rules set a floor; a person confirms; everything is logged |
 | Where is the data? | On the hospital's server; nothing leaves; INPDP authorisation is part of onboarding |
 | Where are the sensors? | Simulated in the prototype through the same MQTT contract; certified sensors come through a partner as a regulated step |
-| How do you make money in year 1? | First paid clinic after a 3-month pilot; setup fees; hardware |
+| How do you make money in year 1? | First paid clinic after a 3-month pilot, a second in month 10, plus setup fees: 17 k TND. Break-even is month 30 |
 
-## 17. Sources
+## 17. Business Model Canvas
+
+| Block | Medora |
+|---|---|
+| **Customer segments** | 1. Private clinics with their internal pharmacy (beachhead: ~110 clinics, 7,821 beds). 1b. Private doctors' offices (~8,600), the entry product. 2. Public hospitals through donor or ministry programmes. Later: home care after discharge, export to the Maghreb. |
+| **Value propositions** | Clinic: one record from admission to discharge, fewer missed doses and missed warnings, the pharmacy linked to the ward, figures for the board. Nurse: handover and vitals in minutes. Doctor: the whole patient on one screen, X-ray drafts, an assistant in Arabic, French or English. Patient: knows the next dose and appointment. All: data stays on site, works without internet, a person confirms every AI output. |
+| **Channels** | Direct sales and on-site demos; the free 3-month pilot against a letter of intent; doctors who use the office product and also work in clinics; medical congresses and the nursing association; medical equipment distributors; public tenders (TUNEPS) and donor programmes. |
+| **Customer relationships** | A named clinical success contact per clinic; the head nurse as champion; training at go-live; a quarterly impact report from the dashboard; remote support, on-site at day rate. Offices: installed by a technician, then remote support. |
+| **Revenue streams** | 1. Per-bed monthly licence (core 45 + AI pack 20 + pharmacy pack 15 + unit lease 10; average 74.5 TND). 2. One-time setup (3,000 + 50 per bed, capped at 8,000). 3. Doctor's office subscription (60 TND per doctor per month + 1,200 once). 4. Public hospitals at 70 % of the private price, annual licence. 5. Later: the GPU workstation for radiograph reading, sold per site; on-site support days. Never a fee per prescription or per patient sent to a pharmacy (section 18). |
+| **Key resources** | The software (shared record, rules, AI modules that work without an LLM), the bedside unit design, the trilingual clinical content, the team (product and AI, hardware, backend), pilot data. |
+| **Key activities** | Building and supporting the product, installing servers and units, training, measuring impact, preparing each customer's data protection (INPDP) file, selling. |
+| **Key partners** | Tunisian electronics shops and a 3D printing workshop (units); a mini-PC and server supplier; a WhatsApp Business provider; a health lawyer and an accountant; the incubator and Startup Act bodies; later a certified sensor maker, a medical equipment distributor and the CNAM e-prescription system. |
+| **Cost structure** | Salaries (the largest line from year 2), bedside units and servers, WhatsApp messages, sales commissions and travel, office, legal and compliance, ISO 13485 groundwork in year 3. Details: [financials](business-plan-financials.md), sections 5–7. |
+
+## 18. Legal feasibility in Tunisia
+
+What the law allows and what still needs a written answer. Sources are in section 20. None of this is legal advice.
+
+| Question | What we found | Effect on Medora | Status |
+|---|---|---|---|
+| Can a doctor send patients to a partner pharmacy? | The medical code of ethics (Decree 93-1155 of 17 May 1993, amended by Decree 2018-34) forbids *compérage* between a doctor and a pharmacist, including commissions, rebates and hidden fee-sharing (article 19 in the Order's guide). | Medora never routes a prescription to a chosen partner and never earns per prescription or per patient. Outside the clinic, the patient picks the pharmacy. Inside a clinic, the internal pharmacy is part of the same establishment. | Clear; confirm the article number in the consolidated text |
+| Can a clinic run its own pharmacy in Medora? | Private clinics are governed by Law 91-63 (health organisation) and Decree 98-793 (private health establishments). Ministerial orders of 1993 and 1995 set the list of medicines a private establishment may hold and how they are supplied. | The pharmacy pack must follow that list and the clinic's supply rules (no retail dispensing). | **Open:** get the texts and an opinion from the DPM or a lawyer |
+| Health data in a clinic or an office | Law 2004-63 makes the clinic or the doctor the data controller. Health data needs the patient's explicit consent and prior INPDP authorisation; the INPDP answers in about one month. An INPDP decision of September 2019 covers health data. | Self-hosting (clinic server, office mini-PC) keeps the data on site. Each customer files its own INPDP request; we prepare the file for them as part of setup. | Clear; add a ready-made INPDP file to onboarding |
+| Hosting in the cloud later | The INPDP health toolkit mentions an approved national host category; we did not find its conditions. Transfers abroad need INPDP authorisation. | Stay on site for now; any cloud offer must use an approved Tunisian host. | Open |
+| Is the software a medical device? | The DPM registers medical devices before import or sale and is moving to a new national medicines agency. We found no Tunisian rule on whether decision-support software must be registered. | Keep the scope "decision support, a person confirms every output". Ask the DPM in writing, starting with the radiograph drafts. | **Open:** written question to the DPM |
+| E-prescriptions to pharmacies | The CNAM plans paper-free prescriptions by the end of 2027, with software in pharmacies funded by the World Bank (tender in January 2026). | Do not build a competing national flow; plan to send prescriptions into the CNAM system when it opens. | Watch |
+| Selling to a clinic | A private contract; VAT 19 %; for health data, a data processing agreement with the clinic. | A standard contract and a data processing agreement template. | To write |
+
+**Questions to send now:**
+- [ ] DPM: does decision-support software, and the radiograph draft in particular, need registration?
+- [ ] DPM or a health lawyer: the medicine list and supply rules for a private clinic's internal pharmacy.
+- [ ] Ordre des médecins: confirm that a per-doctor subscription with no prescription routing is not *compérage*.
+- [ ] INPDP: the template file for a clinic and for a doctor's office using a local server.
+
+## 19. Financial model v2: churn, doctors' offices, seed after proof
+
+`python docs/business-model/model.py` recomputes everything month by month. With the published assumptions it gives the figures of the financials (revenue and EBITDA to the TND). Full output: [docs/business-model/results.md](business-model/results.md).
+
+Assumptions added on 2026-10-11:
+- **Churn:** clinics lose 10 % of their beds a year, doctors' offices 20 %.
+- **Doctors' offices:** 60 TND per doctor per month and 1,200 TND once. New offices: 1 a month in year 1 (from month 4), 3 a month in year 2, 5 a month in year 3 (*estimate*).
+- **Funding:** the seed arrives 3 months after reaching 150 paying beds instead of in month 13. Employees are hired when it arrives; the founders are paid from month 13.
+
+| TND | Financials as published | New base |
+|---|---:|---:|
+| Paying beds / offices, end of year 3 | 900 / 0 | 828 / 86 |
+| Revenue, years 1–3 | 17,410 / 193,430 / 575,030 | 30,549 / 248,485 / 657,831 |
+| EBITDA, year 3 | 74,747 | 141,036 |
+| Break-even month | 30 | 27 |
+| Seed arrives in month | 13 | 20 |
+| Lowest cash | 6,290 (month 3) | **−47,702 (month 19)** |
+| Bridge needed to keep 20 k in the bank | 13,710 | **67,702** |
+| Cash at the end of month 36 | 129,206 | 246,373 |
+
+What this changes:
+1. **Churn alone** costs about 35 k TND of year-3 EBITDA. It was missing from the plan.
+2. **Doctors' offices** bring early cash (13 k TND more revenue in year 1) and more than make up for churn.
+3. **Raising after proof needs a bridge of about 70 k TND** between months 13 and 20: a second grant, an honour loan, or the founders delaying their pay. Without it, the seed has to come in month 13 as in the financials.
+4. **The new base is optimistic in one way:** the founders sell year 2 alone until the seed arrives.
+
+**Sensitivity of the new base:**
+
+| | Year-3 EBITDA | Break-even month | Bridge needed |
+|---|---:|---:|---:|
+| New base | 141,036 | 27 | 67,702 |
+| Price −20 % | 39,940 | 30 | 77,612 |
+| Sales 3 months late | 38,174 | 33 | 113,652 |
+| AI pack on 30 % of beds | 104,111 | 28 | 71,082 |
+| No public hospital | 74,264 | 27 | 67,702 |
+| Churn × 1.5 | 120,803 | 28 | 68,446 |
+
+Year-3 EBITDA stays positive under each shock on its own. Late sales hurt most, so plan for a bridge of about **115 k TND** to be safe.
+
+## 20. Sources
 
 - [INS / Kapitalis: hospital beds in Tunisia, public 22,888 (2022), private 7,821 (2023)](https://kapitalis.com/tunisie/?p=12906017)
 - [Oxford Business Group: Tunisian health sector structure (university, regional, district hospitals; private clinics)](https://oxfordbusinessgroup.com/overview/annual-check-solid-foundation-sector-ready-overhaul)
@@ -317,5 +391,20 @@ Measured by the pilot impact dashboard, with a baseline taken before go-live:
 - [Startup Genome: Tunisia ecosystem](https://startupgenome.com/ecosystems/Tunisia)
 - [Med.tn (Dealroom)](https://app.dealroom.co/companies/med_tn) and [Tobba.tn (We Are Tech Africa)](https://www.wearetech.africa/fr/fils/solutions/tunisie-tobba-tn-une-solution-de-sante-numerique-accessible-a-tous)
 - [Remote patient monitoring pricing benchmarks (US, for comparison only)](https://www.mindbowser.com/cost-of-remote-patient-monitoring/)
+
+Legal feasibility (section 18):
+- [Code de déontologie médicale (Tunisia), Decree 93-1155](https://fr.wikipedia.org/wiki/Code_de_d%C3%A9ontologie_m%C3%A9dicale_(Tunisie))
+- [Ordre des médecins (Centre): guide to medical practice, compérage](https://www.ordremedecins-centre.org.tn/fileadmin/contenu/Publications/guide_exercice_medecine.pdf)
+- [Ministry of Health: legal and regulatory texts](http://www.santetunisie.rns.tn/fr/presentations/textes-juridiques-et-reglementaires?start=19)
+- [Ministry of Health: specification for private health establishments](http://www.sicad.gov.tn/Fr/upload/1405507330.pdf)
+- [DPM: hospital pharmacy regulation](https://dpm.tn/accueil/reglementation/28-banner/169-reglementation-de-la-pharmacie-hospitaliere)
+- [DPM: registration of medical devices](http://www.dpm.tn/controle-technique/enregistrement-des-dispositifs-medicaux)
+- [Council of Europe / INPDP: health data protection toolkit](https://rm.coe.int/sante-projet-final-post-com-tech-juillet-2021-pour-soumission-19-10-20/pdf/1680a457b0)
+- [Council of Europe: data protection guide for doctors](https://rm.coe.int/protection-des-donnees-personnelles-guide-pratique-a-destination-des-m/1680a8dd33)
+- [INPDP newsletter: health data decision of September 2019](https://www.coe.int/web/tunis/newsletter_paii-t_2)
+- [Law 2004-63 compliance guide (2026)](https://www.dpo-consulting.com/fr-fr/blog/loi-tunisienne-sur-la-protection-des-donnees)
+- [La Presse: CNAM "zero paper" by the end of 2027](https://www.lapresse.tn/2026/01/10/digitalisation-des-services-de-la-cnam-vers-zero-papier-dci-la-fin-de-2027/)
+- [Webmanagercenter: about 8,600 private doctors' offices and 2,200 pharmacies (opinion column)](https://www.webmanagercenter.com/2022/10/22/493977/tribune-hassen-zargouni-les-chiffres-en-tunisie/)
+- [INS: Tunisia in figures 2020 (pharmacies, doctors)](https://www.ins.tn/sites/default/files-ftp3/files/publication/pdf/tec-newform-2020.pdf)
 
 Exchange rates used for rough conversions: 1 USD ≈ 3.1 TND, 1 EUR ≈ 3.4 TND (approximate).
