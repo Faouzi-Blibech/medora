@@ -10,6 +10,7 @@ import { useT } from "@/i18n/I18nProvider";
 import type { Appointment, ExamOrder } from "@/lib/types";
 import { now, tunisDate, tunisTime } from "@/lib/time";
 import { ErrorCard } from "@/components/shared/ErrorCard";
+import { UpcomingBanner } from "@/components/calendar/UpcomingBanner";
 import {
   bedLine,
   daysBetween,
@@ -87,6 +88,8 @@ export function Home() {
           </h1>
           <span className={styles.subline}>{[place, longDay(todayIso, lang)].filter(Boolean).join(" · ")}</span>
         </div>
+
+        <UpcomingBanner role="patient" href="/patient/calendar" />
 
         {failed ? (
           <ErrorCard

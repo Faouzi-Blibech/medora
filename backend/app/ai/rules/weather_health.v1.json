@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "note": "Weather-health rules for the hospital's city (Open-Meteo forecast and air quality). Illustrative thresholds inspired by public heat-health and air-quality guidance; NOT clinically validated, to be reviewed with the doctors. A rule fires for a forecast day when its metric crosses a threshold; 'delta' rules compare with the day before. Groups name who is most at risk; patients are matched from age and their history text.",
+  "groups": {
+    "elderly": {"min_age": 75, "keywords": []},
+    "children": {"max_age": 5, "keywords": ["nourrisson", "bebe", "infant", "رضيع"]},
+    "cardiac": {"keywords": ["cardi", "coronar", "infarct", "angor", "angine de poitrine", "heart", "hta", "hypertension", "قلب", "ضغط الدم"]},
+    "respiratory": {"keywords": ["asthm", "bpco", "copd", "bronch", "emphysem", "respirat", "pulmon", "ربو", "حساسية الصدر", "الرئة"]},
+    "kidney": {"keywords": ["renal", "renale", "dialys", "kidney", "كلى", "الكلية"]},
+    "diabetes": {"keywords": ["diab", "insulin", "سكري"]},
+    "pregnant": {"keywords": ["enceinte", "grossesse", "pregnan", "حامل"]}
+  },
+  "rules": [
+    {
+      "id": "heat_high", "metric": "apparent_max", "op": ">=", "value": 38, "severity": "high",
+      "groups": ["elderly", "cardiac", "kidney", "children", "pregnant", "diabetes"],
+      "title": {"en": "Heatwave: {value} °C felt", "fr": "Vague de chaleur : {value} °C ressentis", "ar": "موجة حر: {value} درجة محسوسة"},
+      "staff": {"en": "Expect dehydration, heat exhaustion, cardiac and kidney decompensation. Check fluids, diuretics and room temperature for elderly and cardiac patients.",
+                "fr": "Attendez-vous à des déshydratations, coups de chaleur et décompensations cardiaques ou rénales. Surveillez l'hydratation, les diurétiques et la température des chambres des patients âgés et cardiaques.",
+                "ar": "توقّع الجفاف والإنهاك الحراري وتدهور حالة مرضى القلب والكلى. راقب السوائل ومدرّات البول وحرارة الغرف لكبار السن ومرضى القلب."},
+      "patient": {"en": "Very hot day ahead. Drink water often, stay in the shade or a cool room between 11:00 and 17:00, and call the hospital if you feel dizzy, confused or short of breath.",
+                  "fr": "Journée très chaude. Buvez de l'eau souvent, restez à l'ombre ou au frais entre 11 h et 17 h, et appelez l'hôpital en cas de vertiges, de confusion ou d'essoufflement.",
+                  "ar": "يوم شديد الحرارة. اشرب الماء بانتظام، وابقَ في الظل أو في مكان بارد بين 11:00 و17:00، واتصل بالمستشفى إذا شعرت بدوار أو تشوّش أو ضيق في التنفس."}
+    },
+    {
+      "id": "heat", "metric": "apparent_max", "op": ">=", "value": 35, "severity": "moderate", "unless": ["heat_high"],
+      "groups": ["elderly", "cardiac", "kidney", "children"],
+      "title": {"en": "Hot day: {value} °C felt", "fr": "Forte chaleur : {value} °C ressentis", "ar": "حرارة مرتفعة: {value} درجة محسوسة"},
+      "staff": {"en": "Watch hydration of elderly, cardiac and kidney patients.", "fr": "Surveillez l'hydratation des patients âgés, cardiaques et rénaux.", "ar": "راقب ترطيب كبار السن ومرضى القلب والكلى."},
+      "patient": {"en": "Hot day ahead. Drink water regularly and avoid the midday sun.", "fr": "Journée chaude. Buvez régulièrement et évitez le soleil de midi.", "ar": "يوم حار. اشرب الماء بانتظام وتجنّب شمس منتصف النهار."}
+    },
+    {
+      "id": "sudden_warming", "metric": "tmax", "op": "delta>=", "value": 8, "severity": "moderate",
+      "groups": ["elderly", "cardiac", "respiratory"],
+      "title": {"en": "Sudden warming: +{value} °C in a day", "fr": "Réchauffement brutal : +{value} °C en un jour", "ar": "ارتفاع مفاجئ في الحرارة: +{value} درجة في يوم"},
+      "staff": {"en": "Sudden heat (often a sirocco wind) stresses the heart and lungs. Expect more cardiac and respiratory visits.", "fr": "Une hausse brutale (souvent le sirocco) sollicite le cœur et les poumons. Prévoir davantage de consultations cardiaques et respiratoires.", "ar": "الارتفاع المفاجئ للحرارة (غالبًا الشهيلي) يُجهد القلب والرئتين. توقّع زيادة في الحالات القلبية والتنفسية."},
+      "patient": {"en": "The temperature will rise suddenly. Drink more water and keep your usual medicines with you.", "fr": "La température va monter brusquement. Buvez davantage et gardez vos médicaments habituels avec vous.", "ar": "سترتفع الحرارة فجأة. اشرب ماءً أكثر واحتفظ بأدويتك المعتادة معك."}
+    },
+    {
+      "id": "cold_snap", "metric": "tmin", "op": "delta<=", "value": -8, "severity": "moderate",
+      "groups": ["elderly", "cardiac", "respiratory"],
+      "title": {"en": "Sudden cold: {value} °C overnight", "fr": "Coup de froid : {value} °C la nuit", "ar": "برد مفاجئ: {value} درجة ليلًا"},
+      "staff": {"en": "Sudden cold raises the risk of heart attack, stroke and respiratory infections. Review heating, blankets and inhaler use.", "fr": "Un froid brutal augmente le risque d'infarctus, d'AVC et d'infections respiratoires. Vérifiez chauffage, couvertures et inhalateurs.", "ar": "البرد المفاجئ يزيد خطر الجلطة القلبية والدماغية والالتهابات التنفسية. راجع التدفئة والأغطية واستعمال البخاخات."},
+      "patient": {"en": "A sudden cold night is coming. Dress warmly, keep your room warm and take your usual medicines on time.", "fr": "Une nuit froide arrive brusquement. Couvrez-vous, chauffez votre chambre et prenez vos médicaments à l'heure.", "ar": "ليلة باردة قادمة فجأة. تدفّأ جيدًا وحافظ على دفء غرفتك وتناول أدويتك في موعدها."}
+    },
+    {
+      "id": "cold", "metric": "tmin", "op": "<=", "value": 3, "severity": "moderate", "unless": ["cold_snap"],
+      "groups": ["elderly", "cardiac", "respiratory", "children"],
+      "title": {"en": "Cold night: {value} °C", "fr": "Nuit froide : {value} °C", "ar": "ليلة باردة: {value} درجة"},
+      "staff": {"en": "Check heating and warm clothing for frail patients.", "fr": "Vérifiez le chauffage et les vêtements chauds des patients fragiles.", "ar": "تحقّق من التدفئة والملابس الدافئة للمرضى الضعفاء."},
+      "patient": {"en": "Cold night ahead. Dress warmly and keep your room warm.", "fr": "Nuit froide. Couvrez-vous bien et chauffez votre chambre.", "ar": "ليلة باردة. تدفّأ جيدًا وحافظ على دفء غرفتك."}
+    },
+    {
+      "id": "dust", "metric": "dust_max", "op": ">=", "value": 150, "severity": "high",
+      "groups": ["respiratory", "cardiac", "children", "elderly"],
+      "title": {"en": "Sand-dust episode: {value} µg/m³", "fr": "Épisode de poussière de sable : {value} µg/m³", "ar": "موجة غبار: {value} ميكروغرام/م³"},
+      "staff": {"en": "Saharan dust triggers asthma and COPD attacks and cardiac events. Check inhalers and oxygen stock; keep windows closed.", "fr": "La poussière saharienne déclenche crises d'asthme, exacerbations de BPCO et événements cardiaques. Vérifiez inhalateurs et stock d'oxygène ; fenêtres fermées.", "ar": "غبار الصحراء يسبّب نوبات الربو وتفاقم الانسداد الرئوي والحوادث القلبية. تحقّق من البخاخات ومخزون الأكسجين وأبقِ النوافذ مغلقة."},
+      "patient": {"en": "Dusty air is expected. Stay indoors with windows closed, wear a mask outside and keep your inhaler with you.", "fr": "De la poussière est attendue. Restez à l'intérieur fenêtres fermées, portez un masque dehors et gardez votre inhalateur.", "ar": "يُتوقّع هواء مغبر. ابقَ في الداخل والنوافذ مغلقة، وارتدِ كمامة في الخارج واحتفظ ببخاخك."}
+    },
+    {
+      "id": "dust_moderate", "metric": "dust_max", "op": ">=", "value": 80, "severity": "moderate", "unless": ["dust"],
+      "groups": ["respiratory"],
+      "title": {"en": "Dusty air: {value} µg/m³", "fr": "Air poussiéreux : {value} µg/m³", "ar": "هواء مغبر: {value} ميكروغرام/م³"},
+      "staff": {"en": "Asthma and COPD patients may need their reliever more often.", "fr": "Les patients asthmatiques et BPCO peuvent avoir besoin de leur traitement de secours plus souvent.", "ar": "قد يحتاج مرضى الربو والانسداد الرئوي إلى بخاخ الإسعاف أكثر من المعتاد."},
+      "patient": {"en": "Some dust in the air. If you have asthma, keep your inhaler with you.", "fr": "Un peu de poussière dans l'air. Si vous êtes asthmatique, gardez votre inhalateur.", "ar": "بعض الغبار في الهواء. إذا كنت مصابًا بالربو، احتفظ ببخاخك."}
+    },
+    {
+      "id": "air_quality", "metric": "aqi_max", "op": ">=", "value": 150, "severity": "moderate", "unless": ["dust"],
+      "groups": ["respiratory", "cardiac"],
+      "title": {"en": "Unhealthy air (AQI {value})", "fr": "Air de mauvaise qualité (IQA {value})", "ar": "هواء غير صحي (مؤشر {value})"},
+      "staff": {"en": "Poor air quality: watch respiratory and cardiac patients.", "fr": "Mauvaise qualité de l'air : surveillez les patients respiratoires et cardiaques.", "ar": "جودة هواء سيئة: راقب مرضى الجهاز التنفسي والقلب."},
+      "patient": {"en": "The air is not healthy today. Limit time outside.", "fr": "L'air n'est pas sain aujourd'hui. Limitez les sorties.", "ar": "الهواء غير صحي اليوم. قلّل الخروج."}
+    },
+    {
+      "id": "heavy_rain", "metric": "precip", "op": ">=", "value": 30, "severity": "moderate",
+      "groups": ["elderly"],
+      "title": {"en": "Heavy rain: {value} mm", "fr": "Fortes pluies : {value} mm", "ar": "أمطار غزيرة: {value} مم"},
+      "staff": {"en": "Possible flooding and falls; staff and patients may arrive late. Expect missed appointments.", "fr": "Inondations et chutes possibles ; retards du personnel et des patients. Prévoir des rendez-vous manqués.", "ar": "احتمال فيضانات وسقوط؛ قد يتأخر الموظفون والمرضى. توقّع مواعيد فائتة."},
+      "patient": {"en": "Heavy rain is expected. If you have an appointment, leave early or call to change it.", "fr": "De fortes pluies sont attendues. Si vous avez un rendez-vous, partez tôt ou appelez pour le décaler.", "ar": "يُتوقّع مطر غزير. إن كان لديك موعد، اخرج مبكرًا أو اتصل لتغييره."}
+    }
+  ]
+}

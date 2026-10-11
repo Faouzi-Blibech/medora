@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "note": "Illustrative, not a clinical reference; to be validated by the hospital's pharmacists. A pair matches when one drug carries the first group and another drug the second (either order). Severity: critical, major or moderate. `vka` (vitamin K antagonists: warfarin, acenocoumarol) is separate from `anticoagulant` so that heparins do not raise an INR alert. `duplicate_classes`: drugs whose ATC code starts with one of a class's prefixes count as one therapeutic class for duplicate-therapy checks.",
+  "pairs": [
+    {"groups": ["opioid", "benzodiazepine"], "severity": "critical", "note": "respiratory depression"},
+    {"groups": ["potassium", "potassium_sparing"], "severity": "critical", "note": "hyperkalaemia"},
+    {"groups": ["anticoagulant", "nsaid"], "severity": "major", "note": "bleeding risk"},
+    {"groups": ["anticoagulant", "antiplatelet"], "severity": "major", "note": "bleeding risk"},
+    {"groups": ["vka", "warfarin_potentiator"], "severity": "major", "note": "raised INR, bleeding risk"},
+    {"groups": ["anticoagulant", "anticoagulant"], "severity": "major", "note": "double anticoagulation, bleeding risk"},
+    {"groups": ["potassium", "ace_inhibitor"], "severity": "major", "note": "hyperkalaemia"},
+    {"groups": ["potassium", "arb"], "severity": "major", "note": "hyperkalaemia"},
+    {"groups": ["ace_inhibitor", "potassium_sparing"], "severity": "major", "note": "hyperkalaemia"},
+    {"groups": ["macrolide_cyp3a4", "statin_cyp3a4"], "severity": "major", "note": "myopathy, rhabdomyolysis"},
+    {"groups": ["serotonergic", "serotonergic"], "severity": "major", "note": "serotonin syndrome"},
+    {"groups": ["opioid", "opioid"], "severity": "major", "note": "additive respiratory depression"},
+    {"groups": ["qt_prolonging", "qt_prolonging"], "severity": "moderate", "note": "QT prolongation"},
+    {"groups": ["cardiac_glycoside", "loop_diuretic"], "severity": "moderate", "note": "low potassium raises digoxin toxicity"},
+    {"groups": ["ace_inhibitor", "arb"], "severity": "major", "note": "hyperkalaemia, kidney injury"},
+    {"groups": ["antiplatelet", "nsaid"], "severity": "major", "note": "bleeding risk; NSAIDs also blunt the antiplatelet effect"},
+    {"groups": ["cardiac_glycoside", "digoxin_potentiator"], "severity": "major", "note": "raised digoxin level, toxicity"},
+    {"groups": ["hypoglycemic", "beta_blocker"], "severity": "moderate", "note": "beta-blockers mask the signs of hypoglycaemia"},
+    {"groups": ["nsaid", "ace_inhibitor"], "severity": "moderate", "note": "weaker blood-pressure control, kidney injury"},
+    {"groups": ["nsaid", "loop_diuretic"], "severity": "moderate", "note": "weaker diuretic effect, kidney injury"}
+  ],
+  "duplicate_classes": {"nsaid": ["M01A"]}
+}

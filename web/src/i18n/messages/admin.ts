@@ -3,6 +3,7 @@ import { messages } from "../define";
 // Admin screens (dashboard, waitlist, beds & devices, staff) and the shared Waitlist table.
 export const admin = messages({
   en: {
+    dashAlertsClinical: "Handled by nurses and doctors",
     // page titles
     dashboard: "Dashboard",
     waitlist: "Waitlist",
@@ -175,6 +176,7 @@ export const admin = messages({
     wardAdministration: "Administration",
   },
   fr: {
+    dashAlertsClinical: "Gérées par les infirmiers et médecins",
     dashboard: "Tableau de bord",
     waitlist: "Liste d’attente",
     bedsDevices: "Lits et appareils",
@@ -341,6 +343,7 @@ export const admin = messages({
     wardAdministration: "Administration",
   },
   ar: {
+    dashAlertsClinical: "يتولاها الممرضون والأطباء",
     dashboard: "لوحة المتابعة",
     waitlist: "قائمة الانتظار",
     bedsDevices: "الأسرّة والأجهزة",

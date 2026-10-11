@@ -1,7 +1,7 @@
 "use client";
 
 // One patient screen inside the phone frame: status bar, the Ward brand row, the body
-// (passed as children; each screen sets its own padding) and, on Home and My vitals, the tab bar.
+// (passed as children; each screen sets its own padding) and, on the tabbed screens, the tab bar.
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { getMyAppointments } from "@/lib/api";
@@ -13,7 +13,7 @@ import { now, tunisTime } from "@/lib/time";
 import { myPatientId } from "./patient";
 import styles from "./Patient.module.css";
 
-export type PatientTab = "home" | "vitals" | "assistant" | "appts";
+export type PatientTab = "home" | "vitals" | "assistant" | "appts" | "calendar";
 
 export interface PatientScreenProps {
   /** Status bar clock. Default: the demo clock ("09:12"). */
@@ -70,6 +70,7 @@ const TABS: { key: PatientTab; label: Key; shape: string }[] = [
   { key: "vitals", label: "patient.tabVitals", shape: "tabVitals" },
   { key: "assistant", label: "patient.tabAssistant", shape: "tabAssistant" },
   { key: "appts", label: "patient.tabAppts", shape: "tabAppts" },
+  { key: "calendar", label: "calendar.tab", shape: "tabCalendar" },
 ];
 
 /** The next appointment's page, or Home when there is none. */
@@ -96,7 +97,7 @@ function useApptHref(given?: string): string {
 export function TabBar({ active, apptHref }: { active: PatientTab; apptHref?: string }) {
   const { t } = useT();
   const appts = useApptHref(apptHref);
-  const hrefs: Record<PatientTab, string> = { home: "/patient", vitals: "/patient/vitals", assistant: "/patient/assistant", appts };
+  const hrefs: Record<PatientTab, string> = { home: "/patient", vitals: "/patient/vitals", assistant: "/patient/assistant", appts, calendar: "/patient/calendar" };
   return (
     <nav className={styles.tabBar} aria-label={t("patient.navLabel")}>
       {TABS.map((tab) => (

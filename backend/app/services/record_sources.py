@@ -21,6 +21,10 @@ from app.services.schedule import local_to_utc, today_local
 
 log = logging.getLogger(__name__)
 NOTES_LIMIT = 40
+RX_LABEL = {"validated": "Active prescription", "pending_pharmacy": "Prescription pending pharmacy review",
+            "changes_requested": "Prescription returned by the pharmacist for changes",
+            "rejected": "Prescription rejected by the pharmacist", "stopped": "Stopped prescription",
+            "superseded": "Replaced prescription"}
 PDF_CHARS = 20_000
 
 
@@ -94,7 +98,9 @@ def build(db: Session, p: Patient, role: str) -> list[Source]:
                          .order_by(Prescription.created_at.desc()).limit(10)):
         items = "; ".join(f"{i.get('med')} at {', '.join(i.get('times') or [])} for {i.get('days')} days"
                           for i in rx.items)
-        text = f"{'Active' if rx.active else 'Stopped'} prescription: {items}."
+        label = ("Urgent prescription, running, pending pharmacy review"
+                 if rx.status == "pending_pharmacy" and rx.urgent else RX_LABEL.get(rx.status, "Prescription"))
+        text = f"{label}: {items}."
         if rx.care_plan:
             text += f" Care plan: {rx.care_plan}"
         out.append(Source(f"rx:{rx.id}", "prescription", f"Prescription {_day(rx.created_at)}",
@@ -106,7 +112,9 @@ def build(db: Session, p: Patient, role: str) -> list[Source]:
                                              MedDose.scheduled_at < local_to_utc(day + timedelta(days=1), "00:00"))
                        .order_by(MedDose.scheduled_at)).all()
     if doses:
-        text = " ".join(f"{d.time_of_day} {', '.join(d.meds)}: {d.status}." for d in doses)
+        text = " ".join(f"{d.time_of_day} {', '.join(d.meds)}: {d.status}"
+                        + (" (time already passed)" if d.status == "scheduled" and d.scheduled_at <= now else "") + "."
+                        for d in doses)
         out.append(Source("doses:today", "doses", "Today's doses (Tunis time)", _iso(now), text))
 
     since = now - timedelta(hours=24)

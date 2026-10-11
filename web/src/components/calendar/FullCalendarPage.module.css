@@ -1,0 +1,76 @@
+/* /calendar: a slim brand row over the full-width calendar. Logical properties for Arabic. */
+.page {
+  min-height: 100vh;
+  background: var(--canvas);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 20px 40px 0;
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.mark {
+  width: 12px;
+  height: 12px;
+  background: var(--teal);
+  border-radius: 3px;
+}
+
+.name {
+  font: 600 28px/1 var(--serif);
+  letter-spacing: -0.01em;
+}
+
+.tag {
+  font: 600 12px/1 var(--sans);
+  white-space: nowrap;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 9px;
+}
+
+.flex {
+  flex: 1;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font: 600 14px/1 var(--sans);
+  text-decoration: none;
+}
+
+.back:hover {
+  background: var(--line-soft);
+}
+
+/* The arrow points "back" in either direction. */
+:global([dir="rtl"]) .arrow {
+  display: inline-block;
+  transform: scaleX(-1);
+}
+
+@media (max-width: 640px) {
+  .head {
+    padding: 16px 16px 0;
+  }
+}
