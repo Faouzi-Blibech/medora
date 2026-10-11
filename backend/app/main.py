@@ -11,8 +11,8 @@ from app.config import check_secrets, get_settings
 from app.db import engine
 from app.iot import publisher
 from app.routers import (access, ai, alerts, appointments, auth, devices, dispensations, doses, drugs, exams,
-                         health_events, healthwatch, impact, integrations, patients, pharmacy, pharmacy_stock,
-                         prescriptions, radiology, staff, users)
+                         handover, health_events, healthwatch, impact, integrations, patients, pharmacy,
+                         pharmacy_stock, prescriptions, radiology, staff, users)
 from app.ws import relay
 from app.ws import router as ws_router
 from app.ws.hub import hub
@@ -57,6 +57,7 @@ app.include_router(appointments.router)
 app.include_router(integrations.router)
 app.include_router(ai.router)
 app.include_router(exams.router)
+app.include_router(handover.router)
 app.include_router(health_events.router)
 app.include_router(healthwatch.router)
 app.include_router(radiology.router)

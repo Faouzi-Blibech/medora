@@ -319,6 +319,17 @@ Nurse round: each `Dose` in `GET /patients/{id}/doses` (and `POST /doses/{id}/gi
 
 `source` is `"model"` (a trained model decided), `"rules"` (deterministic rules only) or `"llm"` (the optional open LLM wrote the text) on every AI response, so the UI can show a badge.
 
+## Shift handover (1.17 — Faouzi)
+
+| Method & path | Roles | Notes |
+|---|---|---|
+| `GET /handover?ward=&hours=12&lang=` | nurse (her ward, plus her supervisor doctor's patients; another `ward` is 403 like `GET /patients`), doctor (his patients) | `hours` is 8, 12 or 24 (anything else falls back to 12); `lang` (`en`\|`fr`\|`ar`, optional) only steers the optional LLM narrative. → `{"window_hours","generated_at","items":[Handover]}`, highest NEWS2 first. Items: patients with an active admission, plus patients in scope with vitals, notes, alerts or doses in the window. Each item is an audited read (`handover`). |
+| `POST /handover/{patient_id}/confirm` | nurse (write access to the patient) | `{"hours"?: 12, "lang"?}` → `Handover` with `confirmation` set. The outgoing nurse read the draft: it is stored in `handovers` (`ai_suggested` = the draft, `human_confirmed_by` = the nurse). Audited (`handover`, `update`). |
+
+`Handover`: `{"patient":{"id","first_name","last_name","ward","bed","age","sex"}, "window":{"hours","from","to"}, "situation":{"bed","ward","reason","admitted_at","latest_news2","news2_trend":"rising"|"falling"|"stable"|null,"latest_vital_at"}, "background":{"allergies[]","meds":[{"med","times[]"}],"care_plans[]"}, "assessment":{"vitals":{"count","hr","spo2","temp","news2"} (each `{"min","max","latest","trend"}` or null), "alerts":{"raised","acked","open":[{"id","kind","severity","message","created_at"}]}, "doses":{"given","missed":[Dose]}, "notes":[{"text","author_name","created_at"}] (last 5), "notes_count"}, "recommendations":[{"code","params"}], "upcoming_doses":[Dose], "narrative", "source":"rules"|"llm", "generated_at", "confirmation":null|{"id","human_confirmed_by","human_confirmed_by_name","confirmed_at","window_hours","source"}}` with `Dose` = `{"id","scheduled_at","time","meds[]","status"}` (`time` is HH:MM Africa/Tunis).
+
+Recommendation `code`s (rules in `backend/app/ai/rules/handover.v1.json`; the UI translates them): `news2_high {score}`, `news2_rising {from,to}`, `open_alert {kind,severity,time,at}`, `missed_dose {time,meds}` (status `missed`, or still scheduled/dispensed 60 min after its time), `no_vitals {hours}`, `pending_exam {label}` (exam `ordered`), `next_dose {time,meds}` (next 4 h), `routine {}` (nothing else). The structured sections always come from rules; with an LLM configured only `narrative` may be rewritten (kept only if it adds or changes no number). `confirmation` is the latest confirmation within the window.
+
 ## Health watch (Faouzi)
 
 | Method + path | Who | Body / response |
@@ -557,6 +568,7 @@ Still proposed: `GET /offers/{id}`, `POST /offers/{id}/accept` and `GET /patient
 ## Changelog
 
 - **1.18** (2026-10-11): `GET /admin/impact?days=` pilot impact indicators (admin, aggregates only). Owner: Faouzi; router in the backend area (Wali).
+- **1.17** (2026-10-11): nurse shift handover — `GET /handover` (rules-based SBAR draft per patient, optional LLM narrative) and `POST /handover/{patient_id}/confirm` (the outgoing nurse confirms; stored in `handovers`, data-model 1.10). Owner: Faouzi.
 - **1.16** (2026-10-11): `POST /patients/{id}/vitals`: a reading taken by hand on a nurse round (source `manual`), so vitals have a real collection path besides the simulated bedside feed. Owner: Faouzi (route in Wali's `patients.py`).
 - **1.15** (2026-10-11): hospital pharmacy. Role `pharmacist` (sign-up; only the admin approves). Drug catalogue (`/drugs`). Prescriptions gain a pharmacy status, `urgent`, versions (`replaces_id`, 409 `conflict` while a later version is live), `checks` (incl. `dose_unverified` and moderate cross-reactivity `allergy`), `override_reason` and review fields; `POST /prescriptions/check` dry run; 422 `override_required`/`unknown_drug`; `PATCH` only stops. Pharmacist worklist, review and decisions (`/pharmacy/*`), WS `prescription_status`; `POST /doses/{id}/given` and `dispense_now` refuse doses of inactive prescriptions. Dispensing, nurse receipt, stock and the dose `pharmacy` field. Owner: Hedi.
 - **1.14** (2026-10-10): radiograph reading — `GET/PUT /exam-results/{id}/reading`, `POST /patients/{id}/radiographs`, `results[].reading`, exam codes `xray`/`xray_outside`, WS frame `radiograph_reading`.

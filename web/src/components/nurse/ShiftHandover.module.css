@@ -1,0 +1,533 @@
+/* Nurse / Shift handover */
+.page {
+  padding: 36px 40px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.head {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.titleBlock {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.title {
+  margin: 0;
+  font: 600 40px/1.1 var(--serif);
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.sub {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.segment {
+  display: flex;
+  padding: 4px;
+  background: var(--segment);
+  border-radius: 10px;
+  gap: 4px;
+}
+
+.segBtn {
+  min-height: 44px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 7px;
+  font: 600 15px/1 var(--sans);
+  cursor: pointer;
+  background: transparent;
+  color: var(--text);
+}
+
+.segOn {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--shadow-segment);
+}
+
+.print {
+  min-height: 52px;
+  padding: 0 18px;
+  font: 600 15px/1 var(--sans);
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.print:hover:not(:disabled) {
+  background: var(--canvas);
+}
+
+.print:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.disclaimer {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--warn-ink);
+  background: var(--warn-bg);
+  padding: 9px 12px;
+  border-radius: 8px;
+  align-self: flex-start;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.bed {
+  font: 600 24px/1 var(--serif);
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.meta {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.badge {
+  margin-inline-start: auto;
+}
+
+.narrative {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--ai-bg);
+}
+
+.narrative p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre-line;
+}
+
+.sbar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.sec {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--canvas);
+}
+
+.secTitle {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 600 17px/1.2 var(--serif);
+  color: var(--ink);
+}
+
+.letter {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--ink);
+  color: var(--paper);
+  font: 700 14px/1 var(--sans);
+}
+
+.secLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 14px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.dl dt {
+  color: var(--muted);
+}
+
+.dl dd {
+  margin: 0;
+  color: var(--text);
+}
+
+.plain {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.times {
+  color: var(--muted);
+}
+
+.allergies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.allergy {
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--danger-ink);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-line);
+}
+
+.vitals {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vital {
+  display: grid;
+  grid-template-columns: 64px max-content minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  font-size: 15px;
+}
+
+.vitalLabel {
+  color: var(--muted);
+}
+
+.vitalVal {
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.vitalMeta {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.trend_rising {
+  color: var(--news-high-fg);
+  font-weight: 700;
+}
+
+.trend_falling {
+  color: var(--doctor-fg);
+  font-weight: 700;
+}
+
+.trend_stable {
+  color: var(--news-normal-fg);
+}
+
+.muted {
+  margin: 0;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.notes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.notes li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.noteMeta {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.recs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rec {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 15px;
+  line-height: 1.45;
+  background: var(--paper);
+  border: 1px solid var(--line-soft);
+  color: var(--text);
+}
+
+.recDot {
+  width: 9px;
+  height: 9px;
+  margin-top: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.tone_danger {
+  background: var(--danger-row);
+  border-color: var(--danger-line);
+  color: var(--danger-ink);
+}
+
+.tone_danger .recDot {
+  background: var(--danger);
+}
+
+.tone_warn {
+  background: var(--warn-bg);
+  border-color: var(--warn-line);
+  color: var(--warn-ink);
+}
+
+.tone_warn .recDot {
+  background: var(--warn-dot);
+}
+
+.tone_info .recDot {
+  background: var(--teal);
+}
+
+.tone_ok {
+  background: var(--news-normal-bg);
+  border-color: var(--confirmed-line);
+  color: var(--news-normal-fg);
+}
+
+.tone_ok .recDot {
+  background: var(--news-normal-edge);
+}
+
+.cardFoot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.confirm {
+  font: 600 15px/1 var(--sans);
+  color: var(--paper);
+  background: var(--ink);
+  border: none;
+  border-radius: 8px;
+  padding: 14px 18px;
+  cursor: pointer;
+}
+
+.confirm:hover {
+  background: var(--ink-hover);
+}
+
+.confirm:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.error {
+  font-size: 14px;
+  color: var(--danger-ink);
+}
+
+.confirmed {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--news-normal-bg);
+  color: var(--news-normal-fg);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.check {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--teal);
+  color: var(--paper);
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+}
+
+.empty {
+  padding: 48px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.emptyTitle {
+  font: 600 24px/1.2 var(--serif);
+  color: var(--ink);
+}
+
+.emptyText {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+@media (max-width: 1100px) {
+  .page {
+    padding: 24px 22px 28px;
+  }
+
+  .title {
+    font-size: 32px;
+  }
+
+  .sbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Print: only the handover cards, black on white, one card never split across pages. */
+@media print {
+  :global(body):has(.page) * {
+    visibility: hidden;
+  }
+
+  :global(body):has(.page) :global(aside) {
+    display: none;
+  }
+
+  :global(body):has(.page) .page,
+  :global(body):has(.page) .page * {
+    visibility: visible;
+  }
+
+  .page {
+    position: absolute;
+    inset: 0 0 auto 0;
+    padding: 0;
+    gap: 10px;
+  }
+
+  .noPrint,
+  .cardFoot button {
+    display: none;
+  }
+
+  .title {
+    font-size: 26px;
+  }
+
+  .card {
+    break-inside: avoid;
+    border-color: #999;
+    box-shadow: none;
+  }
+
+  .sec,
+  .rec,
+  .narrative,
+  .disclaimer {
+    background: #fff;
+  }
+}

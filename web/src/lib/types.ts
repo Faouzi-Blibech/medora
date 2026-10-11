@@ -842,6 +842,58 @@ export interface RadiographReading {
   confirmed_by_name?: string | null; confirmed_at?: string | null; created_at?: string; finished_at?: string | null;
 }
 
+// ── Nurse shift handover (api.md 1.17) ──────────────────────────────────────
+
+export type HandoverTrend = "rising" | "falling" | "stable";
+export interface HandoverRange { min: number; max: number; latest: number; trend: HandoverTrend; }
+export interface HandoverDose { id: string; scheduled_at: string; time: string; meds: string[]; status: DoseStatus; }
+export type HandoverRecCode =
+  | "news2_high"
+  | "news2_rising"
+  | "open_alert"
+  | "missed_dose"
+  | "no_vitals"
+  | "pending_exam"
+  | "next_dose"
+  | "routine";
+export interface HandoverRecommendation { code: HandoverRecCode; params: Record<string, string | number>; }
+export interface HandoverConfirmation {
+  id: string;
+  human_confirmed_by: string;
+  human_confirmed_by_name: string | null;
+  confirmed_at: string;
+  window_hours: number;
+  source: AiSource | null;
+}
+export interface Handover {
+  patient: { id: string; first_name: string; last_name: string; ward: string | null; bed: string | null; age: number | null; sex: "F" | "M" | null };
+  window: { hours: number; from: string; to: string };
+  situation: {
+    bed: string | null;
+    ward: string | null;
+    reason: string;
+    admitted_at: string | null;
+    latest_news2: number | null;
+    news2_trend: HandoverTrend | null;
+    latest_vital_at: string | null;
+  };
+  background: { allergies: string[]; meds: { med: string; times: string[] }[]; care_plans: string[] };
+  assessment: {
+    vitals: { count: number; hr: HandoverRange | null; spo2: HandoverRange | null; temp: HandoverRange | null; news2: HandoverRange | null };
+    alerts: { raised: number; acked: number; open: { id: string; kind: AlertKind; severity: AlertSeverity; message: string; created_at: string }[] };
+    doses: { given: number; missed: HandoverDose[] };
+    notes: { text: string; author_name: string | null; created_at: string }[];
+    notes_count: number;
+  };
+  recommendations: HandoverRecommendation[];
+  upcoming_doses: HandoverDose[];
+  narrative: string;
+  source: AiSource;
+  generated_at: string;
+  confirmation: HandoverConfirmation | null;
+}
+export interface HandoverList { window_hours: number; generated_at: string; items: Handover[]; }
+
 /** GET /admin/impact (api.md 1.18): pilot impact indicators, aggregates only. */
 export type ImpactGroup = "alerts" | "medication" | "appointments" | "monitoring" | "workload";
 export type ImpactUnit = "count" | "pct" | "minutes" | "hours" | "days" | "rate";
