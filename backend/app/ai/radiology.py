@@ -83,6 +83,20 @@ def prepare_image(data: bytes) -> bytes:
     return out.getvalue()
 
 
+# A small vision model that sees nothing has not proven the image is normal: never let its draft read "normal".
+NO_FINDING = {
+    "fr": "Aucune anomalie détectée par l'IA. Cela n'exclut pas une anomalie : lecture médicale requise.",
+    "en": "No abnormality detected by the AI. This does not rule one out: a doctor must read the image.",
+}
+
+
+def guard_normal(d: RadiographDraft, lang: str) -> RadiographDraft:
+    """Without a medium/high condition or an urgent flag, the impression becomes the cautious NO_FINDING line."""
+    if d.urgent_flags or any(c.likelihood in ("medium", "high") for c in d.possible_conditions):
+        return d
+    return d.model_copy(update={"impression": NO_FINDING[_lang(lang)]})
+
+
 def render(d: RadiographDraft, lang: str) -> str:
     lang = _lang(lang)
     h, lk = HEAD[lang], LIKELY[lang]
@@ -123,6 +137,7 @@ def read(data: bytes, hint: str = "") -> tuple[str, dict]:
     except llm.LLMUnavailable as e:
         bad = any(k in str(e).lower() for k in ("validation", "json", "expecting"))
         return "unavailable", template(lang, "invalid model output" if bad else "vision model unavailable")
+    d = guard_normal(d, lang)
     return "ready", {"source": "llm", "model": s.llm_vision_model, **d.model_dump(),
                      "draft_text": render(d, lang), "disclaimer": DISCLAIMER}
 
