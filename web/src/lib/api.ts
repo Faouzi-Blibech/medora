@@ -82,7 +82,11 @@ import type {
   WorklistStatus,
 } from "./types";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// NEXT_PUBLIC_API_URL when set; otherwise the API on port 8000 of the host the page was opened from, so the app keeps
+// working when the laptop's network address changes (localhost on the laptop, the LAN address on a phone).
+const BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== "undefined" ? `${window.location.protocol}//${window.location.hostname}:8000` : "http://localhost:8000");
 export const MOCK_DELAY_MS = 150;
 const TOKEN_KEY = "ward_token";
 const DEFAULT_WARD = "Cardiology";
