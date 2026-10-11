@@ -133,6 +133,10 @@ export const patient = messages({
     askPlaceholder: "Ask about medicines or appointments",
     askLabel: "Your question",
     send: "Send",
+    layoutLabel: "Screen layout",
+    layoutPhone: "Phone view",
+    layoutDesktop: "Desktop view",
+    tabHomeCare: "After discharge",
   },
   fr: {
     chatIntro: "Posez-moi vos questions sur vos médicaments, rendez-vous, examens ou dernières mesures. Je réponds uniquement à partir de votre dossier, dans votre langue.",
@@ -265,6 +269,10 @@ export const patient = messages({
     askPlaceholder: "Posez une question sur vos médicaments ou rendez-vous",
     askLabel: "Votre question",
     send: "Envoyer",
+    layoutLabel: "Affichage",
+    layoutPhone: "Vue téléphone",
+    layoutDesktop: "Vue ordinateur",
+    tabHomeCare: "Après la sortie",
   },
   ar: {
     chatIntro: "اسألني عن أدويتك أو مواعيدك أو فحوصاتك أو آخر قياساتك. أجيب فقط من ملفك في المستشفى، وبلغتك.",
@@ -397,5 +405,9 @@ export const patient = messages({
     askPlaceholder: "اسأل عن الأدوية أو المواعيد",
     askLabel: "سؤالك",
     send: "إرسال",
+    layoutLabel: "طريقة العرض",
+    layoutPhone: "عرض الهاتف",
+    layoutDesktop: "عرض الحاسوب",
+    tabHomeCare: "بعد الخروج",
   },
 });

@@ -10,6 +10,8 @@ import type { Key } from "@/i18n/messages";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { LogoutButton } from "@/components/LogoutButton";
 import { now, tunisTime } from "@/lib/time";
+import { useFrameLayout } from "./frameLayout";
+import { LayoutSwitch } from "./LayoutSwitch";
 import { myPatientId } from "./patient";
 import styles from "./Patient.module.css";
 
@@ -30,6 +32,9 @@ export interface PatientScreenProps {
 }
 
 export function PatientScreen({ time, icons = true, brand = true, nav, apptHref, children }: PatientScreenProps) {
+  // Desktop: the sidebar carries the brand and the navigation, and there is no fake status bar.
+  const { layout } = useFrameLayout();
+  if (layout === "desktop") return <>{children}</>;
   return (
     <>
       <div className={styles.statusBar} aria-hidden="true">
@@ -61,6 +66,7 @@ export function Brand() {
       <Link href="/patient/password" className={styles.protoTag}>{t("auth.navPassword")}</Link>
       <LogoutButton className={styles.logoutBtn} />
       <LanguageSwitcher compact tone="light" />
+      <LayoutSwitch tone="light" />
     </div>
   );
 }
@@ -74,7 +80,7 @@ const TABS: { key: PatientTab; label: Key; shape: string }[] = [
 ];
 
 /** The next appointment's page, or Home when there is none. */
-function useApptHref(given?: string): string {
+export function useApptHref(given?: string): string {
   const [href, setHref] = useState(given ?? "/patient");
   useEffect(() => {
     if (given) return;

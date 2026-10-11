@@ -396,6 +396,28 @@
   gap: 18px;
 }
 
+/* Column wrappers for the desktop; on the phone they vanish and `order` keeps the design's sequence
+   (title, event banner, medicines, …, next appointment, ask). */
+.homeMain,
+.homeSide {
+  display: contents;
+}
+
+.homeBody > .offline,
+.homeBody > .titleBlock {
+  order: -2;
+}
+
+.homeBanner {
+  order: -1;
+  display: flex;
+  flex-direction: column;
+}
+
+.homeBanner:empty {
+  display: none;
+}
+
 .medsCard {
   padding: 18px 18px 6px;
 }
@@ -1083,4 +1105,127 @@
   inset-inline-end: 16px;
   bottom: 96px;
   max-width: none;
+}
+
+/* ── Desktop patient platform ──────────────────────────────────────────── */
+
+/* Until the signed-in user (and so the layout) is known. */
+.blank {
+  min-height: 100vh;
+  background: var(--canvas);
+}
+
+.desk {
+  display: flex;
+  min-height: 100vh;
+  background: var(--canvas);
+  font-family: var(--font-public-sans), "Public Sans", var(--font-noto-arabic), "Noto Sans Arabic", system-ui, sans-serif;
+  color: var(--text);
+}
+
+.deskAside {
+  width: 248px;
+  flex: none;
+  background: var(--ink);
+}
+
+.deskAsideInner {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+/* Full viewport height: each screen's own scroll area (or the chat list) scrolls inside it. */
+.deskMain {
+  position: relative; /* anchors absolutely placed toasts */
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Content stays in a centred column while the scroll bar sits at the window edge. */
+.deskMain .scroll {
+  padding: 36px max(40px, calc((100% - 1120px) / 2)) 48px;
+}
+
+.deskMain .deskCalendar {
+  padding: 0;
+}
+
+.deskMain .apptBody {
+  padding: 36px max(40px, calc((100% - 720px) / 2)) 48px;
+}
+
+.deskMain .result {
+  padding: 96px max(40px, calc((100% - 560px) / 2)) 48px;
+}
+
+.deskMain .result .flex {
+  flex: none;
+}
+
+.deskMain .h1 {
+  font-size: 40px;
+}
+
+.deskMain .h1Small {
+  font-size: 34px;
+}
+
+/* Home: medicines and exams | event banner, next appointment, ask. */
+.deskMain .homeBody {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-content: start;
+  gap: 24px 28px;
+}
+
+.deskMain .homeBody > .offline,
+.deskMain .homeBody > .titleBlock {
+  grid-column: 1 / -1;
+}
+
+.deskMain .homeMain,
+.deskMain .homeSide {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+/* Vitals: three tiles in a row, a taller chart. */
+.deskMain .tiles {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.deskMain .tileWide {
+  grid-column: auto;
+}
+
+.deskMain .chart {
+  height: 180px;
+}
+
+/* After discharge: follow-up | medicines, the desk card underneath. */
+.deskMain .homeCareBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-content: start;
+  gap: 20px 24px;
+}
+
+.deskMain .homeCareBody > :not(.followCard):not(.homeMedsCard) {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 900px) {
+  .deskMain .homeBody,
+  .deskMain .homeCareBody {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
