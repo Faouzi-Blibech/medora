@@ -247,7 +247,7 @@ export interface Triage {
 }
 
 export type ExamStatus = "suggested" | "ordered" | "done" | "cancelled";
-export interface ExamResultFile { id: string; file_name: string; content_type: string; size_bytes: number; report_text: string; uploaded_by_name: string | null; created_at: string; }
+export interface ExamResultFile { id: string; file_name: string; content_type: string; size_bytes: number; report_text: string; uploaded_by_name: string | null; created_at: string; reading?: { id: string; status: ReadingStatus; confirmed: boolean } | null; }
 export interface ExamOrder { id: string; patient_id: string; appointment_id: string | null; code: string; label: string; department: string; status: ExamStatus; ai_suggested?: { source: AiSource; bundles: string[]; reason: string } | null; human_confirmed_by?: string | null; ordered_at: string | null; done_at: string | null; created_at: string; patient_name: string | null; results?: ExamResultFile[]; }
 export interface CatalogueItem { code: string; label: string; department: string; }
 
@@ -504,7 +504,7 @@ export interface ApiErrorBody {
   code: string;
 }
 
-// ── Health calendar (api.md 1.12) ──
+// ── Health calendar (api.md 1.13) ──
 export const HEALTH_CATEGORIES = ["screening", "vaccination", "chronic_disease", "infectious_disease", "lifestyle", "mental_health", "blood_donation"] as const;
 export type HealthCategory = (typeof HEALTH_CATEGORIES)[number];
 /** Calendar entries also include the weather-health alerts (GET /health-watch), shown as one-day "weather" events. */
@@ -537,3 +537,17 @@ export interface HealthEvent {
 }
 export type HealthEventInput = Omit<HealthEvent, "id" | "announced_at" | "matches_me" | "following">;
 export interface HealthPrefs { following: Record<HealthCategory, boolean>; }
+
+// ── Radiograph reading (api.md 1.14) ──
+export type ReadingStatus = "queued" | "running" | "ready" | "unavailable" | "failed";
+export interface RadiographCondition { name: string; likelihood: "low" | "medium" | "high"; evidence: string; }
+export interface RadiographAi {
+  source: AiSource; model?: string; reason?: string; region?: string; projection?: string; quality?: string;
+  findings?: string[]; impression?: string; possible_conditions?: RadiographCondition[]; urgent_flags?: string[];
+  recommendation?: string; draft_text: string; disclaimer: string;
+}
+export interface RadiographReading {
+  id: string; exam_result_id: string; status: ReadingStatus; patient_id?: string; hint?: string;
+  ai_suggested?: RadiographAi | null; final_text?: string | null; human_confirmed_by?: string | null;
+  confirmed_by_name?: string | null; confirmed_at?: string | null; created_at?: string; finished_at?: string | null;
+}

@@ -17,6 +17,7 @@ from app.ids import new_id
 from app.integrations import n8n
 from app.models import Appointment, ExamOrder, ExamResult, Patient, User
 from app.services import exams as E
+from app.services import radiology as R
 from app.services import storage
 from app.services.audit import audit
 
@@ -195,9 +196,13 @@ async def upload_result(exam_id: str, request: Request, file: UploadFile = File(
     rid, name = new_id(db, "er"), E.safe_name(file.filename or "")
     key = f"exams/{o.id}/{rid}/{name}"
     storage.put(key, data, file.content_type)
-    db.add(ExamResult(id=rid, exam_order_id=o.id, patient_id=o.patient_id, uploaded_by=user.id, file_key=key,
-                      file_name=name, content_type=file.content_type, size_bytes=len(data),
-                      report_text=report_text.strip()[:2000]))
+    result = ExamResult(id=rid, exam_order_id=o.id, patient_id=o.patient_id, uploaded_by=user.id, file_key=key,
+                        file_name=name, content_type=file.content_type, size_bytes=len(data),
+                        report_text=report_text.strip()[:2000])
+    db.add(result)
+    if R.is_radiograph(o.code, file.content_type):
+        db.flush()
+        R.enqueue(db, result, o.label)
     E.mark_done(o, now=datetime.now(UTC))
     audit(db, user, "create", "exam_result", rid, patient_id=o.patient_id, ip=_ip(request))
     db.flush()

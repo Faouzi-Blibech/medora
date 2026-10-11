@@ -15,6 +15,7 @@ from app.config import check_secrets, get_settings
 from app.ai.exams import suggest_exams
 from app.db import SessionLocal
 from app.health_seed import seed_health_events
+from app.radiograph_seed import seed_radiographs
 from app.ids import new_id, reserve_upto
 from app.models import (
     Admission,
@@ -161,5 +162,7 @@ if __name__ == "__main__":
     check_secrets(get_settings())
     with SessionLocal() as s:
         created = seed(s)
+        n = seed_radiographs(s)
         s.commit()
     print("seeded" if created else "already seeded, nothing to do")
+    print(f"demo radiographs: {n} added")

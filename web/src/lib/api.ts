@@ -5,7 +5,7 @@
 // store, so a later read reflects them (until a full page reload).
 // Real mode: calls NEXT_PUBLIC_API_URL with the paths of docs/contracts/api.md.
 // Paths marked NOT IN CONTRACT have no api.md 1.4 endpoint yet (see the Task 1 report).
-import { createStore, generateCode, MOCK_CODES, EXAM_CATALOGUE, mockAssistant, USERS, userName, type AssistantContext, type MockStore } from "@/mocks";
+import { createStore, generateCode, MOCK_CODES, EXAM_CATALOGUE, MOCK_RADIOGRAPH_URL, MOCK_READING_DRAFTS, mockAssistant, USERS, userName, type AssistantContext, type MockStore } from "@/mocks";
 import { now, tunisDate, USE_MOCKS } from "./time";
 import { HEALTH_CATEGORIES } from "./types";
 import type {
@@ -40,6 +40,7 @@ import type {
   MedRoundGroup,
   Note,
   OneTimeCode,
+  RadiographReading,
   Patient,
   PatientAccessGrant,
   PatientSummary,
@@ -860,12 +861,12 @@ const counted = (s: MockStore, a: Appointment): Appointment => {
 };
 
 export async function getAppointmentExams(appointmentId: string): Promise<ExamOrder[]> {
-  if (USE_MOCKS) return mock((s) => s.exams.filter((e) => e.appointment_id === appointmentId));
+  if (USE_MOCKS) return mock((s) => (advanceMockReadings(s), s.exams.filter((e) => e.appointment_id === appointmentId)));
   return http<ExamOrder[]>("GET", `/appointments/${encodeURIComponent(appointmentId)}/exams`);
 }
 
 export async function getPatientExams(patientId: string): Promise<ExamOrder[]> {
-  if (USE_MOCKS) return mock((s) => s.exams.filter((e) => e.patient_id === patientId && e.status !== "cancelled"));
+  if (USE_MOCKS) return mock((s) => (advanceMockReadings(s), s.exams.filter((e) => e.patient_id === patientId && e.status !== "cancelled")));
   return http<ExamOrder[]>("GET", `/patients/${encodeURIComponent(patientId)}/exams`);
 }
 
@@ -924,9 +925,14 @@ export async function uploadExamResult(examId: string, file: File, reportText: s
   return upload<ExamOrder>(`/exams/${encodeURIComponent(examId)}/results`, form);
 }
 
+/** Mock radiograph results get a placeholder image, everything else the sample PDF. */
+function mockResultUrl(resultId: string): string {
+  return resultId in MOCK_READING_DRAFTS ? MOCK_RADIOGRAPH_URL : "/mock-exam.pdf";
+}
+
 /** Authenticated download → an object URL for a new tab. Revoke it when done. */
 export async function examFileUrl(resultId: string): Promise<string> {
-  if (USE_MOCKS) return "/mock-exam.pdf";
+  if (USE_MOCKS) return mockResultUrl(resultId);
   const token = getToken();
   const res = await fetch(`${BASE}/exam-results/${encodeURIComponent(resultId)}/file`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -936,6 +942,80 @@ export async function examFileUrl(resultId: string): Promise<string> {
     throw new ApiError(res.status, "http_error", res.statusText);
   }
   return URL.createObjectURL(await res.blob());
+}
+
+// ── Radiograph reading (api.md 1.14) ────────────────────────────────────────
+
+/** Mock: real wall-clock time of the first fetch of each queued reading (the demo clock is frozen). */
+const READING_FIRST_SEEN = new Map<string, number>();
+export const MOCK_READING_QUEUE_MS = 6000;
+
+/** Keeps `results[].reading` in step with the reading rows. */
+function syncReadingSummaries(s: MockStore): void {
+  for (const e of s.exams)
+    for (const r of e.results ?? []) {
+      const rd = s.readings[r.id];
+      if (rd) r.reading = { id: rd.id, status: rd.status, confirmed: !!rd.human_confirmed_by };
+    }
+}
+
+/**
+ * Mock: moves a queued reading to running, then ready, by real elapsed time since it was first seen (by the exams
+ * list or the reading itself). Real time, not now(): the mock clock never moves, so polling would never see a change.
+ */
+function advanceMockReading(resultId: string, rd: RadiographReading): void {
+  if (rd.status !== "queued" && rd.status !== "running") return;
+  const first = READING_FIRST_SEEN.get(resultId) ?? Date.now();
+  READING_FIRST_SEEN.set(resultId, first);
+  const waited = Date.now() - first;
+  if (waited >= MOCK_READING_QUEUE_MS) {
+    rd.status = "ready";
+    rd.ai_suggested = MOCK_READING_DRAFTS[resultId] ?? null;
+    rd.finished_at = iso(now());
+  } else if (waited >= MOCK_READING_QUEUE_MS / 2) rd.status = "running";
+}
+
+/** Mock: advances every pending reading (called by the exams list, which polls while one is pending). */
+function advanceMockReadings(s: MockStore): void {
+  for (const [resultId, rd] of Object.entries(s.readings)) advanceMockReading(resultId, rd);
+  syncReadingSummaries(s);
+}
+
+/** GET /exam-results/{id}/reading (doctor: full reading; the UI polls while queued/running). */
+export async function getRadiographReading(resultId: string): Promise<RadiographReading> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const rd = s.readings[resultId] ?? notFound(`Reading for ${resultId}`);
+      advanceMockReading(resultId, rd);
+      syncReadingSummaries(s);
+      return rd;
+    });
+  return http<RadiographReading>("GET", `/exam-results/${encodeURIComponent(resultId)}/reading`);
+}
+
+/** PUT /exam-results/{id}/reading (doctor): sign the final report text. */
+export async function confirmRadiographReading(resultId: string, finalText: string): Promise<RadiographReading> {
+  if (USE_MOCKS)
+    return mock((s) => {
+      const rd = s.readings[resultId] ?? notFound(`Reading for ${resultId}`);
+      rd.final_text = finalText;
+      rd.human_confirmed_by = "u-0001";
+      rd.confirmed_by_name = "Dr Trabelsi";
+      rd.confirmed_at = iso(now());
+      for (const e of s.exams) for (const r of e.results ?? []) if (r.id === resultId) r.report_text = finalText;
+      syncReadingSummaries(s);
+      return rd;
+    });
+  return http<RadiographReading>("PUT", `/exam-results/${encodeURIComponent(resultId)}/reading`, { final_text: finalText });
+}
+
+/** POST /patients/{id}/radiographs (doctor): add an outside X-ray (JPEG/PNG) and queue an AI reading. */
+export async function uploadOutsideRadiograph(patientId: string, file: File, title: string): Promise<ExamOrder> {
+  if (USE_MOCKS) return Promise.reject(new ApiError(503, "needs_backend", "Uploading a radiograph needs the real backend."));
+  const form = new FormData();
+  form.append("file", file);
+  form.append("title", title);
+  return upload<ExamOrder>(`/patients/${encodeURIComponent(patientId)}/radiographs`, form);
 }
 
 // ── Patient app extras (NOT IN CONTRACT) ────────────────────────────────────
@@ -1116,7 +1196,7 @@ export async function getMedRound(ward: string = DEFAULT_WARD): Promise<MedRound
   return groups.filter((g) => g.doses.length > 0);
 }
 
-// ── Health calendar (api.md 1.12) ──────────────────────────────────────────
+// ── Health calendar (api.md 1.13) ──────────────────────────────────────────
 
 /** The mock profile per role: Amira (F, 1972) is the patient; staff ignore sex/age limits. */
 function mockMatches(s: MockStore, role: Role, ev: Omit<HealthEvent, "matches_me" | "following">): boolean {

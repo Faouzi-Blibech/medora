@@ -7,9 +7,10 @@ import { common } from "./common";
 import { doctor } from "./doctor";
 import { nurse } from "./nurse";
 import { patient } from "./patient";
+import { radiology } from "./radiology";
 import { shared } from "./shared";
 
-export const ALL = { common, shared, doctor, nurse, admin, patient, auth, accounts, calendar };
+export const ALL = { common, shared, doctor, nurse, admin, patient, auth, accounts, calendar, radiology };
 
 type All = typeof ALL;
 /** Every message key, as `"<namespace>.<key>"`. */
