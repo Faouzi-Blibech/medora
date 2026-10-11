@@ -1,0 +1,41 @@
+.logo {
+  display: inline-flex;
+  align-items: flex-end;
+  line-height: 1;
+  direction: ltr;
+}
+
+.mark {
+  width: 1.7em;
+  height: 1.48em;
+  flex: none;
+  margin-inline-end: -0.36em;
+  margin-bottom: -0.2em;
+}
+
+.word {
+  font-family: var(--sans);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.word b {
+  font-weight: 700;
+}
+
+.dark .word {
+  color: #fff;
+}
+
+.light .word {
+  color: var(--ink);
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

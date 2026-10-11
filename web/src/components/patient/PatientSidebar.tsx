@@ -2,6 +2,7 @@
 
 // The desktop patient platform's navigation: the staff sidebar's look (Sidebar.module.css)
 // with the patient's own pages, the layout switch, the language switcher and the user card.
+import { Logo } from "@/components/brand/Logo";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useT } from "@/i18n/I18nProvider";
@@ -41,8 +42,7 @@ export function PatientSidebar() {
     <div className={styles.root}>
       <div className={styles.brand}>
         <Link href="/patient" className={styles.wordmark} style={{ color: "inherit", textDecoration: "none" }}>
-          <span className={styles.mark} />
-          <span className={styles.name}>Medora</span>
+          <Logo tone="dark" size={30} />
         </Link>
         <span className={styles.tag}>{t("patient.protoTag")}</span>
       </div>

@@ -20,17 +20,7 @@
   text-decoration: none;
 }
 
-.mark {
-  width: 12px;
-  height: 12px;
-  background: var(--teal);
-  border-radius: 3px;
-}
 
-.name {
-  font: 600 28px/1 var(--serif);
-  letter-spacing: -0.01em;
-}
 
 .tag {
   font: 600 12px/1 var(--sans);

@@ -1,5 +1,6 @@
 "use client";
 
+import { Logo } from "@/components/brand/Logo";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/I18nProvider";
@@ -142,8 +143,7 @@ export function Sidebar({ role, active, live = true, counts }: SidebarProps) {
     <div className={styles.root}>
       <div className={styles.brand}>
         <div className={styles.wordmark}>
-          <span className={styles.mark} />
-          <span className={styles.name}>Medora</span>
+          <Logo tone="dark" size={30} />
         </div>
         <span className={styles.tag}>{t("common.prototypeTag")}</span>
       </div>

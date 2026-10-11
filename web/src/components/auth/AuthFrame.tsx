@@ -1,5 +1,6 @@
 "use client";
 
+import { Logo } from "@/components/brand/Logo";
 import type { ReactNode } from "react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useT } from "@/i18n/I18nProvider";
@@ -13,8 +14,7 @@ export function AuthFrame({ title, lead, children }: { title: string; lead?: str
       <aside className={styles.brand}>
         <div className={styles.brandTop}>
           <div className={styles.wordmark}>
-            <span className={styles.mark} />
-            <span className={styles.name}>Medora</span>
+            <Logo tone="dark" size={30} />
           </div>
           <span className={styles.tag}>{t("common.prototypeTag")}</span>
         </div>
