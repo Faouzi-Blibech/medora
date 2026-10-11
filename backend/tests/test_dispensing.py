@@ -235,3 +235,20 @@ def test_expired_lots_are_never_used(client, db):
     assert r.status_code == 409 and r.json()["code"] == "insufficient_stock"
     assert _dispense(client, ph, day, hhmm, [{"dose_id": dose_id, "lot_id": dead.id}]).status_code == 422
     assert db.get(StockLot, dead.id).quantity == 10
+
+
+def test_a_dose_already_taken_is_not_dispensable_nor_listed(client, db):
+    ph = pharmacist(client, db)
+    drug = make_drug(db)
+    lot = make_lot(db, drug, "OLD", 40, 10)
+    rx = _urgent(client, "p-0001", drug)
+    day, hhmm, dose_id = _round(db, rx["id"])
+    db.get(MedDose, dose_id).status = "taken"
+    db.flush()
+    r = _dispense(client, ph, day, hhmm, [{"dose_id": dose_id}])
+    assert r.status_code == 409 and r.json()["code"] == "bad_status"
+    assert db.get(StockLot, lot.id).quantity == 10
+    rows = client.get("/pharmacy/dispensing", headers=ph, params={"date": day, "round": hhmm, "ward": "Cardiology"})
+    listed = [d["dose_id"] for w in rows.json() for p in w["patients"] for d in p["doses"]]
+    assert dose_id not in listed
+

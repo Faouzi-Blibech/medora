@@ -29,6 +29,9 @@ def item_for_dose(rx: Prescription, dose: MedDose) -> dict | None:
     return next((it for it in rx.items if it.get("med") == med), None)
 
 
+DISPENSABLE = ("scheduled", "dispensed")  # not yet taken or missed (dispensed = released by the bedside unit)
+
+
 def quantity_of(item: dict | None) -> int:
     return int((item or {}).get("units_per_intake") or 1)
 
@@ -58,6 +61,8 @@ def round_view(db: Session, day: date, round_time: str, ward: str | None) -> lis
     rows = db.execute(stmt.order_by(Patient.ward, Patient.last_name, Patient.first_name, Patient.id, MedDose.slot,
                                     MedDose.id)).all()
     sent = pharmacy_status(db, [d.id for d, _, _ in rows])
+    # a dose already given or missed is not dispensable; keep it only if it was dispensed before
+    rows = [(d, p, rx) for d, p, rx in rows if d.status in DISPENSABLE or d.id in sent]
     plans = [(d, p, rx, item_for_dose(rx, d)) for d, p, rx in rows]
     drug_ids = {it["drug_id"] for *_, it in plans if it and it.get("drug_id")}
     lots: dict[str, list[StockLot]] = defaultdict(list)
@@ -118,6 +123,8 @@ def dispense(db: Session, user: User, ward: str, day: date, round_time: str, lin
             raise ApiError(422, "invalid", f"dose {dose_id} is not in the {ward} {round_time} round of {day}")
         if rx is None or not rx.active:
             raise ApiError(409, "bad_status", f"dose {dose_id}: prescription is {rx.status if rx else 'missing'}")
+        if d.status not in DISPENSABLE:
+            raise ApiError(409, "bad_status", f"dose {dose_id} is already {d.status}")
         it = item_for_dose(rx, d)
         drug_id = (it or {}).get("drug_id")
         if lot_id and not drug_id:
