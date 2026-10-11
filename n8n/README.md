@@ -24,10 +24,10 @@ The compose file mounts `n8n/workflows/` read-only at `/ward-workflows`. Workflo
 ```bash
 # Git Bash on Windows: export MSYS_NO_PATHCONV=1 first, or the container paths get rewritten
 C="docker compose -f infra/docker-compose.yml exec -T n8n"
-for f in W4-critical-alert W3-missed-dose W1-appointment-reminder W2-slot-backfill W6-discharge-follow-up W5-doctor-daily-digest W0-router; do   # sub-workflows first
+for f in W4-critical-alert W3-missed-dose W1-appointment-reminder W2-slot-backfill W6-discharge-follow-up W5-doctor-daily-digest W9-health-calendar W0-router; do   # sub-workflows first
   $C n8n import:workflow --input=/ward-workflows/$f.json
 done
-for id in wardCritAlertW04 wardMissedDoseW3 wardApptRemindW1 wardBackfillW2xx wardFollowUpW6xx wardDigestW5xxxx wardRouterW00000; do
+for id in wardCritAlertW04 wardMissedDoseW3 wardApptRemindW1 wardBackfillW2xx wardFollowUpW6xx wardDigestW5xxxx wardHealthCalW9x wardRouterW00000; do
   $C n8n publish:workflow --id=$id
 done
 docker compose -f infra/docker-compose.yml restart n8n
@@ -65,13 +65,15 @@ WhatsApp is still a third-party service outside Tunisia: a real deployment needs
 
 | File | ID | Status |
 |---|---|---|
-| `W0-router.json` | `wardRouterW00000` | ✅ checks `X-Ward-Secret`, drops unknown events, routes `alert.critical` → W4, `dose.missed` → W3, `appointment.confirmed` → W1, `appointment.cancelled` → W2, `patient.discharged` → W6 |
+| `W0-router.json` | `wardRouterW00000` | ✅ checks `X-Ward-Secret`, drops unknown events, routes `alert.critical` → W4, `dose.missed` → W3, `appointment.confirmed` → W1, `appointment.cancelled` → W2, `patient.discharged` → W6, `health_event.upcoming` → W9 |
 | `W4-critical-alert.json` | `wardCritAlertW04` | ✅ one WhatsApp message per staff number, bed only |
 | `W3-missed-dose.json` | `wardMissedDoseW3` | ✅ WhatsApp to the staff numbers (bed and time only), email to the doctor (contract v1.1 field `doctor_email`) |
 | `W1-appointment-reminder.json` | `wardApptRemindW1` | ✅ waits until `slot_at − 24h` (sends at once if the slot is sooner: demo trick), then WhatsApp + email to the patient with confirm/cancel links to `${WEB_URL}/patient/appointments/{id}?action=…` |
 | `W2-slot-backfill.json` | `wardBackfillW2xx` | Offers a freed slot to the event's `candidate` (WhatsApp + email, link previews off) with an accept link valid 2 h (n8n resume URL under `N8N_PUBLIC_URL`). On click: `backfill-accept` → HTML result page + confirmation, or "slot already taken" on 409. A used link answers 409. |
 | `W6-discharge-follow-up.json` | `wardFollowUpW6xx` | Calls `follow-up` (14 days) and, only if the backend created the appointment, tells the patient over WhatsApp + email that the follow-up is requested and the hospital will confirm the date. |
 | `W5-doctor-daily-digest.json` | `wardDigestW5xxxx` | Every day at 07:30 Africa/Tunis (or on demand via its "Run now" trigger): `GET daily-digest`, then one email per doctor with an address and at least one admitted patient. Patients are listed by bed, highest NEWS2 first, with NEWS2 >= 5 flagged "review first" and summaries labelled as AI suggestions to review. Not called by the router. |
+| `W9-health-calendar.json` | `wardHealthCalW9x` | W9 health calendar: daily 08:00 push of due health events + admin Notify now. Router event `health_event.upcoming` (Notify now) and the daily `GET health-events/due` both feed one Compose step, then WhatsApp (`WARD_WHATSAPP_PATIENT` + `WARD_WHATSAPP_STAFF`) and one email per opted-in recipient; cron runs then `POST .../announced`. |
+| `W10-health-watch.json` | `wardHlthWatchW10` | Every day at 07:00 (or `POST /webhook/ward-health-watch` with `X-Ward-Secret`, the demo button): `GET health-watch`, then for today's and tomorrow's weather-health alerts one WhatsApp to the staff numbers (staff advice in French and Arabic, number of at-risk patients) and, when someone is at risk, one to the patient numbers (patient advice). No names. Not called by the router. |
 
 ## Test
 

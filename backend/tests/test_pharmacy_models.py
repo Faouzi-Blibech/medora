@@ -1,4 +1,4 @@
-"""Migration 0007 shapes (through create_all) and the formulary loader (pharmacy spec §3)."""
+"""Migration 0009 shapes (through create_all) and the formulary loader (pharmacy spec §3)."""
 
 from app.ids import new_id
 from app.models import Drug, Prescription, PrescriptionReview

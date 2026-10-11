@@ -1,0 +1,201 @@
+{
+  "id": "wardHlthWatchW10",
+  "name": "W10 · Weather-health advice (every morning)",
+  "nodes": [
+    {
+      "id": "9a0c1d2e-0000-4000-8000-000000000901",
+      "name": "Every day 07:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "9a0c1d2e-0000-4000-8000-000000000902",
+      "name": "Run now (webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ward-health-watch",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "ward-health-watch"
+    },
+    {
+      "id": "9a0c1d2e-0000-4000-8000-000000000903",
+      "name": "Check secret",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        200
+      ],
+      "parameters": {
+        "jsCode": "// Manual run (demo button): same X-Ward-Secret as the event router.\nconst ok = $input.all().filter(i => (i.json.headers || {})['x-ward-secret'] === $env.N8N_EVENT_SECRET);\nreturn ok.length ? [{ json: {} }] : [];"
+      }
+    },
+    {
+      "id": "9a0c1d2e-0000-4000-8000-000000000904",
+      "name": "health-watch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.WARD_API_URL }}/integrations/n8n/health-watch",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "={{ $env.N8N_CALLBACK_SECRET }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "9a0c1d2e-0000-4000-8000-000000000905",
+      "name": "Messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// GET /integrations/n8n/health-watch → WhatsApp advice for today and tomorrow (French + Arabic).\n// Staff get the staff advice; patients get the patient advice when at least one patient is in a risk group.\n// The messages carry no patient data.\nconst nums = (v) => [...new Set((v || '').split(',').map(s => s.replace(/\\D/g, '')).filter(Boolean))];\nconst staff = nums($env.WARD_WHATSAPP_STAFF);\nconst patients = nums($env.WARD_WHATSAPP_PATIENT);\nconst res = $input.first().json;\nif (res.statusCode !== 200) return [];\nconst body = res.body || {};\nconst today = DateTime.now().setZone('Africa/Tunis').toISODate();\nconst tomorrow = DateTime.now().setZone('Africa/Tunis').plus({ days: 1 }).toISODate();\nconst alerts = (body.alerts || []).filter(a => a.date === today || a.date === tomorrow);\nif (!alerts.length) return [];\nconst when = (d) => d === today ? \"aujourd'hui / اليوم\" : 'demain / غدًا';\nconst demo = body.demo ? ' [démo]' : '';\nconst out = [];\nconst staffText = 'Ward · Veille santé' + demo + ' (' + body.city + ')\\n' + alerts.map(a =>\n  `• ${a.title.fr}, ${when(a.date)} — ${a.staff.fr}\\n  ${a.title.ar}: ${a.staff.ar}` +\n  (a.at_risk_count ? `\\n  Patients à risque : ${a.at_risk_count}. Ouvrez Ward.` : '')).join('\\n');\nfor (const to of staff) out.push({ json: { to, text: staffText } });\nconst forPatients = alerts.filter(a => a.at_risk_count > 0);\nif (forPatients.length) {\n  const text = 'Ward · Conseil santé' + demo + '\\n' + forPatients.map(a =>\n    `• ${a.title.fr}, ${when(a.date)} : ${a.patient.fr}\\n  ${a.title.ar}: ${a.patient.ar}`).join('\\n');\n  for (const to of patients) out.push({ json: { to, text } });\n}\nreturn out;"
+      }
+    },
+    {
+      "id": "9a0c1d2e-0000-4000-8000-000000000906",
+      "name": "WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.WAHA_URL }}/api/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{ $env.WAHA_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ session: 'default', chatId: $json.to + '@c.us', text: $json.text, linkPreview: false }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Every day 07:00": {
+      "main": [
+        [
+          {
+            "node": "health-watch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now (webhook)": {
+      "main": [
+        [
+          {
+            "node": "Check secret",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check secret": {
+      "main": [
+        [
+          {
+            "node": "health-watch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "health-watch": {
+      "main": [
+        [
+          {
+            "node": "Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Messages": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Africa/Tunis"
+  },
+  "pinData": {},
+  "tags": []
+}

@@ -11,6 +11,7 @@ built only from one patient's record, every claim cited by passage number.
 
 import logging
 import re
+from datetime import UTC, datetime, timedelta, timezone
 
 from pydantic import BaseModel
 
@@ -24,6 +25,12 @@ MAX_HISTORY = 6
 NO_LLM = "The AI assistant is offline. These passages from the record match your question:"
 NO_MATCH = "The AI assistant is offline and nothing in this record matches the question."
 LANG_NAMES = {"en": "English", "fr": "French", "ar": "Arabic"}
+TUNIS = timezone(timedelta(hours=1))  # Africa/Tunis: UTC+1, no DST
+
+
+def _now_line() -> str:
+    """The model cannot know the time: 'next dose' and 'today' need it."""
+    return f"Current date and time (Tunis): {datetime.now(UTC).astimezone(TUNIS):%A %d %B %Y, %H:%M}."
 log = logging.getLogger(__name__)
 
 
@@ -43,8 +50,8 @@ def _cite(p: rag.Passage) -> dict:
     return {"source_id": s.id, "kind": s.kind, "title": s.title, "ts": s.ts, "text": p.text}
 
 
-def _prompt_text(question: str, ctx: list[rag.Passage], history: list[dict], lang: str | None) -> str:
-    lines = ["Patient record passages:"]
+def _prompt_text(question: str, ctx: list[rag.Passage], history: list[dict], lang: str | None, now_line: str) -> str:
+    lines = [now_line, "Patient record passages:"]
     lines += [f"[{i}] {p.source.title}: {p.text}" for i, p in enumerate(ctx, 1)]
     if history:
         lines.append("\nConversation so far:")
@@ -75,14 +82,15 @@ def answer(role: str, question: str, sources: list[rag.Source], *, names: list[s
     if get_settings().llm_provider == "none" or not ps:
         return _fallback(role, question, ps, patient_ctx)
     ctx = rag.context(question, ps)
+    now_line = _now_line()
     history = list(history)[-MAX_HISTORY:]
     try:
-        out = complete_json(f"chat_{role}", _prompt_text(question, ctx, history, lang), _LlmChat, names=names)
+        out = complete_json(f"chat_{role}", _prompt_text(question, ctx, history, lang, now_line), _LlmChat, names=names)
     except LLMUnavailable:
         return _fallback(role, question, ps, patient_ctx)
     cited = [n for n in dict.fromkeys(out.citations) if 1 <= n <= len(ctx)]
     allowed = _numbers(question) | _numbers(" ".join(f"{p.source.title} {p.text}" for p in ctx)) | _numbers(
-        " ".join(h["text"] for h in history)) | {str(n) for n in range(1, len(ctx) + 1)} | {"190"}  # SAMU
+        " ".join(h["text"] for h in history)) | {str(n) for n in range(1, len(ctx) + 1)} | {"190"} | _numbers(now_line)  # SAMU, the clock
     unverified = sorted(_numbers(out.answer) - allowed)
     if not out.answer.strip() or len(cited) != len(set(out.citations)) or (out.found and not cited):
         log.info("chat answer discarded: bad citations %s", out.citations)
@@ -105,7 +113,7 @@ def answer_general(role: str, question: str, *, history: list[dict] = (), lang: 
     """A staff question with no patient: general medical knowledge, no record, no citations."""
     if get_settings().llm_provider == "none":
         return {"answer": GENERAL_OFFLINE, "citations": [], "source": "rules"}
-    lines = [f"User role: {role}."]
+    lines = [f"User role: {role}.", _now_line()]
     if history:
         lines.append("Conversation so far:")
         lines += [f"{'User' if h['role'] == 'user' else 'Assistant'}: {h['text']}" for h in list(history)[-MAX_HISTORY:]]

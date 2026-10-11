@@ -27,6 +27,15 @@
   background: var(--canvas);
 }
 
+/* Upcoming health event banner above the home page. Empty banners render nothing, so no gap. */
+.banner {
+  padding: 16px 40px 0;
+}
+
+.banner:empty {
+  display: none;
+}
+
 @media (max-width: 1024px) {
   .asideTablet {
     width: 216px;

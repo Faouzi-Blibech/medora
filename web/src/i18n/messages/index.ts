@@ -2,13 +2,15 @@ import type { Lang } from "../config";
 import { accounts } from "./accounts";
 import { admin } from "./admin";
 import { auth } from "./auth";
+import { calendar } from "./calendar";
 import { common } from "./common";
 import { doctor } from "./doctor";
 import { nurse } from "./nurse";
 import { patient } from "./patient";
+import { radiology } from "./radiology";
 import { shared } from "./shared";
 
-export const ALL = { common, shared, doctor, nurse, admin, patient, auth, accounts };
+export const ALL = { common, shared, doctor, nurse, admin, patient, auth, accounts, calendar, radiology };
 
 type All = typeof ALL;
 /** Every message key, as `"<namespace>.<key>"`. */

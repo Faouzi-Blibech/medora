@@ -1,4 +1,4 @@
-"""n8n callbacks (owner: Faouzi). Contract: api.md → Integrations and n8n-webhooks.md v1.2 → Callbacks.
+"""n8n callbacks (owner: Faouzi). Contract: api.md → Integrations and n8n-webhooks.md v1.4 → Callbacks.
 
 Authenticated by the `X-N8N-Secret` header only (no JWT); n8n is not the source of truth, so every callback
 goes through the same appointment rules as the web app.
@@ -12,13 +12,15 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.db import get_db
 from app.errors import ApiError, not_found
 from app.ids import new_id
 from app.integrations import n8n
-from app.models import Admission, AiSummary, Appointment, Patient, User
+from app.models import Admission, AiSummary, Appointment, HealthEvent, Patient, User
 from app.routers.appointments import cancel
 from app.services import appointments as A
+from app.services import health_calendar as H
 from app.services.integrations import callback_secret_ok, digest_entries
 from app.services.patients import latest_vital
 
@@ -127,3 +129,20 @@ def follow_up(body: FollowUpIn, db: Session = Depends(get_db)) -> dict:
     db.add(a)
     db.commit()
     return {"appointment_id": a.id, "status": a.status}
+
+
+@router.get("/health-events/due")
+def health_events_due(db: Session = Depends(get_db)) -> list[dict]:
+    web = get_settings().web_url
+    return [H.upcoming_payload(db, e, web) for e in H.due(db, H._today())]
+
+
+@router.post("/health-events/{event_id}/announced")
+def health_event_announced(event_id: str, db: Session = Depends(get_db)) -> dict:
+    ev = db.get(HealthEvent, event_id)
+    if ev is None:
+        raise not_found("health event")
+    if ev.announced_at is None:
+        ev.announced_at = datetime.now(UTC)
+        db.commit()
+    return {"status": "announced"}

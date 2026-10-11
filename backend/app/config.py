@@ -37,8 +37,15 @@ class Settings(BaseSettings):
     jwt_secret: str = DEFAULT_JWT_SECRET
     jwt_expire_hours: int = 8
     hospital_name: str = "Ward Hospital"  # GET /hospital: this install's hospital (one install per hospital)
+    # health watch: the hospital's city for the weather-health alerts (Open-Meteo, no key) and the news feeds
+    hospital_city: str = "Tunis"
+    hospital_lat: float = 36.8065
+    hospital_lon: float = 10.1815
+    health_watch_offline: bool = False  # true: no outside calls (offline demo)
+    health_watch_demo: str = ""  # heatwave | dust | cold: inject a labelled demo scenario into the forecast
     # comma-separated; the proxy domain in the internet profile
     web_origin: str = "http://localhost:3000"
+    web_url: str = "http://localhost:3000"  # links in pushes (WEB_URL)
     bcrypt_rounds: int = 12
     # demo password of the synthetic seed accounts (api.md); set SEED_PASSWORD for any other deployment
     seed_password: str = DEFAULT_SEED_PASSWORD  # overridable via SEED_PASSWORD
@@ -58,6 +65,10 @@ class Settings(BaseSettings):
     llm_local_base_url: str = "http://localhost:11434"
     llm_local_model: str = "qwen2.5:7b-instruct"
     llm_timeout_s: float = 15.0
+    vision_provider: str = "none"  # none | local — radiograph images never go to a hosted API
+    llm_vision_model: str = "qwen3-vl:4b"
+    llm_vision_timeout_s: float = 180.0
+    radiology_report_lang: str = "fr"  # fr | en
 
     @model_validator(mode="after")
     def _harden_jwt_secret(self) -> "Settings":

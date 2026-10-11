@@ -1,0 +1,147 @@
+{
+  "id": "wardWahaWatchW11",
+  "name": "W11 · WhatsApp session watchdog",
+  "nodes": [
+    {
+      "id": "b1c2d3e4-0000-4000-8000-000000001101",
+      "name": "Every 2 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b1c2d3e4-0000-4000-8000-000000001102",
+      "name": "Session status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.WAHA_URL }}/api/sessions/default",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{ $env.WAHA_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "b1c2d3e4-0000-4000-8000-000000001103",
+      "name": "Needs restart?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// FAILED or STOPPED after a network cut: restart. WORKING, STARTING and SCAN_QR_CODE are left alone\n// (a QR scan needs a person: the dashboard at http://localhost:3010/dashboard).\nconst r = $input.first().json;\nconst status = r.body?.status;\nreturn status === 'FAILED' || status === 'STOPPED' ? [{ json: { status } }] : [];"
+      }
+    },
+    {
+      "id": "b1c2d3e4-0000-4000-8000-000000001104",
+      "name": "Restart session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.WAHA_URL }}/api/sessions/default/restart",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{ $env.WAHA_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Every 2 minutes": {
+      "main": [
+        [
+          {
+            "node": "Session status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Session status": {
+      "main": [
+        [
+          {
+            "node": "Needs restart?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs restart?": {
+      "main": [
+        [
+          {
+            "node": "Restart session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Africa/Tunis",
+    "saveDataSuccessExecution": "none"
+  },
+  "pinData": {},
+  "tags": []
+}
