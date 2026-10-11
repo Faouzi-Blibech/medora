@@ -114,8 +114,8 @@ def test_nurse_gets_her_ward_drafts_audited(client, db):
     body = r.json()
     assert body["window_hours"] == 12 and body["generated_at"].endswith("Z")
     ids = [i["patient"]["id"] for i in body["items"]]
-    assert ids == ["p-0001"]  # the seed admits only p-0001; the other Cardiology patients are quiet
-    item = body["items"][0]
+    assert sorted(ids) == ["p-0001", "p-0005"]  # the seed admits p-0001 and p-0005; the others are quiet
+    item = next(i for i in body["items"] if i["patient"]["id"] == "p-0001")
     assert item["source"] == "rules" and item["confirmation"] is None and item["narrative"].startswith("S: Bed C-12")
     assert item["situation"]["bed"] == "C-12" and item["situation"]["latest_news2"] == 0
     assert item["background"]["allergies"] == ["penicillin"] and item["assessment"]["vitals"]["count"] >= 40
@@ -132,7 +132,8 @@ def test_handover_flags_missed_dose_and_rising_news2(client, db):
                      hr=100 + 10 * k, spo2=94, temp=37.8, news2=n, source="manual"))
     db.add(Note(id="n-9001", patient_id="p-0001", author_id="u-0002", text="Patient feels dizzy"))
     db.flush()
-    item = client.get("/handover", headers=login(client, "nurse@ward.tn")).json()["items"][0]
+    item = next(i for i in client.get("/handover", headers=login(client, "nurse@ward.tn")).json()["items"]
+                if i["patient"]["id"] == "p-0001")
     codes = [r["code"] for r in item["recommendations"]]
     assert "missed_dose" in codes and "news2_rising" in codes and "news2_high" in codes
     assert item["assessment"]["notes"][-1] == {"text": "Patient feels dizzy", "author_name": "Nurse Ines",
@@ -151,7 +152,7 @@ def test_nurse_scoping_and_roles(client, db):
     for email in ("patient@ward.tn", "admin@ward.tn"):
         assert client.get("/handover", headers=login(client, email)).status_code == 403
     doc = client.get("/handover", headers=login(client, "doctor@ward.tn"))
-    assert doc.status_code == 200 and [i["patient"]["id"] for i in doc.json()["items"]] == ["p-0001"]
+    assert doc.status_code == 200 and sorted(i["patient"]["id"] for i in doc.json()["items"]) == ["p-0001", "p-0005"]
 
 
 def test_confirm_stores_who_and_when(client, db):
@@ -164,7 +165,7 @@ def test_confirm_stores_who_and_when(client, db):
     row = db.query(Handover).filter_by(patient_id="p-0001").one()
     assert row.ai_suggested["source"] == "rules" and row.ai_suggested["window"]["hours"] == 8
     assert row.human_confirmed_by == "u-0002" and row.ward == "Cardiology"
-    listed = client.get("/handover?hours=8", headers=h).json()["items"][0]
+    listed = next(i for i in client.get("/handover?hours=8", headers=h).json()["items"] if i["patient"]["id"] == "p-0001")
     assert listed["confirmation"]["id"] == row.id
     assert db.query(AuditLog).filter_by(resource="handover", action="update", patient_id="p-0001").count() == 1
 
