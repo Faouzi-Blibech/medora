@@ -5,7 +5,7 @@
 // API omits them (e.g. show the id, or derive the value). They are listed in the
 // Task 1 report as a proposed api.md 1.5 bump.
 
-export type Role = "doctor" | "nurse" | "admin" | "patient";
+export type Role = "doctor" | "nurse" | "admin" | "patient" | "pharmacist";
 
 /** `source` on every AI output (api.md 1.4). */
 export type AiSource = "model" | "rules" | "llm";
@@ -94,7 +94,13 @@ export interface Note {
 // ── Prescriptions and doses ─────────────────────────────────────────────────
 
 export interface PrescriptionItem {
-  med: string; // "Paracetamol 500mg"
+  med: string; // display string, "Paracetamol 500 mg"
+  /** api 1.12: formulary drug id ("d-0001"); null or absent = non-formulary ("hors livret"). */
+  drug_id?: string | null;
+  /** api 1.12: mg per intake; null = use units_per_intake × unit_mg. */
+  dose_mg?: number | null;
+  /** api 1.12: tablets/capsules per intake, default 1. */
+  units_per_intake?: number;
   times: string[]; // ["08:00","20:00"], Africa/Tunis wall-clock
   slot: number | null; // carousel slot 1–4, null = reminder only
   days: number;
@@ -106,18 +112,36 @@ export interface Prescription {
   doctor_id: string;
   items: PrescriptionItem[];
   care_plan: string;
+  /** Derived (spec §3): validated, or pending_pharmacy with urgent. */
   active: boolean;
   created_at: string;
   schedule_version: number;
   published_to_device: boolean;
   /** UI extension: saved despite an allergy rule conflict (override logged). */
   allergy_override?: boolean;
+  /** api 1.12 */
+  status: PrescriptionStatus;
+  urgent: boolean;
+  version: number;
+  replaces_id?: string | null;
+  /** The last check results (doctor and pharmacist roles; absent for patients). */
+  checks?: Check[];
+  override_reason?: string | null;
+  review_comment?: string | null;
+  reviewed_by_name?: string | null;
+  reviewed_at?: string | null;
 }
 
 export interface CreatePrescriptionRequest {
   patient_id: string;
   items: PrescriptionItem[];
   care_plan: string;
+  /** api 1.12: doses start at once; the pharmacist reviews right after. */
+  urgent?: boolean;
+  /** Required (422 `override_required`) when a check is critical. */
+  override_reason?: string;
+  /** Edit = a new version of this prescription (409 `conflict` if it already has a successor). */
+  replaces_id?: string;
 }
 
 export type DoseStatus = "scheduled" | "dispensed" | "taken" | "missed";
@@ -141,6 +165,8 @@ export interface Dose {
   given_by_name?: string | null;
   /** UI extension: "Give by hand", "Injection", "2 puffs". */
   instructions?: string | null;
+  /** api 1.12 Phase B: delivery from the pharmacy. A dose can still be given when "none" (ward stock). */
+  pharmacy?: PharmacyDelivery;
 }
 
 // ── AI ──────────────────────────────────────────────────────────────────────
@@ -374,7 +400,7 @@ export interface StaffMember {
 export type AccountStatus = "pending" | "active" | "disabled" | "rejected";
 
 /** The roles a person can ask for on /register (`admin` is never a sign-up choice). */
-export type SignupRole = "patient" | "nurse" | "doctor";
+export type SignupRole = "patient" | "nurse" | "doctor" | "pharmacist";
 /** The roles an approver can grant (only an admin may grant `admin`). */
 export type GrantRole = SignupRole | "admin";
 
@@ -384,7 +410,7 @@ export interface RegisterRequest {
   password: string;
   role: SignupRole;
   note?: string;
-  /** Patients and nurses only; sending it with `role: "doctor"` is a 422. */
+  /** Patients and nurses only; sending it with role doctor or pharmacist is a 422. */
   requested_doctor_id?: string;
 }
 /** GET /hospital (public): this install's hospital. */
@@ -451,6 +477,133 @@ export interface PatientAccessGrant {
   expires_at: string;
 }
 
+// ── Pharmacy (api 1.12, spec 2026-10-10-hospital-pharmacy-design.md §5) ─────
+
+export type PrescriptionStatus = "pending_pharmacy" | "validated" | "changes_requested" | "rejected" | "stopped" | "superseded";
+export type CheckSeverity = "critical" | "major" | "moderate" | "info";
+export type CheckCode =
+  | "allergy"
+  | "interaction"
+  | "max_daily_dose"
+  | "duplicate_therapy"
+  | "non_formulary"
+  | "high_alert"
+  | "elderly"
+  /** Minor: the daily dose could not be computed, so the maximum was not checked. */
+  | "dose_unverified";
+
+/** One check-engine finding (spec §4). `message` is English (logs); the UI translates by `code` + `params`. */
+export interface Check {
+  code: CheckCode;
+  severity: CheckSeverity;
+  /** Index in the prescription's `items`; null when the finding is not tied to one item. */
+  item_index: number | null;
+  drug_id: string | null;
+  params: Record<string, string | number | null | string[]>;
+  message: string;
+}
+
+export type DrugForm = "tablet" | "capsule" | "syrup" | "injection" | "inhaler" | "patch" | "drops" | "other";
+
+/** One formulary row (`drugs`, data-model 1.7). */
+export interface Drug {
+  id: string; // d-0001
+  dci: string;
+  brand_names: string[];
+  form: DrugForm;
+  strength: string; // display only, "500 mg"
+  unit_mg: number | null;
+  max_daily_mg: number | null; // null = no dose check
+  atc_code: string;
+  allergy_classes: string[];
+  interaction_groups: string[];
+  high_alert: boolean;
+  min_stock: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+export type DrugInput = Omit<Drug, "id" | "created_at" | "updated_at">;
+export type DrugPatch = Partial<DrugInput>;
+
+/** POST /prescriptions/check (dry run). */
+export interface CheckRequest {
+  patient_id: string;
+  items: PrescriptionItem[];
+  replaces_id?: string;
+}
+export interface CheckResponse {
+  checks: Check[];
+}
+
+/** The pharmacist's minimal patient projection (spec §2): never notes, exams, vitals or AI summaries. */
+export interface PharmacyPatient {
+  id: string;
+  name: string;
+  age: number | null;
+  sex: "F" | "M";
+  ward: string | null;
+  bed: string | null;
+  allergies: string[];
+  /** Shown when present (spec §2 "weight if present"); not checked. */
+  weight_kg?: number | null;
+}
+
+export type WorklistStatus = "pending_pharmacy" | "changes_requested" | "all";
+
+export interface WorklistItem {
+  prescription: Prescription;
+  patient: PharmacyPatient;
+  doctor_name: string;
+  checks: Check[];
+  urgent: boolean;
+  waiting_since: string;
+  max_severity: CheckSeverity | null;
+}
+
+export type ReviewDecision = "validated" | "changes_requested" | "rejected";
+
+/** One `prescription_reviews` row. */
+export interface PrescriptionReview {
+  id: string; // pr-0001
+  prescription_id: string;
+  pharmacist_id: string;
+  decision: ReviewDecision;
+  comment: string | null;
+  checks_snapshot: Check[];
+  created_at: string;
+  /** UI extension: "Pharm. Salma". */
+  pharmacist_name?: string | null;
+}
+
+/** GET /pharmacy/prescriptions/{id} */
+export interface ReviewDetail {
+  prescription: Prescription;
+  patient: PharmacyPatient;
+  doctor_name: string;
+  /** The patient's other running prescriptions. */
+  running: Prescription[];
+  /** Recomputed now. */
+  checks: Check[];
+  history: PrescriptionReview[];
+  replaces?: Prescription | null;
+}
+
+export interface ValidateRequest {
+  acknowledged: boolean;
+  comment?: string;
+}
+
+/** GET /pharmacy/summary (sidebar badge and dashboard). Phase B adds the stock counts. */
+export interface PharmacySummary {
+  pending: number;
+  urgent_pending: number;
+  critical_pending: number;
+  changes_requested: number;
+  low_stock?: number;
+  expiring?: number;
+}
+
 // ── Composed views (built client-side from several contract calls) ──────────
 
 /** One bed on the nurse ward board. */
@@ -497,11 +650,148 @@ export type WsFrame =
         ts: string;
       };
     }
-  | { type: "device_status"; data: { device_id: string; online: boolean; ts: string } };
+  | { type: "device_status"; data: { device_id: string; online: boolean; ts: string } }
+  | {
+      type: "prescription_status";
+      data: { prescription_id: string; patient_id: string; status: PrescriptionStatus; urgent: boolean };
+    };
 
 export interface ApiErrorBody {
   detail: string;
   code: string;
+}
+
+// ── Pharmacy Phase B: dispensing and stock (api 1.12 "Dispensing and stock") ──
+
+export type PharmacyDelivery = "none" | "sent" | "received";
+
+/** `Lot`: GET /pharmacy/stock lists only lots with quantity > 0. */
+export interface StockLot {
+  id: string; // lot-0001
+  drug_id: string;
+  lot_number: string;
+  expiry_date: string; // YYYY-MM-DD
+  quantity: number;
+  received_at: string;
+  /** expiry_date before today (Africa/Tunis). */
+  expired: boolean;
+  /** Has stock and expires within 30 days, today included. */
+  expiring: boolean;
+}
+
+export interface LotRef {
+  id: string;
+  lot_number: string;
+  expiry_date: string;
+}
+
+/** One dose of a round (`RoundDose`). */
+export interface RoundDose {
+  dose_id: string;
+  prescription_id: string;
+  med: string;
+  drug_id: string | null;
+  /** Units for this intake (the item's units_per_intake). */
+  quantity: number;
+  /** FEFO: the first-expiring usable lot that holds the whole line, or null when none does. */
+  suggested_lot: LotRef | null;
+  /** null for a non-formulary dose. */
+  on_hand: number | null;
+  dispensed: boolean;
+}
+
+export interface RoundPatient {
+  id: string;
+  name: string;
+  bed: string | null;
+  doses: RoundDose[];
+}
+
+/** GET /pharmacy/dispensing → one per ward. */
+export interface DispensingWard {
+  ward: string;
+  patients: RoundPatient[];
+}
+
+export type DispensationStatus = "sent" | "received";
+
+export interface DispensationLine {
+  id: string; // dl-000001
+  /** null when the dose was later cancelled. */
+  dose_id: string | null;
+  patient_id: string;
+  patient_name: string | null;
+  bed: string | null;
+  drug_id: string | null;
+  lot_id: string | null;
+  lot_number: string | null;
+  quantity: number;
+  med: string;
+}
+
+export interface Dispensation {
+  id: string; // disp-0001
+  ward: string;
+  round_date: string;
+  round_time: string; // HH:MM
+  status: DispensationStatus;
+  prepared_by: string;
+  prepared_by_name: string | null;
+  prepared_at: string;
+  received_by: string | null;
+  received_by_name: string | null;
+  received_at: string | null;
+  lines: DispensationLine[];
+}
+
+export interface CreateDispensationRequest {
+  ward: string;
+  date: string;
+  round_time: string;
+  /** 1–200 lines; without lot_id the server takes the FEFO lot. */
+  lines: { dose_id: string; lot_id?: string }[];
+}
+
+/** `StockItem`: one per active drug. on_hand leaves out expired lots. */
+export interface StockItem {
+  drug_id: string;
+  dci: string;
+  strength: string;
+  form: DrugForm;
+  on_hand: number;
+  min_stock: number;
+  lots: StockLot[];
+  low: boolean;
+  expiring: boolean;
+  expired: boolean;
+}
+
+export interface ReorderItem {
+  drug_id: string;
+  dci: string;
+  strength: string;
+  form: DrugForm;
+  on_hand: number;
+  min_stock: number;
+  /** 2 × min_stock − on_hand */
+  suggested_quantity: number;
+}
+
+export interface StockReceiptRequest {
+  drug_id: string;
+  lot_number: string; // 1–40
+  expiry_date: string; // YYYY-MM-DD, not in the past
+  quantity: number; // 1–100000
+}
+
+export type AdjustmentReason = "adjustment" | "expired" | "return";
+
+export interface StockAdjustmentRequest {
+  lot_id: string;
+  /** ≠ 0, at most ±100000; `expired` needs a negative delta. */
+  delta: number;
+  reason: AdjustmentReason;
+  comment: string; // 1–500
 }
 
 // ── Health calendar (api.md 1.13) ──

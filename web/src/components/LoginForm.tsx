@@ -10,7 +10,7 @@ import type { Role } from "@/lib/types";
 import auth from "@/components/auth/Auth.module.css";
 import styles from "@/app/page.module.css";
 
-const HOME: Record<Role, string> = { doctor: "/doctor", nurse: "/nurse", admin: "/admin", patient: "/patient" };
+const HOME: Record<Role, string> = { doctor: "/doctor", nurse: "/nurse", admin: "/admin", patient: "/patient", pharmacist: "/pharmacist" };
 
 export function LoginForm() {
   const router = useRouter();

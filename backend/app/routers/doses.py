@@ -8,11 +8,12 @@ from sqlalchemy.orm import Session
 
 from app.auth.deps import check_patient_access, require_roles
 from app.db import get_db
-from app.errors import not_found
+from app.errors import ApiError, not_found
 from app.iot import publisher
 from app.iot.ingest import frame
-from app.models import MedDose, User
+from app.models import MedDose, Prescription, User
 from app.schemas import DoseOut, iso
+from app.services.pharmacy.dispensing import pharmacy_status
 from app.services.schedule import local_to_utc, today_local
 
 router = APIRouter(tags=["doses"])
@@ -33,8 +34,9 @@ def list_doses(patient_id: str, request: Request, day: date | None = Query(None,
     rows = db.scalars(select(MedDose).where(MedDose.patient_id == patient_id, MedDose.scheduled_at >= lo,
                                             MedDose.scheduled_at < hi)
                       .order_by(MedDose.scheduled_at, MedDose.slot, MedDose.id)).all()
+    st = pharmacy_status(db, [d.id for d in rows])
     db.commit()
-    return rows
+    return [DoseOut.model_validate(d).model_copy(update={"pharmacy": st.get(d.id, "none")}) for d in rows]
 
 
 @router.post("/doses/{dose_id}/given")
@@ -43,12 +45,16 @@ def given(dose_id: str, request: Request, user: User = Depends(require_roles("nu
     d = db.get(MedDose, dose_id)
     if d is None:
         raise not_found("dose")
+    rx = db.get(Prescription, d.prescription_id)  # the 409 comes before check_patient_access writes its audit row
+    if rx is not None and not rx.active and d.status != "taken":  # validated or urgent only (pharmacy spec §2)
+        raise ApiError(409, "bad_status", f"prescription is {rx.status}: this dose must not be given")
     check_patient_access(db, user, d.patient_id, write=True, resource="dose", ip=_ip(request))
     now = datetime.now(UTC)
     if d.status != "taken":
         d.status, d.updated_at = "taken", now
         db.flush()
-    out = DoseOut.model_validate(d).model_dump(mode="json")
+    st = pharmacy_status(db, [d.id]).get(d.id, "none")
+    out = DoseOut.model_validate(d).model_copy(update={"pharmacy": st}).model_dump(mode="json")
     f = frame(db, "dose_event", {"patient_id": d.patient_id, "dose_id": d.id, "status": "taken", "method": None,
                                  "ts": iso(now)}, d.patient_id)
     db.commit()

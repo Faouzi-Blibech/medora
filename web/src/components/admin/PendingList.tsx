@@ -18,11 +18,12 @@ const ROLE_LABEL: Record<GrantRole, Key> = {
   patient: "shared.rolePatient",
   nurse: "admin.roleNurse",
   doctor: "admin.roleDoctor",
+  pharmacist: "pharmacy.rolePharmacist",
   admin: "admin.roleAdmin",
 };
-/** What each viewer may grant: a doctor approves patients and nurses only. */
+/** What each viewer may grant: a doctor approves patients and nurses only; only the admin approves pharmacists (spec §2). */
 const GRANTABLE: Record<Viewer, GrantRole[]> = {
-  admin: ["patient", "nurse", "doctor", "admin"],
+  admin: ["patient", "nurse", "doctor", "pharmacist", "admin"],
   doctor: ["patient", "nurse"],
 };
 
@@ -131,7 +132,7 @@ function Row({ u, viewer, doctorName, busy, onApprove, onReject }: RowProps) {
   const requested = u.requested_role ? t("accounts.pendingRole", { role: t(ROLE_LABEL[u.requested_role]) }) : null;
   const chosen = u.requested_doctor_id
     ? t("accounts.pendingWorksWith", { doctor: doctorName ?? u.requested_doctor_id })
-    : u.requested_role && u.requested_role !== "doctor"
+    : u.requested_role === "patient" || u.requested_role === "nurse"
       ? t("accounts.pendingNoDoctor")
       : null;
 

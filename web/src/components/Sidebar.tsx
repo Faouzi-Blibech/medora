@@ -11,10 +11,11 @@ import { addDays, badgeCount, todayIso, weatherEvents } from "@/lib/healthCalend
 import { loadHealthWatch } from "@/components/calendar/useHealthEvents";
 import { USE_MOCKS } from "@/lib/time";
 import { initialsOf, useMe } from "@/lib/useMe";
+import { usePharmacySummary } from "./pharmacist/usePharmacySummary";
 import { NAV_COUNTS } from "@/mocks";
 import styles from "./Sidebar.module.css";
 
-export type StaffRole = "doctor" | "nurse" | "admin";
+export type StaffRole = "doctor" | "nurse" | "admin" | "pharmacist";
 
 export interface NavItem {
   key: string;
@@ -30,6 +31,7 @@ const USERS: Record<StaffRole, { name: string; sub: Key; ini: string }> = {
   doctor: { name: "Dr Trabelsi", sub: "shared.userDoctorSub", ini: "DT" },
   nurse: { name: "Nurse Ines", sub: "shared.userNurseSub", ini: "NI" },
   admin: { name: "Mme Gharbi", sub: "shared.subAdmin", ini: "MG" },
+  pharmacist: { name: "Pharm. Salma", sub: "pharmacy.userSub", ini: "PS" },
 };
 
 /** Real-mode subtitle: /me has no ward, so the role word is enough. */
@@ -38,6 +40,7 @@ const ROLE_SUB: Record<string, Key> = {
   nurse: "shared.roleNurse",
   admin: "shared.subAdmin",
   patient: "shared.rolePatient",
+  pharmacist: "pharmacy.rolePharmacist",
 };
 
 export const NAV: Record<StaffRole, NavItem[]> = {
@@ -66,8 +69,16 @@ export const NAV: Record<StaffRole, NavItem[]> = {
     { key: "staff", label: "shared.navStaff", href: "/admin/staff", count: NAV_COUNTS.admin.staff },
     { key: "pending", label: "accounts.navPending", href: "/admin/pending" },
     { key: "patients", label: "accounts.navPatientAccess", href: "/admin/patients" },
+    { key: "catalogue", label: "pharmacy.navCatalogue", href: "/admin/catalogue" },
     { key: "calendar", label: "calendar.nav", href: "/admin/calendar", hot: false },
     { key: "password", label: "auth.navPassword", href: "/admin/password" },
+  ],
+  pharmacist: [
+    { key: "worklist", label: "pharmacy.navWorklist", href: "/pharmacist" },
+    { key: "catalogue", label: "pharmacy.navCatalogue", href: "/pharmacist/catalogue" },
+    { key: "dispensing", label: "pharmacy.navDispensing", href: "/pharmacist/dispensing" },
+    { key: "stock", label: "pharmacy.navStock", href: "/pharmacist/stock", hot: true },
+    { key: "password", label: "auth.navPassword", href: "/pharmacist/password" },
   ],
 };
 
@@ -98,6 +109,15 @@ export function Sidebar({ role, active, live = true, counts }: SidebarProps) {
   const items = NAV[role];
   const current = active ?? items[0].key;
   const me = useMe(role);
+  // Pharmacist: the worklist badge comes from GET /pharmacy/summary in both modes; red when a critical item waits.
+  const summary = usePharmacySummary(role === "pharmacist");
+  const stockAlerts = summary && (summary.low_stock !== undefined || summary.expiring !== undefined) ? (summary.low_stock ?? 0) + (summary.expiring ?? 0) : null;
+  const merged: Partial<Record<string, string | number>> = {
+    ...(summary ? { worklist: summary.pending } : {}),
+    ...(stockAlerts !== null ? { stock: stockAlerts } : {}),
+    ...counts,
+  };
+  const critical = new Set<string>(summary && summary.critical_pending > 0 ? ["worklist"] : []);
   // Health calendar badge: events for me, active now or starting within 7 days.
   // A real endpoint, so it shows in mock and real mode alike.
   const [calCount, setCalCount] = useState<number | null>(null);
@@ -133,10 +153,11 @@ export function Sidebar({ role, active, live = true, counts }: SidebarProps) {
           // Real mode: no stats endpoint yet (proposed in api.md), so no count pills.
           const count =
             n.key === "calendar"
-              ? String(counts?.[n.key] ?? calCount ?? "")
+              ? String(merged[n.key] ?? calCount ?? "")
               : USE_MOCKS
-                ? String(counts?.[n.key] ?? n.count ?? "")
-                : String(counts?.[n.key] ?? "");
+                ? String(merged[n.key] ?? n.count ?? "")
+                : String(merged[n.key] ?? "");
+          const crit = critical.has(n.key);
           return (
             <Link
               key={n.key}
@@ -147,7 +168,18 @@ export function Sidebar({ role, active, live = true, counts }: SidebarProps) {
               <span className={styles.dot} />
               <span className={styles.label}>{t(n.label)}</span>
               {count && count !== "0" ? (
-                <span className={`${styles.count} ${n.hot ? styles.countHot : ""}`}>{count}</span>
+                <span
+                  className={`${styles.count} ${crit ? styles.countCritical : n.hot ? styles.countHot : ""}`}
+                  title={
+                    crit && summary
+                      ? t("pharmacy.criticalWaiting", { n: summary.critical_pending })
+                      : n.key === "stock" && stockAlerts
+                        ? t("pharmacy.stockAttention", { n: stockAlerts })
+                        : undefined
+                  }
+                >
+                  {count}
+                </span>
               ) : null}
             </Link>
           );
