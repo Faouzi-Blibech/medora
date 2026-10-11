@@ -3,7 +3,7 @@
 import type { Key, TFn } from "@/i18n/messages";
 import { isPendingUrgent } from "@/lib/pharmacy";
 import { tunisTime, USE_MOCKS } from "@/lib/time";
-import type { Alert, AlertKind, Dose, Prescription, WardBed } from "@/lib/types";
+import type { Alert, AlertKind, Dose, PharmacyDelivery, Prescription, WardBed } from "@/lib/types";
 
 /** The signed-in nurse in the mock demo (Nurse Ines). Real mode names the user from GET /me; the real API takes the actor from the JWT. */
 export const NURSE_ID = "u-0002";
@@ -166,6 +166,8 @@ export interface DoseView {
   by: string;
   /** The dose comes from an urgent prescription the pharmacist hasn't reviewed yet (spec §6). */
   pendingReview: boolean;
+  /** Phase B: delivery from the pharmacy; null when the server doesn't send the field. */
+  pharmacy: PharmacyDelivery | null;
 }
 
 export interface DoseContext {
@@ -232,6 +234,7 @@ export function doseView(dose: Dose, ctx: DoseContext, original: Dose = dose): D
     canGive: !done && status !== "Scheduled",
     by,
     pendingReview: isPendingUrgent(ctx.prescriptions?.get(dose.prescription_id)),
+    pharmacy: dose.pharmacy ?? null,
   };
 }
 

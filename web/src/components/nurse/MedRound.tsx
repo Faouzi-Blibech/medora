@@ -8,10 +8,11 @@ import { Toast, useToast } from "@/components/Toast";
 import { useT } from "@/i18n/I18nProvider";
 import { getAlerts, getMedRound, getPrescriptions, markDoseGiven } from "@/lib/api";
 import { useDemoFlags } from "@/lib/demo";
-import { now, tunisDay, tunisTime } from "@/lib/time";
+import { now, tunisDate, tunisDay, tunisTime } from "@/lib/time";
 import type { Alert, Dose, MedRoundGroup, Prescription } from "@/lib/types";
 import { DosePill } from "./DosePill";
-import { PendingReviewBadge } from "./PharmacyBadge";
+import { DosePharmacyNote, PendingReviewBadge } from "./PharmacyBadge";
+import { PharmacyDeliveries } from "./PharmacyDeliveries";
 import { allergyLabel, doseView, NURSE_ID, nurseStatus, wardLabel, type DoseContext } from "./nurse";
 import styles from "./MedRound.module.css";
 
@@ -99,6 +100,9 @@ export function MedRound() {
 
   const state = flags.state === "error" || failed ? "error" : flags.state === "loading" || (!data && flags.state !== "empty") ? "loading" : null;
   const ward = wardLabel(t, (data?.groups ?? []).map((g) => g.patient.ward));
+  // The ward of the round's patients (the nurse's ward): the deliveries panel lists its dispensations.
+  const roundWard = data?.groups.find((g) => g.patient.ward)?.patient.ward ?? null;
+  const today = tunisDate(refIso);
 
   return (
     <div className={styles.page}>
@@ -124,6 +128,7 @@ export function MedRound() {
           ))}
         </div>
       </div>
+      {roundWard && state === null ? <PharmacyDeliveries ward={roundWard} date={today} onReceived={load} /> : null}
 
       {state === "error" ? (
         <ErrorCard title={t("nurse.loadMedTitle")} onRetry={load} secondaryLabel={null} />
@@ -178,6 +183,7 @@ export function MedRound() {
                           {v.sub}
                         </span>
                         {v.pendingReview ? <PendingReviewBadge /> : null}
+                        <DosePharmacyNote state={v.pharmacy} canGive={v.canGive} />
                       </div>
                       <span className={styles.slot}>{v.slot}</span>
                       <DosePill status={v.status} text={v.statusText} className={styles.pill} />

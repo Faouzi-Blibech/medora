@@ -13,3 +13,7 @@
   color: var(--warn-ink);
   border: 1px solid var(--warn-line);
 }
+
+.sent { background: var(--ai-bg); color: var(--ai); }
+.received { background: var(--news-normal-bg); color: var(--news-normal-fg); }
+.note { font-size: 12px; color: var(--muted); }

@@ -22,7 +22,7 @@ import { dayLabel, now, pausedAt, tunisDate, tunisTime, tunisTimeSeconds, USE_MO
 import type { Alert, Dose, Note, Patient, Prescription, Vital } from "@/lib/types";
 import { useMe } from "@/lib/useMe";
 import { DosePill } from "./DosePill";
-import { PendingReviewBadge } from "./PharmacyBadge";
+import { DosePharmacyNote, PendingReviewBadge } from "./PharmacyBadge";
 import {
   doseView,
   hrPoints,
@@ -325,6 +325,7 @@ export function NursePatientDetail({ id }: { id: string }) {
                             {v.sub}
                           </span>
                           {v.pendingReview ? <PendingReviewBadge /> : null}
+                          <DosePharmacyNote state={v.pharmacy} canGive={v.canGive} />
                         </div>
                         <DosePill status={v.status} text={v.statusText} />
                       </div>
