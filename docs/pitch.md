@@ -14,7 +14,7 @@ Name: **Medora**. Renaming = edit the cover, the footers and the deck title.
 | 1 | Cover | Medora: the patient journey, connected |
 | 2 | Problem | Long waits, paper records, no shared record |
 | 3 | Solution | Medora automates the patient process; four roles, one record |
-| 4 | Journey | The 8-step golden path; switch to the live demo here (TEAM_PLAN.md section 5) |
+| 4 | Journey | The 8-step golden path; switch to the live demo here |
 | 5 | Bedside unit | ESP32 + OLED + servo + clock (Wokwi): offline reminders, servo pill holder; vitals and badge taps simulated |
 | 6 | AI | Six modules: what each suggests, who confirms, what happens if the AI is down |
 | 7 | Architecture | Everything on the hospital's own server |

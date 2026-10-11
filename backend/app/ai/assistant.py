@@ -1,4 +1,4 @@
-"""Patient assistant (owner: Faouzi, plans/FAOUZI.md Task 11, stretch).
+"""Patient assistant (owner: Faouzi).
 
 Scoped to the caller's own record: the router loads only that patient's rows and passes them in. No LLM: a
 question is classified into one of five intents (patient-side urgency wording, keyword rules, then the small trained

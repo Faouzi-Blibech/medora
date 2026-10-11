@@ -1,5 +1,4 @@
-"""Exam-order rules (owner: Faouzi): status machine, who may read or upload, response and event shapes.
-Spec: docs/superpowers/specs/2026-10-09-single-visit-and-case-notebook-design.md §4."""
+"""Exam-order rules (owner: Faouzi): status machine, who may read or upload, response and event shapes."""
 
 import re
 from datetime import datetime

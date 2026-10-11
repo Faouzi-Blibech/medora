@@ -1,4 +1,4 @@
-"""Append-only audit trail. Every read of a patient record goes through here (CLAUDE.md → Privacy)."""
+"""Append-only audit trail. Every read of a patient record goes through here (privacy rule)."""
 
 from sqlalchemy.orm import Session
 

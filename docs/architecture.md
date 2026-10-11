@@ -187,7 +187,7 @@ sequenceDiagram
 
 ## 5. Single-visit pathway (exams before the visit)
 
-Built from the doctors' feedback of 2026-10-09. Design: `docs/superpowers/specs/2026-10-09-single-visit-and-case-notebook-design.md`.
+Built from the doctors' feedback of 2026-10-09.
 
 ```mermaid
 stateDiagram-v2
@@ -312,7 +312,7 @@ flowchart LR
   - An optional open LLM may rewrite the text. Our setup is Groq with `openai/gpt-oss-120b`, an open-weight model; Ollama works for fully local use. If the call fails, the template text is served (`source: "rules"`).
 - **Exam suggestions:** red-flag ids from triage plus keywords in three languages pick exam bundles, at most 4 exams. The doctor orders or drops each one (section 5).
 - **Early warning and no-show:** unchanged (Wali and Hedi).
-- **Case notebook (planned):** see `docs/superpowers/plans/2026-10-09-case-notebook.md`.
+- **Case notebook (planned):** questions about one patient, answered only from that patient's record, with citations.
   - The doctor asks questions about one patient. Answers come only from that patient's record (notes, exam reports, prescriptions, vitals summary, referral) and cite their sources.
   - Without an LLM it returns the best-matching passages (BM25). With an LLM it writes a short answer that may cite only those passages; anything else falls back.
 

@@ -172,7 +172,7 @@ plans/       one implementation plan per team member
 | **Hedi** | Simulator, no-show model, device firmware (Wokwi) | Patient |
 | **Wali** | Core backend, IoT, early warning, real-board build | Nurse |
 
-How we work together (ownership, contracts, git rules): [`CLAUDE.md`](CLAUDE.md) · schedule and demo script: [`TEAM_PLAN.md`](TEAM_PLAN.md).
+Interfaces between the parts are frozen in [`docs/contracts/`](docs/contracts/); the architecture is in [`docs/architecture.md`](docs/architecture.md).
 
 ## Status
 
@@ -186,5 +186,5 @@ Hackathon build in progress.
 
 **Next:**
 - n8n workflows: reminders, missed dose, alerts, slot backfill, exams ordered, results ready.
-- The doctor's **case notebook**: questions about one patient, answered only from that patient's record, with citations. It is planned in [`docs/superpowers/plans/2026-10-09-case-notebook.md`](docs/superpowers/plans/2026-10-09-case-notebook.md).
+- The doctor's **case notebook**: questions about one patient, answered only from that patient's record, with citations.
 - Simulator scenarios and the bedside firmware.
