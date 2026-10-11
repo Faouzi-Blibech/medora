@@ -840,6 +840,7 @@ export interface RadiographReading {
   id: string; exam_result_id: string; status: ReadingStatus; patient_id?: string; hint?: string;
   ai_suggested?: RadiographAi | null; final_text?: string | null; human_confirmed_by?: string | null;
   confirmed_by_name?: string | null; confirmed_at?: string | null; created_at?: string; finished_at?: string | null;
+}
 
 /** GET /admin/impact (api.md 1.18): pilot impact indicators, aggregates only. */
 export type ImpactGroup = "alerts" | "medication" | "appointments" | "monitoring" | "workload";
