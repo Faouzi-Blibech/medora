@@ -1,6 +1,6 @@
 # REST + WebSocket contract — v1.0
 
-> **Version:** 1.17 (2026-10-11) · **Owners:** Wali (core, IoT, alerts), Faouzi (appointments, AI, integrations, exams, notebook), Hedi (pharmacy)
+> **Version:** 1.18 (2026-10-11) · **Owners:** Wali (core, IoT, alerts), Faouzi (appointments, AI, integrations, exams, notebook), Hedi (pharmacy)
 > Any change: open a PR that bumps the version above, add a changelog line, and announce it in the team chat.
 
 ## Conventions
@@ -399,6 +399,23 @@ An AI draft report per radiograph image (JPEG/PNG of exam codes `chest_xray`, `x
 
 `ExamOrder.results[]` gains `reading: {"id","status","confirmed"} | null`. New exam codes `xray` and `xray_outside` (department `Imaging`); `chest_xray` is also read. Uploading a radiograph through `POST /exams/{id}/results` enqueues a reading.
 
+## Pilot impact (1.18 — Faouzi; backend area: Wali)
+
+`GET /admin/impact?days=30` · **admin** only (`days` 1–365; the UI offers 7, 30 and 90). Aggregates only: no patient names or ids, so no `audit_log` row. Measures the period `[now - days, now)` and the previous period of equal length.
+
+```json
+{"days":30,"period":{"from":"…Z","to":"…Z"},"previous_period":{"from":"…Z","to":"…Z"},
+ "patient_days":12.5,"data":"synthetic",
+ "indicators":[{"id":"ack_median_min","group":"alerts","unit":"minutes","better":"lower",
+                "status":"ok","value":3.5,"previous":6.0,"breakdown":null}]}
+```
+
+- `group`: `alerts | medication | appointments | monitoring | workload`. `unit`: `count | pct | minutes | hours | days | rate`. `better`: `higher | lower | null` (null = context, not a target).
+- `status`: `ok`, or `not_recorded` when the data model cannot measure it (`value`/`previous` null). `value: null` with `ok` = nothing to measure in that period (empty denominator).
+- `breakdown` (current period only): `alerts_total` by severity, `vitals_automated_pct` by `source`, `news2_medium_high_pct` by band (`low` 0–4, `medium` 5–6, `high` 7+), `ai_reviewed_pct` `{reviewed, pending}`.
+- Ids: `alerts_total`, `ack_median_min`, `ack_p90_min` (created → acked), `ack_within_5min_pct` (high/critical, an open alert counts as late); `doses_due` (doses whose 30-min window closed), `doses_taken_pct`, `doses_missed_pct`, `doses_on_time_pct` (taken, `updated_at` within 30 min of the dose time), `missed_per_patient_day`; `requests_received`, `request_to_booking_hours` (always `not_recorded`: no booking timestamp), `request_to_slot_days` (median request → appointment date), `cancellations` (of the period's requests), `backfill_refills` (booked by the system, `confirmed_by` empty), `no_show_rate_pct` (`not_recorded` until some appointment is `done`/`no_show`); `vitals_per_patient_day`, `vitals_automated_pct`, `news2_medium_high_pct`; `nurse_notes_per_shift` (3 shifts a day), `ai_reviewed_pct` (AI summaries, notebook answers and triaged requests with `human_confirmed_by`).
+- Patient-days = admitted time overlapping the period (`admissions`).
+
 ## Health
 
 `GET /health` → `{"status":"ok","db":true,"mqtt":true}` (public).
@@ -550,6 +567,7 @@ Still proposed: `GET /offers/{id}`, `POST /offers/{id}/accept` and `GET /patient
 
 ## Changelog
 
+- **1.18** (2026-10-11): `GET /admin/impact?days=` pilot impact indicators (admin, aggregates only). Owner: Faouzi; router in the backend area (Wali).
 - **1.17** (2026-10-11): nurse shift handover — `GET /handover` (rules-based SBAR draft per patient, optional LLM narrative) and `POST /handover/{patient_id}/confirm` (the outgoing nurse confirms; stored in `handovers`, data-model 1.10). Owner: Faouzi.
 - **1.16** (2026-10-11): `POST /patients/{id}/vitals`: a reading taken by hand on a nurse round (source `manual`), so vitals have a real collection path besides the simulated bedside feed. Owner: Faouzi (route in Wali's `patients.py`).
 - **1.15** (2026-10-11): hospital pharmacy. Role `pharmacist` (sign-up; only the admin approves). Drug catalogue (`/drugs`). Prescriptions gain a pharmacy status, `urgent`, versions (`replaces_id`, 409 `conflict` while a later version is live), `checks` (incl. `dose_unverified` and moderate cross-reactivity `allergy`), `override_reason` and review fields; `POST /prescriptions/check` dry run; 422 `override_required`/`unknown_drug`; `PATCH` only stops. Pharmacist worklist, review and decisions (`/pharmacy/*`), WS `prescription_status`; `POST /doses/{id}/given` and `dispense_now` refuse doses of inactive prescriptions. Dispensing, nurse receipt, stock and the dose `pharmacy` field. Owner: Hedi.

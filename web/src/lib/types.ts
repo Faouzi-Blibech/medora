@@ -893,3 +893,36 @@ export interface Handover {
   confirmation: HandoverConfirmation | null;
 }
 export interface HandoverList { window_hours: number; generated_at: string; items: Handover[]; }
+
+/** GET /admin/impact (api.md 1.18): pilot impact indicators, aggregates only. */
+export type ImpactGroup = "alerts" | "medication" | "appointments" | "monitoring" | "workload";
+export type ImpactUnit = "count" | "pct" | "minutes" | "hours" | "days" | "rate";
+export type ImpactId =
+  | "alerts_total" | "ack_median_min" | "ack_p90_min" | "ack_within_5min_pct"
+  | "doses_due" | "doses_taken_pct" | "doses_missed_pct" | "doses_on_time_pct" | "missed_per_patient_day"
+  | "requests_received" | "request_to_booking_hours" | "request_to_slot_days" | "cancellations"
+  | "backfill_refills" | "no_show_rate_pct"
+  | "vitals_per_patient_day" | "vitals_automated_pct" | "news2_medium_high_pct"
+  | "nurse_notes_per_shift" | "ai_reviewed_pct";
+export interface ImpactIndicator {
+  id: ImpactId;
+  group: ImpactGroup;
+  unit: ImpactUnit;
+  /** Which direction is good; null = context, not a target. */
+  better: "higher" | "lower" | null;
+  /** not_recorded: the data model cannot measure it yet (value and previous are null). */
+  status: "ok" | "not_recorded";
+  /** null with status ok: nothing to measure in that period. */
+  value: number | null;
+  previous: number | null;
+  /** Current period only: counts by severity, source, NEWS2 band, or {reviewed, pending}. */
+  breakdown: Record<string, number> | null;
+}
+export interface ImpactReport {
+  days: number;
+  period: { from: string; to: string };
+  previous_period: { from: string; to: string };
+  patient_days: number;
+  data: "synthetic";
+  indicators: ImpactIndicator[];
+}

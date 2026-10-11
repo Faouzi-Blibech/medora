@@ -46,6 +46,8 @@ import type {
   DrugPatch,
   ExamOrder,
   HomeCarePlan,
+  ImpactIndicator,
+  ImpactReport,
   HealthAudience,
   HealthCategory,
   HealthEvent,
@@ -2031,4 +2033,52 @@ export function confirmHandover(patientId: string, hours: number = 12, opts: Act
       return mockHandover(s, p, hours);
     });
   return http<Handover>("POST", `/handover/${enc(patientId)}/confirm`, { hours, ...(opts.lang ? { lang: opts.lang } : {}) });
+}
+
+/** GET /admin/impact?days= (admin): pilot impact indicators. Mock: sample numbers that scale with the period. */
+export function getImpact(days: number): Promise<ImpactReport> {
+  if (USE_MOCKS) return mock(() => mockImpact(days));
+  return http<ImpactReport>("GET", `/admin/impact?days=${days}`);
+}
+
+function mockImpact(days: number): ImpactReport {
+  const to = now();
+  const from = new Date(to.getTime() - days * 86_400_000);
+  const prevFrom = new Date(from.getTime() - days * 86_400_000);
+  const n = (x: number) => Math.round((x * days) / 30);
+  type Row = [ImpactIndicator["id"], ImpactIndicator["group"], ImpactIndicator["unit"], ImpactIndicator["better"],
+    number | null, number | null, Record<string, number> | null];
+  const rows: Row[] = [
+    ["alerts_total", "alerts", "count", null, n(64), n(71), { low: n(18), medium: n(29), high: n(13), critical: n(4) }],
+    ["ack_median_min", "alerts", "minutes", "lower", 3.4, 5.1, null],
+    ["ack_p90_min", "alerts", "minutes", "lower", 9.8, 14.2, null],
+    ["ack_within_5min_pct", "alerts", "pct", "higher", 76.5, 61.1, null],
+    ["doses_due", "medication", "count", null, n(540), n(522), null],
+    ["doses_taken_pct", "medication", "pct", "higher", 91.3, 86.4, null],
+    ["doses_missed_pct", "medication", "pct", "lower", 6.1, 10.2, null],
+    ["doses_on_time_pct", "medication", "pct", "higher", 84.6, 78.9, null],
+    ["missed_per_patient_day", "medication", "rate", "lower", 0.18, 0.29, null],
+    ["requests_received", "appointments", "count", null, n(118), n(104), null],
+    ["request_to_booking_hours", "appointments", "hours", "lower", null, null, null],
+    ["request_to_slot_days", "appointments", "days", "lower", 6.5, 9, null],
+    ["cancellations", "appointments", "count", "lower", n(11), n(14), null],
+    ["backfill_refills", "appointments", "count", "higher", n(7), n(3), null],
+    ["no_show_rate_pct", "appointments", "pct", "lower", null, null, null],
+    ["vitals_per_patient_day", "monitoring", "rate", "higher", 22.4, 8.7, null],
+    ["vitals_automated_pct", "monitoring", "pct", "higher", 71.2, 38.5, { manual: n(1150), simulator: n(2240), device: n(600) }],
+    ["news2_medium_high_pct", "monitoring", "pct", null, 8.9, 9.4, { low: n(3634), medium: n(268), high: n(88) }],
+    ["nurse_notes_per_shift", "workload", "rate", null, 2.6, 2.1, null],
+    ["ai_reviewed_pct", "workload", "pct", "higher", 82.4, 64, { reviewed: n(112), pending: n(24) }],
+  ];
+  const notRecorded = new Set<string>(["request_to_booking_hours", "no_show_rate_pct"]);
+  return {
+    days,
+    period: { from: iso(from), to: iso(to) },
+    previous_period: { from: iso(prevFrom), to: iso(from) },
+    patient_days: n(178),
+    data: "synthetic",
+    indicators: rows.map(([id, group, unit, better, value, previous, breakdown]) => ({
+      id, group, unit, better, value, previous, breakdown, status: notRecorded.has(id) ? "not_recorded" : "ok",
+    })),
+  };
 }
