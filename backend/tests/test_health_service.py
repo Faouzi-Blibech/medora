@@ -43,7 +43,7 @@ def test_age_on_birthday_boundary():
 
 def test_role_must_be_in_audience(db, seeded):
     ev = _ev(db, roles=["patient"])
-    doctor = make_user(db, "d9@ward.tn", role="doctor")
+    doctor = make_user(db, "d9@medora.tn", role="doctor")
     assert H.matches(doctor, None, ev) is False
 
 
@@ -57,7 +57,7 @@ def test_sex_and_age_apply_to_patients(db, seeded):
 
 def test_staff_ignore_sex_and_age(db, seeded):
     ev = _ev(db, sex="F", min_age=40)
-    nurse = make_user(db, "n9@ward.tn", role="nurse")
+    nurse = make_user(db, "n9@medora.tn", role="nurse")
     assert H.matches(nurse, None, ev) is True
 
 
@@ -95,10 +95,10 @@ def test_recipients_match_follow_and_active(db, seeded):
     ids = {u.id for u, _ in H.recipients(db, ev)}
     assert "u-0005" in ids and "u-0002" in ids and "u-0001" not in ids  # doctor not in roles
     H.set_prefs(db, "u-0002", {"screening": False})
-    make_user(db, "off@ward.tn", role="nurse", status="disabled")
-    make_user(db, "pend@ward.tn", role=None, status="pending")
+    make_user(db, "off@medora.tn", role="nurse", status="disabled")
+    make_user(db, "pend@medora.tn", role=None, status="pending")
     ids = {u.email for u, _ in H.recipients(db, ev)}
-    assert "nurse@ward.tn" not in ids and "off@ward.tn" not in ids and "pend@ward.tn" not in ids
+    assert "nurse@medora.tn" not in ids and "off@medora.tn" not in ids and "pend@medora.tn" not in ids
 
 
 def test_payload_first_names_only(db, seeded):

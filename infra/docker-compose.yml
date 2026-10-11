@@ -1,4 +1,4 @@
-# Ward — full stack. Run from the repo root:
+# Medora — full stack. Run from the repo root:
 #   docker compose -f infra/docker-compose.yml --env-file .env up --build
 name: ward
 
@@ -54,7 +54,7 @@ services:
       WEBHOOK_URL: ${N8N_PUBLIC_URL:-http://localhost:5678/}   # base of W2 accept links; use the LAN IP for phones
       WARD_API_URL: ${WARD_API_URL:-http://api:8000}
       WEB_URL: ${WEB_URL:-http://localhost:3000}
-      WARD_MAIL_FROM: ${WARD_MAIL_FROM:-Ward <ward@localhost>}
+      WARD_MAIL_FROM: ${WARD_MAIL_FROM:-Medora <ward@localhost>}
       N8N_CALLBACK_SECRET: ${N8N_CALLBACK_SECRET:-change-me-callback}
       N8N_EVENT_SECRET: ${N8N_EVENT_SECRET:-change-me-event}
       WAHA_URL: http://waha:3000

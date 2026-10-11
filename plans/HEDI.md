@@ -360,7 +360,7 @@ int  next_dose_index(const Schedule& s, int now_minute_local);     // -1 if none
 
 - [ ] Run `pio test -e native -f test_schedule` (fail first, then green). Commit `feat(firmware): wokwi project + schedule logic`.
 
-**Day 1 done when:** the no-show tests pass, Faouzi has the functions, a blank sketch boots in Wokwi with the OLED showing "Ward", and `pio test -e native` is green.
+**Day 1 done when:** the no-show tests pass, Faouzi has the functions, a blank sketch boots in Wokwi with the OLED showing "Medora", and `pio test -e native` is green.
 
 ---
 

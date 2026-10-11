@@ -5,9 +5,9 @@
 
 ## 1. Goal
 
-People create their own Ward account, and the hospital (or doctor's cabinet) decides what each account may reach.
+People create their own Medora account, and the hospital (or doctor's cabinet) decides what each account may reach.
 Nobody, neither the company nor a hospital admin, ever chooses or sees another person's password. Patients and
-staff can use Ward from home over the internet.
+staff can use Medora from home over the internet.
 
 Success looks like this:
 - A new nurse signs up from home, an admin approves her as "nurse, Cardiology", and she sees the Cardiology ward

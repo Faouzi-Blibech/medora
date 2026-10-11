@@ -1,11 +1,11 @@
-# Ward: business model and business plan
+# Medora: business model and business plan
 
 > **Status:** working draft for HackCure @ ESEN, 2026-10-11. Owner: Faouzi.
 > Every figure marked *estimate* or *assumption* is ours and must be checked with a real customer before it goes on a slide as fact. Market figures carry their source in section 17.
 
-## 1. Ward in one sentence
+## 1. Medora in one sentence
 
-Ward connects the patient, the nurse, the doctor and the administration around **one shared patient record**, and automates the repetitive parts of the patient journey: appointment triage, dose reminders at the bedside, early-warning alerts, shift handover and follow-up messages on WhatsApp. People stay in charge; the AI only suggests.
+Medora connects the patient, the nurse, the doctor and the administration around **one shared patient record**, and automates the repetitive parts of the patient journey: appointment triage, dose reminders at the bedside, early-warning alerts, shift handover and follow-up messages on WhatsApp. People stay in charge; the AI only suggests.
 
 **What we sell:** time back to nurses and doctors, fewer missed doses and missed warnings, and a hospital that can prove it with numbers.
 
@@ -96,7 +96,7 @@ Why per bed:
 
 **Public sector variant:**
 - Annual licence per hospital through public procurement.
-- Or a component inside a ministry or donor programme (for example the AFD hospital information system programme), where Ward is the bedside and nursing layer that the electronic record does not cover.
+- Or a component inside a ministry or donor programme (for example the AFD hospital information system programme), where Medora is the bedside and nursing layer that the electronic record does not cover.
 
 ## 7. Unit economics (*estimates*)
 
@@ -127,7 +127,7 @@ Sale at 250 TND gives a gross margin of about 45–60 % on hardware. Certified v
 |---|---|
 | Cost to the clinic | about 3,000 TND / month |
 | One nurse in Tunisia (*assumption*) | 1,800–2,500 TND / month gross |
-| Break-even point | Ward saves the equivalent of 1.2–1.7 nurse positions, about 30–45 minutes per nurse per shift |
+| Break-even point | Medora saves the equivalent of 1.2–1.7 nurse positions, about 30–45 minutes per nurse per shift |
 | Supporting numbers to measure in the pilot | Handover time, transcription of vitals, phone calls about appointments |
 
 ## 8. Market size (bottom-up, *estimates*)
@@ -144,7 +144,7 @@ Beyond these figures:
 
 ## 9. Competition and positioning
 
-| Player | What they do | Gap Ward fills |
+| Player | What they do | Gap Medora fills |
 |---|---|---|
 | Hospital information systems (international and local editors, ministry programme) | Admissions, billing, electronic record | Weak at the bedside: no dose reminders, no early-warning loop, no nurse handover, little patient app |
 | Med.tn, Tobba.tn and booking platforms | Appointment booking, teleconsultation | Outside the hospital; nothing for admitted patients |
@@ -152,7 +152,7 @@ Beyond these figures:
 | Paper and Excel | The real competitor in most wards | Free, but no figures, lost information, no alerts |
 
 **Positioning:**
-- Ward is the **bedside and nursing workflow layer**: affordable, self-hosted, Arabic/French/English, works offline.
+- Medora is the **bedside and nursing workflow layer**: affordable, self-hosted, Arabic/French/English, works offline.
 - It plugs into the record the hospital already has (REST, MQTT) instead of replacing it.
 
 **What protects us:**
@@ -260,7 +260,7 @@ Measured by the pilot impact dashboard, with a baseline taken before go-live:
 | Cancelled slots refilled | > 50 % |
 | Nurse satisfaction (short survey) | ≥ 4 / 5 |
 
-**Wording for the pitch:** "Ward automates the patient process; shorter waits are a result we will measure, not a promise."
+**Wording for the pitch:** "Medora automates the patient process; shorter waits are a result we will measure, not a promise."
 
 ## 15. Risks and how we handle them
 
@@ -297,7 +297,7 @@ Measured by the pilot impact dashboard, with a baseline taken before go-live:
 |---|---|
 | Who pays? | The clinic, per bed per month; the public hospital, through procurement or a funded programme |
 | How much? | About 65 TND per bed per month all included; pilot free against a letter of intent |
-| Why not an existing hospital system? | They stop at the desk; Ward works at the bedside and plugs into them |
+| Why not an existing hospital system? | They stop at the desk; Medora works at the bedside and plugs into them |
 | Is the AI safe? | It only suggests; red-flag rules set a floor; a person confirms; everything is logged |
 | Where is the data? | On the hospital's server; nothing leaves; INPDP authorisation is part of onboarding |
 | Where are the sensors? | Simulated in the prototype through the same MQTT contract; certified sensors come through a partner as a regulated step |

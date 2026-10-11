@@ -40,8 +40,8 @@ def tunis_day(offset_days: int = 0) -> str:
 def run_phase_a(c, password: str, patient_id: str = "p-0001") -> dict:
     """Steps 1-5: live allergy warning, send with a reason, red on the worklist, change requested, resubmit with
     azithromycin, validate, doses on the nurse round."""
-    doc, ph = _login(c, "doctor@ward.tn", password), _login(c, "pharmacist@ward.tn", password)
-    nurse = _login(c, "nurse@ward.tn", password)
+    doc, ph = _login(c, "doctor@medora.tn", password), _login(c, "pharmacist@medora.tn", password)
+    nurse = _login(c, "nurse@medora.tn", password)
     checks = _ok(c.post("/prescriptions/check", headers=doc, json={"patient_id": patient_id, "items": [AMOX]}))
     _check(any(x["code"] == "allergy" and x["severity"] == "critical" for x in checks["checks"]), "allergy warning")
     body = {"patient_id": patient_id, "items": [AMOX], "care_plan": ""}
@@ -66,7 +66,7 @@ def run_phase_a(c, password: str, patient_id: str = "p-0001") -> dict:
 def run_phase_b(c, password: str, ward: str = "Cardiology", round_time: str = "20:00") -> dict:
     """Step 6: the pharmacist prepares the round, the nurse confirms receipt, the stock goes down, and a
     low-stock alert shows on the pharmacy dashboard."""
-    ph, nurse = _login(c, "pharmacist@ward.tn", password), _login(c, "nurse@ward.tn", password)
+    ph, nurse = _login(c, "pharmacist@medora.tn", password), _login(c, "nurse@medora.tn", password)
     day = tunis_day()
     before = _ok(c.get("/pharmacy/summary", headers=ph))
     view = _ok(c.get("/pharmacy/dispensing", headers=ph, params={"date": day, "round": round_time, "ward": ward}))

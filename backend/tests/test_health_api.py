@@ -11,7 +11,7 @@ def test_list_needs_login(client):
 
 
 def test_list_window_and_flags(client):
-    pat = login(client, "patient@ward.tn")
+    pat = login(client, "patient@medora.tn")
     r = client.get("/health-events?from=2026-10-01&to=2026-11-30", headers=pat)
     assert r.status_code == 200
     ids = [e["id"] for e in r.json()]
@@ -22,7 +22,7 @@ def test_list_window_and_flags(client):
 
 
 def test_prefs_get_put(client):
-    pat = login(client, "patient@ward.tn")
+    pat = login(client, "patient@medora.tn")
     assert client.get("/me/health-prefs", headers=pat).json()["following"]["screening"] is True
     r = client.put("/me/health-prefs", headers=pat, json={"following": {"screening": False}})
     assert r.status_code == 200 and r.json()["following"]["screening"] is False
@@ -31,34 +31,34 @@ def test_prefs_get_put(client):
 
 
 def test_prefs_unknown_category_422(client):
-    pat = login(client, "patient@ward.tn")
+    pat = login(client, "patient@medora.tn")
     r = client.put("/me/health-prefs", headers=pat, json={"following": {"vaccination": False, "astrology": False}})
     assert r.status_code == 422
     assert client.get("/me/health-prefs", headers=pat).json()["following"]["vaccination"] is True
 
 
 def test_only_admin_writes(client):
-    doc = login(client, "doctor@ward.tn")
+    doc = login(client, "doctor@medora.tn")
     assert client.post("/health-events", headers=doc, json=NEW).status_code == 403
     assert client.delete("/health-events/he-0001", headers=doc).status_code == 403
     assert client.post("/health-events/he-0001/notify", headers=doc).status_code == 403
 
 
 def test_admin_create_patch_delete(client, db):
-    adm = login(client, "admin@ward.tn")
+    adm = login(client, "admin@medora.tn")
     r = client.post("/health-events", headers=adm, json=NEW)
     assert r.status_code == 201, r.text
     ev = r.json()
     assert ev["id"].startswith("he-") and ev["description"] == {"en": "", "fr": "", "ar": ""}
     assert ev["notify_days_before"] == 3
-    r = client.patch(f"/health-events/{ev['id']}", headers=adm, json={"organizer": "Ward"})
-    assert r.status_code == 200 and r.json()["organizer"] == "Ward"
+    r = client.patch(f"/health-events/{ev['id']}", headers=adm, json={"organizer": "Medora"})
+    assert r.status_code == 200 and r.json()["organizer"] == "Medora"
     assert client.delete(f"/health-events/{ev['id']}", headers=adm).status_code == 204
     assert client.patch(f"/health-events/{ev['id']}", headers=adm, json={"organizer": "x"}).status_code == 404
 
 
 def test_bad_dates(client):
-    adm = login(client, "admin@ward.tn")
+    adm = login(client, "admin@medora.tn")
     r = client.post("/health-events", headers=adm, json=dict(NEW, ends_on="2026-11-19"))
     assert r.status_code == 422 and r.json()["code"] == "bad_dates"
     r = client.patch("/health-events/he-0005", headers=adm, json={"ends_on": "2026-11-01"})  # starts 11-14
@@ -66,7 +66,7 @@ def test_bad_dates(client):
 
 
 def test_bad_audience(client):
-    adm = login(client, "admin@ward.tn")
+    adm = login(client, "admin@medora.tn")
     bad = dict(NEW, audience={"roles": [], "sex": None, "min_age": None, "max_age": None})
     assert client.post("/health-events", headers=adm, json=bad).status_code == 422
     bad = dict(NEW, audience={"roles": ["patient"], "sex": None, "min_age": 50, "max_age": 40})
@@ -77,13 +77,13 @@ def test_moving_start_clears_announced(client, db):
     from datetime import UTC, datetime
     db.get(HealthEvent, "he-0005").announced_at = datetime.now(UTC)
     db.flush()
-    adm = login(client, "admin@ward.tn")
+    adm = login(client, "admin@medora.tn")
     r = client.patch("/health-events/he-0005", headers=adm, json={"starts_on": "2026-11-13"})
     assert r.status_code == 200 and r.json()["announced_at"] is None
 
 
 def test_notify_now(client, db, emitted):
-    adm = login(client, "admin@ward.tn")
+    adm = login(client, "admin@medora.tn")
     r = client.post("/health-events/he-0001/notify", headers=adm)
     assert r.status_code == 200
     (event, data), = [e for e in emitted if e[0] == "health_event.upcoming"]
@@ -99,7 +99,7 @@ import pytest  # noqa: E402
 @pytest.mark.parametrize("field", ["title", "description", "category", "starts_on", "ends_on", "audience",
                                    "notify_days_before"])
 def test_patch_null_on_required_field_422(client, db, field):
-    adm = login(client, "admin@ward.tn")
+    adm = login(client, "admin@medora.tn")
     before = client.get("/health-events?from=2026-01-01&to=2027-12-31", headers=adm).json()
     r = client.patch("/health-events/he-0005", headers=adm, json={field: None})
     assert r.status_code == 422 and r.json()["code"] == "invalid"
@@ -108,6 +108,6 @@ def test_patch_null_on_required_field_422(client, db, field):
 
 
 def test_patch_null_organizer_ok(client):
-    adm = login(client, "admin@ward.tn")
+    adm = login(client, "admin@medora.tn")
     r = client.patch("/health-events/he-0005", headers=adm, json={"organizer": None})
     assert r.status_code == 200 and r.json()["organizer"] is None

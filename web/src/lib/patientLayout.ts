@@ -1,6 +1,6 @@
 "use client";
 
-// Which patient interface to show: the phone PWA (patient@ward.tn, Amira) or the desktop
+// Which patient interface to show: the phone PWA (patient@medora.tn, Amira) or the desktop
 // platform (every other patient account). A per-user choice is kept in localStorage.
 import { useCallback, useEffect, useReducer } from "react";
 import { USE_MOCKS } from "./time";
@@ -14,7 +14,7 @@ const storageKey = (userId: string) => `ward_patient_layout:${userId}`;
 /** The phone stays the demo's first patient (Amira); every other patient account gets the desktop. */
 export function defaultLayoutFor(me: Me | null): PatientLayout {
   if (USE_MOCKS || !me) return "phone";
-  return me.email === "patient@ward.tn" || me.id === "u-0005" ? "phone" : "desktop";
+  return me.email === "patient@medora.tn" || me.id === "u-0005" ? "phone" : "desktop";
 }
 
 // This tab's choices, so a switch still works when storage is blocked.

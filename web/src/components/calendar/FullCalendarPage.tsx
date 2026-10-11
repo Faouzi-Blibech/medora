@@ -23,7 +23,7 @@ export function FullCalendarPage() {
       <header className={styles.head}>
         <Link href={role ? HOME[role] : "/"} className={styles.wordmark}>
           <span className={styles.mark} aria-hidden="true" />
-          <span className={styles.name}>Ward</span>
+          <span className={styles.name}>Medora</span>
         </Link>
         <span className={styles.tag}>{t("common.prototypeTag")}</span>
         <span className={styles.flex} />

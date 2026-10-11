@@ -25,7 +25,7 @@
         -120
       ],
       "parameters": {
-        "jsCode": "// event dose.missed (contract v1.1): {dose_id, patient_first_name, bed, meds[], scheduled_at, nurse_chat_ids[], doctor_chat_id, doctor_email}\n// The message names the bed and time only: no patient name or medication leaves the server.\n// Demo routing: staff alerts go to every number in WARD_WHATSAPP_STAFF (comma-separated, country code first).\nconst staff = () => [...new Set(($env.WARD_WHATSAPP_STAFF || '').split(',').map(s => s.replace(/\\D/g, '')).filter(Boolean))];\nconst out = [];\nfor (const item of $input.all()) {\n  const d = item.json.data || {};\n  const at = d.scheduled_at ? DateTime.fromISO(d.scheduled_at).setZone('Africa/Tunis').toFormat('HH:mm') : '?';\n  const text = `Ward: missed dose, bed ${d.bed ?? '?'} (due ${at}). Open Ward.`;\n  for (const to of staff()) out.push({ json: { to, text, dose_id: d.dose_id } });\n}\nreturn out;"
+        "jsCode": "// event dose.missed (contract v1.1): {dose_id, patient_first_name, bed, meds[], scheduled_at, nurse_chat_ids[], doctor_chat_id, doctor_email}\n// The message names the bed and time only: no patient name or medication leaves the server.\n// Demo routing: staff alerts go to every number in WARD_WHATSAPP_STAFF (comma-separated, country code first).\nconst staff = () => [...new Set(($env.WARD_WHATSAPP_STAFF || '').split(',').map(s => s.replace(/\\D/g, '')).filter(Boolean))];\nconst out = [];\nfor (const item of $input.all()) {\n  const d = item.json.data || {};\n  const at = d.scheduled_at ? DateTime.fromISO(d.scheduled_at).setZone('Africa/Tunis').toFormat('HH:mm') : '?';\n  const text = `Medora: missed dose, bed ${d.bed ?? '?'} (due ${at}). Open Medora.`;\n  for (const to of staff()) out.push({ json: { to, text, dose_id: d.dose_id } });\n}\nreturn out;"
       }
     },
     {
@@ -74,7 +74,7 @@
         120
       ],
       "parameters": {
-        "jsCode": "const out = [];\nfor (const item of $input.all()) {\n  const d = item.json.data || {};\n  if (!d.doctor_email) continue;\n  const at = d.scheduled_at ? DateTime.fromISO(d.scheduled_at).setZone('Africa/Tunis').toFormat('dd/LL HH:mm') : '?';\n  out.push({ json: {\n    to: d.doctor_email,\n    subject: `Missed dose · Bed ${d.bed ?? '?'}`,\n    text: `A dose due at ${at} at bed ${d.bed ?? '?'} was not taken within 30 minutes.\nThe ward nurses were notified on WhatsApp. Open Ward for details.\n\n— Ward`,\n  } });\n}\nreturn out;"
+        "jsCode": "const out = [];\nfor (const item of $input.all()) {\n  const d = item.json.data || {};\n  if (!d.doctor_email) continue;\n  const at = d.scheduled_at ? DateTime.fromISO(d.scheduled_at).setZone('Africa/Tunis').toFormat('dd/LL HH:mm') : '?';\n  out.push({ json: {\n    to: d.doctor_email,\n    subject: `Missed dose · Bed ${d.bed ?? '?'}`,\n    text: `A dose due at ${at} at bed ${d.bed ?? '?'} was not taken within 30 minutes.\nThe ward nurses were notified on WhatsApp. Open Medora for details.\n\n— Medora`,\n  } });\n}\nreturn out;"
       }
     },
     {

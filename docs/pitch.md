@@ -5,15 +5,15 @@ It downloads as PowerPoint or PDF. Speaker notes are on every slide.
 
 Updated for the reduced hardware (PR #13: ESP32 + OLED + servo + DS1307, no sensors; the simulator sends the vitals).
 
-Working name: **Ward**. Renaming = edit the cover, the footers and the deck title.
+Name: **Medora**. Renaming = edit the cover, the footers and the deck title.
 
 ## Outline (10 slides, about 6 minutes with the live demo)
 
 | # | Slide | Point |
 |---|---|---|
-| 1 | Cover | Ward: the patient journey, connected |
+| 1 | Cover | Medora: the patient journey, connected |
 | 2 | Problem | Long waits, paper records, no shared record |
-| 3 | Solution | Ward automates the patient process; four roles, one record |
+| 3 | Solution | Medora automates the patient process; four roles, one record |
 | 4 | Journey | The 8-step golden path; switch to the live demo here (TEAM_PLAN.md section 5) |
 | 5 | Bedside unit | ESP32 + OLED + servo + clock (Wokwi): offline reminders, servo pill holder; vitals and badge taps simulated |
 | 6 | AI | Six modules: what each suggests, who confirms, what happens if the AI is down |

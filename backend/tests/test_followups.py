@@ -19,7 +19,7 @@ NOW = int(datetime.now(UTC).timestamp())
 def test_wardless_nurse_sees_nothing(client, db):
     db.get(Staff, "u-0003").ward = None
     db.flush()
-    h = login(client, "nurse2@ward.tn")
+    h = login(client, "nurse2@medora.tn")
     r = client.get("/patients", headers=h)
     assert r.status_code == 200 and r.json() == []
     assert client.get("/alerts", headers=h).json() == []
@@ -46,7 +46,7 @@ def test_audit_log_append_only(db, seeded):
 
 # 11: a doctor's discharge writes one audit row
 def test_doctor_discharge_audited_once(client, db):
-    h = login(client, "doctor@ward.tn")
+    h = login(client, "doctor@medora.tn")
     before = db.query(AuditLog).filter_by(action="update", patient_id="p-0001").count()
     client.post("/admissions/adm-0001/discharge", headers=h)
     assert db.query(AuditLog).filter_by(action="update", patient_id="p-0001").count() == before + 1
@@ -62,7 +62,7 @@ def test_qos0_without_connection_is_not_sent(monkeypatch, caplog):
             return Info()
 
     monkeypatch.setattr(publisher, "_client", Down())
-    with caplog.at_level(logging.WARNING, "ward.publisher"):
+    with caplog.at_level(logging.WARNING, "medora.publisher"):
         assert publisher.publish_ws_frame({"type": "vital"}) is False
     assert publisher.publish_schedule("bsu-001", {}) is True  # QoS 1 is queued by paho until reconnect
     assert "not connected" in caplog.text
@@ -70,7 +70,7 @@ def test_qos0_without_connection_is_not_sent(monkeypatch, caplog):
 
 # 13: an unknown alert status filter is a 422
 def test_alert_status_validated(client):
-    h = login(client, "nurse@ward.tn")
+    h = login(client, "nurse@medora.tn")
     assert client.get("/alerts?status=closed", headers=h).status_code == 422
     assert client.get("/alerts?status=all", headers=h).status_code == 200
 
@@ -84,26 +84,26 @@ def test_schedule_cap_logged(db, seeded, caplog):
     db.add(rx)
     db.flush()
     schedule.rebuild_doses(db, rx)
-    with caplog.at_level(logging.WARNING, "ward.schedule"):
+    with caplog.at_level(logging.WARNING, "medora.schedule"):
         assert len(schedule.build_schedule_payload(db, "p-0001")["doses"]) == 8
     assert "dropped" in caplog.text
 
 
 # api 1.5: GET /staff (admin)
 def test_staff_list(client):
-    h = login(client, "admin@ward.tn")
+    h = login(client, "admin@medora.tn")
     rows = client.get("/staff", headers=h).json()
     assert {r["id"] for r in rows} == {"u-0001", "u-0002", "u-0003", "u-0004", "u-0006", "u-0007", "u-0008"}
     ines = next(r for r in rows if r["id"] == "u-0002")
-    assert ines == {"id": "u-0002", "name": "Nurse Ines", "email": "nurse@ward.tn", "role": "nurse", "status": "active",
+    assert ines == {"id": "u-0002", "name": "Nurse Ines", "email": "nurse@medora.tn", "role": "nurse", "status": "active",
                     "ward": "Cardiology", "scope": "Cardiology", "last_login_at": None}
     admin = next(r for r in rows if r["id"] == "u-0004")
     assert admin["last_login_at"] is not None and admin["scope"] == "All wards"
-    assert client.get("/staff", headers=login(client, "nurse@ward.tn")).status_code == 403
+    assert client.get("/staff", headers=login(client, "nurse@medora.tn")).status_code == 403
 
 
 def test_staff_excludes_patients(client, db):
-    rows = client.get("/staff", headers=login(client, "admin@ward.tn")).json()
+    rows = client.get("/staff", headers=login(client, "admin@medora.tn")).json()
     patient_ids = {u.id for u in db.query(User).filter_by(role="patient")}
     assert not patient_ids & {r["id"] for r in rows}
 

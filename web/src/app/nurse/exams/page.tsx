@@ -4,7 +4,7 @@ import { ExamWorklist } from "@/components/nurse/ExamWorklist";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("nurse.metaExams")} · Ward` };
+  return { title: `${t("nurse.metaExams")} · Medora` };
 }
 
 export default function NurseExamsPage() {

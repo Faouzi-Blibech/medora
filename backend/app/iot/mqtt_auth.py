@@ -5,7 +5,7 @@ import logging
 
 from app.config import Settings, get_settings
 
-log = logging.getLogger("ward.mqtt")
+log = logging.getLogger("medora.mqtt")
 
 
 def apply_credentials(client, settings: Settings | None = None) -> None:

@@ -10,12 +10,12 @@ def test_existing_style_user_defaults_to_active(seeded):
 
 
 def test_pending_user_has_no_role_and_remembers_the_request(seeded):
-    u = make_user(seeded, "new@ward.tn", role=None, status="pending", requested_doctor_id="u-0001")
+    u = make_user(seeded, "new@medora.tn", role=None, status="pending", requested_doctor_id="u-0001")
     assert u.role is None and u.status == "pending" and u.requested_doctor_id == "u-0001"
 
 
 def test_staff_supervisor(seeded):
-    u = make_user(seeded, "team@ward.tn", role="nurse", supervisor_id="u-0001")
+    u = make_user(seeded, "team@medora.tn", role="nurse", supervisor_id="u-0001")
     assert seeded.get(Staff, u.id).supervisor_id == "u-0001"
 
 

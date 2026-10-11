@@ -14,7 +14,7 @@ from app.ids import new_id
 from app.iot import publisher
 from app.models import Admission, Device, MedDose, Patient, Prescription
 
-log = logging.getLogger("ward.schedule")
+log = logging.getLogger("medora.schedule")
 TUNIS = timezone(timedelta(hours=1), "Africa/Tunis")
 MAX_DOSES = 8
 

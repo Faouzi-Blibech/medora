@@ -4,7 +4,7 @@ import { ImpactView } from "@/components/admin/ImpactView";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("admin.impTitle")} · Ward` };
+  return { title: `${t("admin.impTitle")} · Medora` };
 }
 
 export default function AdminImpactPage() {

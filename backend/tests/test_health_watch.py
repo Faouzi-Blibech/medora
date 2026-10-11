@@ -56,21 +56,21 @@ def heat(monkeypatch):
 
 
 def test_staff_see_alerts_with_their_at_risk_patients_and_news(client, heat):
-    r = client.get("/health-watch", headers=login(client, "doctor@ward.tn"))
+    r = client.get("/health-watch", headers=login(client, "doctor@medora.tn"))
     assert r.status_code == 200, r.text
     body = r.json()
     assert len(body["days"]) == 2 and body["news"][0]["source"] == "WHO"
     heat_alert = next(a for a in body["alerts"] if a["id"] == "heat_high")
     assert "p-0001" in {p["id"] for p in heat_alert["at_risk"]}  # Amira: hypertension -> cardiac
-    admin = client.get("/health-watch", headers=login(client, "admin@ward.tn")).json()
+    admin = client.get("/health-watch", headers=login(client, "admin@medora.tn")).json()
     assert all(a["at_risk"] == [] and a["at_risk_count"] >= 1 for a in admin["alerts"] if a["id"] == "heat_high")
 
 
 def test_patient_sees_advice_marked_when_it_concerns_them(client, heat):
-    r = client.get("/health-watch/me", headers=login(client, "patient@ward.tn"))
+    r = client.get("/health-watch/me", headers=login(client, "patient@medora.tn"))
     a = next(x for x in r.json()["alerts"] if x["id"] == "heat_high")
     assert a["concerns_me"] and "staff" not in a and a["patient"]["ar"]
-    assert client.get("/health-watch", headers=login(client, "patient@ward.tn")).status_code == 403
+    assert client.get("/health-watch", headers=login(client, "patient@medora.tn")).status_code == 403
 
 
 def test_n8n_reads_alerts_without_names(client, heat):
@@ -85,7 +85,7 @@ def test_demo_scenario_is_labelled(client, monkeypatch):
     monkeypatch.setattr(H, "news", lambda: [])
     monkeypatch.setenv("HEALTH_WATCH_DEMO", "dust")
     get_settings.cache_clear()
-    body = client.get("/health-watch", headers=login(client, "nurse@ward.tn")).json()
+    body = client.get("/health-watch", headers=login(client, "nurse@medora.tn")).json()
     assert body["demo"] == "dust" and body["alerts"][0]["id"] == "dust"
     monkeypatch.delenv("HEALTH_WATCH_DEMO")
     get_settings.cache_clear()

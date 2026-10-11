@@ -241,7 +241,7 @@ op.execute("CREATE UNIQUE INDEX uq_adm_active_device ON admissions(device_id) WH
 
 Change the `api` container command to `sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"` in `infra/docker-compose.yml`.
 
-- [ ] **Step 6: Seed.** `backend/app/seed.py` creates exactly the dataset in `data-model.md` → "Seed data" and is **idempotent** (it exits early if `doctor@ward.tn` exists). Vitals: 48 h every 15 min of normal values for admitted patients (`hr` 65–90, `spo2` 96–99, `temp` 36.5–37.4, `source="manual"`). Run with `docker compose exec api python -m app.seed`.
+- [ ] **Step 6: Seed.** `backend/app/seed.py` creates exactly the dataset in `data-model.md` → "Seed data" and is **idempotent** (it exits early if `doctor@medora.tn` exists). Vitals: 48 h every 15 min of normal values for admitted patients (`hr` 65–90, `spo2` 96–99, `temp` 36.5–37.4, `source="manual"`). Run with `docker compose exec api python -m app.seed`.
 
 - [ ] **Step 7:** `pytest -v` passes. Commit `feat(backend): schema, ids, seed`.
 
@@ -276,16 +276,16 @@ from app.models import AuditLog
 from tests.helpers import login     # tests/helpers.py — shared with Faouzi's tests
 
 def test_patient_cannot_read_other(client):
-    h = login(client, "patient@ward.tn")
+    h = login(client, "patient@medora.tn")
     assert client.get("/patients/p-0001", headers=h).status_code == 200
     assert client.get("/patients/p-0002", headers=h).status_code == 403
 
 def test_admin_cannot_read_clinical(client):
-    h = login(client, "admin@ward.tn")
+    h = login(client, "admin@medora.tn")
     assert client.get("/patients/p-0001/vitals", headers=h).status_code == 403
 
 def test_read_writes_audit(client, db):
-    h = login(client, "doctor@ward.tn")
+    h = login(client, "doctor@medora.tn")
     before = db.query(AuditLog).count()
     client.get("/patients/p-0001", headers=h)
     assert db.query(AuditLog).count() == before + 1
@@ -372,7 +372,7 @@ def test_status_updates_device(db, seeded):
   - admins, for `device_status` frames only
 
   Strip `scope` before sending. `WS /ws?token=` validates the JWT and closes with code 4401 if it's invalid. Broadcasting from the MQTT thread goes through `asyncio.run_coroutine_threadsafe(..., loop)`, where `loop` is captured in the lifespan handler.
-- [ ] **Step 4:** Run `pytest -v`. Then do a manual end-to-end check: stack up, simulator on, `websockets` client connected as `nurse@ward.tn`, and `vital` frames arrive every 5 s.
+- [ ] **Step 4:** Run `pytest -v`. Then do a manual end-to-end check: stack up, simulator on, `websockets` client connected as `nurse@medora.tn`, and `vital` frames arrive every 5 s.
 - [ ] **Step 5:** Commit `feat(backend): mqtt ingestion with dedupe + ws relay`.
 
 ### Task 5: n8n emitter
@@ -386,7 +386,7 @@ from datetime import UTC, datetime
 import httpx
 from app.config import get_settings
 
-log = logging.getLogger("ward.n8n")
+log = logging.getLogger("medora.n8n")
 
 def _post(event: str, data: dict) -> None:
     s = get_settings()

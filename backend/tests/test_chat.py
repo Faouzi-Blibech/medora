@@ -77,18 +77,18 @@ def test_llm_may_say_the_record_has_no_answer(monkeypatch):
 
 
 def test_chat_api_roles_and_storage(client):
-    doc = login(client, "doctor@ward.tn")
+    doc = login(client, "doctor@medora.tn")
     r = client.post("/ai/chat", headers=doc, json={"patient_id": "p-0001", "question": "Summarise the stay"})
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["id"].startswith("nb-") and body["source"] == "rules"
     assert client.post("/ai/chat", headers=doc, json={"question": "hi"}).status_code == 422
-    nurse = login(client, "nurse@ward.tn")
+    nurse = login(client, "nurse@medora.tn")
     assert client.post("/ai/chat", headers=nurse, json={"patient_id": "p-0001", "question": "meds due?"}).status_code == 200
-    pat = login(client, "patient@ward.tn")
+    pat = login(client, "patient@medora.tn")
     r = client.post("/ai/chat", headers=pat, json={"question": "When is my next dose?"})
     assert r.status_code == 200 and r.json()["answer"]
-    admin = login(client, "admin@ward.tn")
+    admin = login(client, "admin@medora.tn")
     assert client.post("/ai/chat", headers=admin, json={"patient_id": "p-0001", "question": "x"}).status_code == 403
 
 
@@ -97,19 +97,19 @@ def test_doctor_uploads_a_report_that_the_chat_reads(client, monkeypatch):
 
     files = {}
     monkeypatch.setattr(storage, "put", lambda key, data, ct: files.__setitem__(key, data))
-    doc = login(client, "doctor@ward.tn")
+    doc = login(client, "doctor@medora.tn")
     r = client.post("/patients/p-0001/reports", headers=doc, data={"title": "Echo report"},
                     files={"file": ("echo.txt", b"Ejection fraction 35 percent, dilated left ventricle.", "text/plain")})
     assert r.status_code == 201, r.text
     out = client.post("/ai/chat", headers=doc, json={"patient_id": "p-0001", "question": "ejection fraction"}).json()
     assert any("Ejection fraction 35" in c["text"] for c in out["citations"])
-    nurse = login(client, "nurse@ward.tn")
+    nurse = login(client, "nurse@medora.tn")
     assert client.post("/patients/p-0001/reports", headers=nurse,
                        files={"file": ("x.txt", b"x", "text/plain")}).status_code == 403
 
 
 def test_conversations_mentions_history_and_ownership(client):
-    doc = login(client, "doctor@ward.tn")
+    doc = login(client, "doctor@medora.tn")
     c = client.post("/ai/conversations", headers=doc, json={}).json()
     assert c["id"].startswith("cv-") and c["messages"] == []
     r = client.post(f"/ai/conversations/{c['id']}/messages", headers=doc,
@@ -125,8 +125,8 @@ def test_conversations_mentions_history_and_ownership(client):
     full = client.get(f"/ai/conversations/{c['id']}", headers=doc).json()
     assert [m["role"] for m in full["messages"]] == ["user", "assistant"] * 3
     assert [x["id"] for x in client.get("/ai/conversations", headers=doc).json()][0] == c["id"]
-    nurse = login(client, "nurse@ward.tn")
+    nurse = login(client, "nurse@medora.tn")
     assert client.get(f"/ai/conversations/{c['id']}", headers=nurse).status_code == 404
-    assert client.post("/ai/conversations", headers=login(client, "patient@ward.tn"), json={}).status_code == 403
+    assert client.post("/ai/conversations", headers=login(client, "patient@medora.tn"), json={}).status_code == 403
     assert client.delete(f"/ai/conversations/{c['id']}", headers=doc).status_code == 204
     assert client.get(f"/ai/conversations/{c['id']}", headers=doc).status_code == 404

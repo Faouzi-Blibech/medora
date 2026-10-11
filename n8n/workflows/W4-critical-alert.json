@@ -25,7 +25,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "// event alert.critical: {alert_id, patient_first_name, bed, kind, news2, message, nurse_chat_ids[], doctor_chat_id}\n// The message names the bed only: no patient name, score or vitals leave the server.\n// Demo routing: staff alerts go to every number in WARD_WHATSAPP_STAFF (comma-separated, country code first).\nconst staff = () => [...new Set(($env.WARD_WHATSAPP_STAFF || '').split(',').map(s => s.replace(/\\D/g, '')).filter(Boolean))];\nconst out = [];\nfor (const item of $input.all()) {\n  const d = item.json.data || {};\n  const text = `Ward: critical alert, bed ${d.bed ?? '?'}. Open Ward now.`;\n  for (const to of staff()) out.push({ json: { to, text, alert_id: d.alert_id } });\n}\nreturn out;"
+        "jsCode": "// event alert.critical: {alert_id, patient_first_name, bed, kind, news2, message, nurse_chat_ids[], doctor_chat_id}\n// The message names the bed only: no patient name, score or vitals leave the server.\n// Demo routing: staff alerts go to every number in WARD_WHATSAPP_STAFF (comma-separated, country code first).\nconst staff = () => [...new Set(($env.WARD_WHATSAPP_STAFF || '').split(',').map(s => s.replace(/\\D/g, '')).filter(Boolean))];\nconst out = [];\nfor (const item of $input.all()) {\n  const d = item.json.data || {};\n  const text = `Medora: critical alert, bed ${d.bed ?? '?'}. Open Medora now.`;\n  for (const to of staff()) out.push({ json: { to, text, alert_id: d.alert_id } });\n}\nreturn out;"
       }
     },
     {

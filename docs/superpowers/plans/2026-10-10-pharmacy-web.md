@@ -854,16 +854,16 @@ export const REVIEWS: PrescriptionReview[] = [
 
 ```ts
 export const USERS = {
-  doctor: { id: "u-0001", name: "Dr Trabelsi", email: "m.trabelsi@hr-ward.tn", role: "doctor", patient_id: null },
-  nurse: { id: "u-0002", name: "Nurse Ines", email: "i.mejri@hr-ward.tn", role: "nurse", patient_id: null },
-  admin: { id: "u-0003", name: "Mme Gharbi", email: "n.gharbi@hr-ward.tn", role: "admin", patient_id: null },
-  patient: { id: "u-0007", name: "Amira Ben Salah", email: "patient@ward.tn", role: "patient", patient_id: "p-0001" },
-  pharmacist: { id: "u-0012", name: "Pharm. Salma", email: "pharmacist@ward.tn", role: "pharmacist", patient_id: null },
+  doctor: { id: "u-0001", name: "Dr Trabelsi", email: "m.trabelsi@hr-medora.tn", role: "doctor", patient_id: null },
+  nurse: { id: "u-0002", name: "Nurse Ines", email: "i.mejri@hr-medora.tn", role: "nurse", patient_id: null },
+  admin: { id: "u-0003", name: "Mme Gharbi", email: "n.gharbi@hr-medora.tn", role: "admin", patient_id: null },
+  patient: { id: "u-0007", name: "Amira Ben Salah", email: "patient@medora.tn", role: "patient", patient_id: "p-0001" },
+  pharmacist: { id: "u-0012", name: "Pharm. Salma", email: "pharmacist@medora.tn", role: "pharmacist", patient_id: null },
 } satisfies Record<Me["role"], Me>;
 ```
 
 ```ts
-  { id: "u-0012", name: "Pharm. Salma", email: "pharmacist@ward.tn", role: "pharmacist", ward: null, scope: "Pharmacy", last_login_at: at(TODAY, "07:40") },
+  { id: "u-0012", name: "Pharm. Salma", email: "pharmacist@medora.tn", role: "pharmacist", ward: null, scope: "Pharmacy", last_login_at: at(TODAY, "07:40") },
 ```
 
 `web/src/mocks/clinical.ts`:
@@ -1847,7 +1847,7 @@ import { getT } from "@/i18n/server";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("pharmacy.navWorklist")} · Ward` };
+  return { title: `${t("pharmacy.navWorklist")} · Medora` };
 }
 
 export default function PharmacistPage() {
@@ -3641,7 +3641,7 @@ import { getT } from "@/i18n/server";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("pharmacy.catalogueTitle")} · Ward` };
+  return { title: `${t("pharmacy.catalogueTitle")} · Medora` };
 }
 
 export default function PharmacistCataloguePage() {
@@ -5038,7 +5038,7 @@ Visit each screen and tick each item.
 - [ ] **Step 7: Smoke-test real mode (only if the backend branch is up; skip otherwise and say so in the report)**
 
 Run: `NEXT_PUBLIC_USE_MOCKS=0 NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev`.
-1. Sign in as `pharmacist@ward.tn` (seed password): you land on `/pharmacist`.
+1. Sign in as `pharmacist@medora.tn` (seed password): you land on `/pharmacist`.
 2. DevTools → WS: one `/ws?token=…` socket is open.
 3. In another browser, the doctor saves a prescription for a seed patient: within a second, without polling, the pharmacist's list and badge update (`prescription_status` frame).
 4. Stop the API: the socket closes, polling resumes every 15 s, and the screens keep their last data.
@@ -6313,7 +6313,7 @@ import { getT } from "@/i18n/server";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("pharmacy.dispTitle")} · Ward` };
+  return { title: `${t("pharmacy.dispTitle")} · Medora` };
 }
 
 export default function PharmacistDispensingPage() {
@@ -6951,7 +6951,7 @@ import { getT } from "@/i18n/server";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("pharmacy.stockTitle")} · Ward` };
+  return { title: `${t("pharmacy.stockTitle")} · Medora` };
 }
 
 export default function PharmacistStockPage() {

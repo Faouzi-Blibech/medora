@@ -1,4 +1,4 @@
-# Ward broker ACL (mqtt-topics.md v1.2). Username = device id for bedside units.
+# Medora broker ACL (mqtt-topics.md v1.2). Username = device id for bedside units.
 # Anonymous clients are rejected in mosquitto.conf; a topic not listed here is denied.
 
 # Backend (worker + API): reads what devices send, writes what devices receive, owns ward/internal/#.

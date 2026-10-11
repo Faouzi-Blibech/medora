@@ -936,13 +936,13 @@ git commit -m "feat(backend): deterministic prescription check engine and rule f
   - `formulary.create_drug(db, data: dict) -> Drug`;
   - `formulary.update_drug(db, d: Drug, changes: dict) -> Drug`;
   - schemas `DrugIn`, `DrugPatch`, `Comment` (an `Annotated[str, …]` trimmed to 1–500 characters, used from Task 5);
-  - the test helper `tests.helpers.pharmacist(client, db, email="ph.t@ward.tn", name="Pharm Test") -> dict`, which returns auth headers.
+  - the test helper `tests.helpers.pharmacist(client, db, email="ph.t@medora.tn", name="Pharm Test") -> dict`, which returns auth headers.
 
 - [ ] **Step 1: Write the failing test**
 
 Append to `backend/tests/helpers.py`:
 ```python
-def pharmacist(client, db, email: str = "ph.t@ward.tn", name: str = "Pharm Test") -> dict:
+def pharmacist(client, db, email: str = "ph.t@medora.tn", name: str = "Pharm Test") -> dict:
     """An active pharmacist account (no staff row) and its auth headers."""
     make_user(db, email, role="pharmacist", name=name)
     return login(client, email)
@@ -970,31 +970,31 @@ def _ids(rows):
 @pytest.mark.parametrize("q,expected", [("amox", {"d-0003", "d-0004", "d-0005"}), ("doliprane", {"d-0001", "d-0002"}),
                                         ("J01FA", {"d-0006", "d-0007"}), ("j01fa", {"d-0006", "d-0007"})])
 def test_search_by_dci_brand_or_atc(client, q, expected):
-    r = client.get("/drugs", params={"q": q}, headers=login(client, "doctor@ward.tn"))
+    r = client.get("/drugs", params={"q": q}, headers=login(client, "doctor@medora.tn"))
     assert r.status_code == 200 and _ids(r.json()) == expected
 
 
 def test_search_shape_and_limit(client):
-    rows = client.get("/drugs", headers=login(client, "nurse@ward.tn")).json()
+    rows = client.get("/drugs", headers=login(client, "nurse@medora.tn")).json()
     assert len(rows) == 50  # 51 drugs, capped
     assert set(rows[0]) == {"id", "dci", "brand_names", "form", "strength", "unit_mg", "max_daily_mg", "atc_code",
                             "allergy_classes", "interaction_groups", "high_alert", "min_stock", "active", "created_at",
                             "updated_at"}
     amox = next(r for r in client.get("/drugs", params={"q": "clamoxyl"},
-                                      headers=login(client, "nurse@ward.tn")).json() if r["id"] == "d-0003")
+                                      headers=login(client, "nurse@medora.tn")).json() if r["id"] == "d-0003")
     assert (amox["unit_mg"], amox["max_daily_mg"], amox["active"]) == (1000.0, 6000.0, True)
 
 
 @pytest.mark.parametrize("q", ["%", "_", "باراسيتامول", "a'b"])
 def test_search_input_is_literal(client, q):
-    r = client.get("/drugs", params={"q": q}, headers=login(client, "doctor@ward.tn"))
+    r = client.get("/drugs", params={"q": q}, headers=login(client, "doctor@medora.tn"))
     assert r.status_code == 200 and r.json() == []
 
 
 def test_read_roles(client):
-    for email in ("doctor@ward.tn", "nurse@ward.tn", "admin@ward.tn"):
+    for email in ("doctor@medora.tn", "nurse@medora.tn", "admin@medora.tn"):
         assert client.get("/drugs", headers=login(client, email)).status_code == 200
-    assert client.get("/drugs", headers=login(client, "patient@ward.tn")).status_code == 403
+    assert client.get("/drugs", headers=login(client, "patient@medora.tn")).status_code == 403
     assert client.get("/drugs").status_code == 401
 
 
@@ -1006,15 +1006,15 @@ def test_pharmacist_creates_a_drug(client, db):
         "J01XE01", ["nitrofuran"], True)
     assert db.scalar(select(AuditLog.id).where(AuditLog.resource == "drug", AuditLog.action == "create",
                                                AuditLog.resource_id == d["id"]))
-    again = client.post("/drugs", headers=login(client, "ph.t@ward.tn"), json={**NEW, "dci": "nitrofurantoin"})
+    again = client.post("/drugs", headers=login(client, "ph.t@medora.tn"), json={**NEW, "dci": "nitrofurantoin"})
     assert again.status_code == 409 and again.json()["code"] == "conflict"
 
 
 def test_who_may_write(client, db):
-    assert client.post("/drugs", headers=login(client, "doctor@ward.tn"), json=NEW).status_code == 403
-    assert client.post("/drugs", headers=login(client, "nurse@ward.tn"), json=NEW).status_code == 403
-    assert client.post("/drugs", headers=login(client, "admin@ward.tn"), json=NEW).status_code == 201
-    assert client.patch("/drugs/d-0001", headers=login(client, "doctor@ward.tn"),
+    assert client.post("/drugs", headers=login(client, "doctor@medora.tn"), json=NEW).status_code == 403
+    assert client.post("/drugs", headers=login(client, "nurse@medora.tn"), json=NEW).status_code == 403
+    assert client.post("/drugs", headers=login(client, "admin@medora.tn"), json=NEW).status_code == 201
+    assert client.patch("/drugs/d-0001", headers=login(client, "doctor@medora.tn"),
                         json={"min_stock": 1}).status_code == 403
 
 
@@ -1279,7 +1279,7 @@ from app.models import AuditLog, MedDose, Patient, Prescription
 from app.services import schedule
 from tests.helpers import login, pharmacist
 
-DOC = "doctor@ward.tn"
+DOC = "doctor@medora.tn"
 RX_OK = {"patient_id": "p-0001", "care_plan": "",
          "items": [{"med": "Omeprazole 20 mg", "drug_id": "d-0041", "times": ["20:00"], "slot": 3, "days": 3}]}
 RX_ALLERGY = {"patient_id": "p-0001", "care_plan": "",
@@ -1320,7 +1320,7 @@ def test_check_is_a_dry_run(client, db):
 
 def test_check_permissions(client):
     body = {"patient_id": "p-0001", "items": RX_OK["items"]}
-    assert client.post("/prescriptions/check", headers=login(client, "nurse@ward.tn"), json=body).status_code == 403
+    assert client.post("/prescriptions/check", headers=login(client, "nurse@medora.tn"), json=body).status_code == 403
     assert client.post("/prescriptions/check", headers=login(client, DOC),
                        json={**body, "patient_id": "p-0007"}).status_code == 403
     assert client.post("/prescriptions/check", headers=login(client, DOC),
@@ -1425,8 +1425,8 @@ def test_get_shapes_by_role(client):
     rows = client.get("/patients/p-0001/prescriptions", headers=login(client, DOC)).json()
     assert rows and all(set(r) == DOCTOR_KEYS for r in rows)
     assert all(set(r) == DOCTOR_KEYS for r in client.get("/patients/p-0001/prescriptions",
-                                                          headers=login(client, "nurse@ward.tn")).json())
-    mine = client.get("/patients/p-0001/prescriptions", headers=login(client, "patient@ward.tn")).json()
+                                                          headers=login(client, "nurse@medora.tn")).json())
+    mine = client.get("/patients/p-0001/prescriptions", headers=login(client, "patient@medora.tn")).json()
     assert mine and all(set(r) == PATIENT_KEYS for r in mine)
 
 
@@ -1802,7 +1802,7 @@ def _schedules(published):
 
 
 def test_prescribe_publishes_schedule(client, published):
-    r = client.post("/prescriptions", headers=login(client, "doctor@ward.tn"), json=dict(RX, urgent=True))
+    r = client.post("/prescriptions", headers=login(client, "doctor@medora.tn"), json=dict(RX, urgent=True))
     assert r.status_code == 201, r.text
     body = r.json()
     assert body["id"].startswith("rx-") and body["doctor_id"] == "u-0001" and body["active"] is True
@@ -1814,14 +1814,14 @@ def test_prescribe_publishes_schedule(client, published):
 
 
 def test_prescribe_patient_without_device(client, published):
-    r = client.post("/prescriptions", headers=login(client, "doctor@ward.tn"),
+    r = client.post("/prescriptions", headers=login(client, "doctor@medora.tn"),
                     json=dict(RX, patient_id="p-0002", urgent=True))
     assert r.status_code == 201 and r.json()["published_to_device"] is False
     assert _schedules(published) == []
 
 
 def test_stop_prescription(client, db, published):
-    h = login(client, "doctor@ward.tn")
+    h = login(client, "doctor@medora.tn")
     rx = client.post("/prescriptions", headers=h, json=dict(RX, urgent=True)).json()
     r = client.patch(f"/prescriptions/{rx['id']}", headers=h, json={"active": False})
     assert r.status_code == 200 and r.json()["active"] is False and r.json()["schedule_version"] == 2
@@ -1883,7 +1883,7 @@ from app.services.pharmacy.workflow import age_on
 from app.ws.hub import Client, wants
 from tests.helpers import login, pharmacist
 
-DOC = "doctor@ward.tn"
+DOC = "doctor@medora.tn"
 RX_OK = {"patient_id": "p-0001", "care_plan": "",
          "items": [{"med": "Omeprazole 20 mg", "drug_id": "d-0041", "times": ["20:00"], "slot": 3, "days": 3}]}
 RX_MAJOR = {"patient_id": "p-0002", "care_plan": "",
@@ -1934,7 +1934,7 @@ def test_validate_without_checks_is_one_click(client, db, published, emitted):
     review = db.scalars(select(PrescriptionReview).where(PrescriptionReview.prescription_id == rx["id"])).one()
     assert (review.decision, review.checks_snapshot) == ("validated", [])
     assert ("prescription.review", {"prescription_id": rx["id"], "patient_id": "p-0001", "decision": "validated",
-                                    "comment": None, "doctor_email": "doctor@ward.tn",
+                                    "comment": None, "doctor_email": "doctor@medora.tn",
                                     "doctor_chat_id": None}) in emitted
     assert {"prescription_id": rx["id"], "patient_id": "p-0001", "status": "validated",
             "urgent": False} in _frames(published)
@@ -2153,12 +2153,12 @@ def test_nurse_cannot_give_a_leftover_dose_of_a_cancelled_prescription(client, d
                    scheduled_at=schedule.now_utc() - timedelta(hours=1), time_of_day="08:00", meds=["Z"], slot=None,
                    status="scheduled"))
     db.flush()
-    r = client.post("/doses/d-rej001/given", headers=login(client, "nurse@ward.tn"))
+    r = client.post("/doses/d-rej001/given", headers=login(client, "nurse@medora.tn"))
     assert r.status_code == 409 and r.json()["code"] == "bad_status"
     assert db.get(MedDose, "d-rej001").status == "scheduled"
 
 
-@pytest.mark.parametrize("email", ["doctor@ward.tn", "nurse@ward.tn", "admin@ward.tn", "patient@ward.tn"])
+@pytest.mark.parametrize("email", ["doctor@medora.tn", "nurse@medora.tn", "admin@medora.tn", "patient@medora.tn"])
 def test_only_pharmacists_use_pharmacy_routes(client, db, email):
     rx = _rx(client, RX_OK)
     h = login(client, email)
@@ -2506,7 +2506,7 @@ GOOD = "a-Long-and-unusual-passphrase-42"
 
 
 def _reg(client, **over):
-    body = {"name": "Salma Test", "email": "salma.t@ward.tn", "password": GOOD, "role": "pharmacist"}
+    body = {"name": "Salma Test", "email": "salma.t@medora.tn", "password": GOOD, "role": "pharmacist"}
     return client.post("/auth/register", json={**body, **over})
 
 
@@ -2516,35 +2516,35 @@ def _user(db, email):
 
 def test_pharmacist_can_be_requested(client, db):
     assert _reg(client).status_code == 202
-    u = _user(db, "salma.t@ward.tn")
+    u = _user(db, "salma.t@medora.tn")
     assert (u.requested_role, u.role, u.status) == ("pharmacist", None, "pending")
 
 
 def test_a_pharmacist_request_cannot_name_a_doctor(client, db):
     r = _reg(client, requested_doctor_id="u-0001")
     assert r.status_code == 422 and r.json()["code"] == "invalid"
-    assert _user(db, "salma.t@ward.tn") is None
+    assert _user(db, "salma.t@medora.tn") is None
 
 
 def test_only_the_admin_approves_a_pharmacist(client, db):
-    named = make_user(db, "ph.req@ward.tn", role=None, status="pending", requested_doctor_id="u-0001")
+    named = make_user(db, "ph.req@medora.tn", role=None, status="pending", requested_doctor_id="u-0001")
     named.requested_role = "pharmacist"
     db.flush()
-    r = client.post(f"/users/{named.id}/approve", headers=login(client, "doctor@ward.tn"), json={"role": "pharmacist"})
+    r = client.post(f"/users/{named.id}/approve", headers=login(client, "doctor@medora.tn"), json={"role": "pharmacist"})
     assert r.status_code == 403
-    r = client.post(f"/users/{named.id}/approve", headers=login(client, "admin@ward.tn"),
+    r = client.post(f"/users/{named.id}/approve", headers=login(client, "admin@medora.tn"),
                     json={"role": "pharmacist", "ward": "Cardiology"})
     assert r.status_code == 200 and (r.json()["role"], r.json()["status"], r.json()["ward"]) == (
         "pharmacist", "active", None)
     assert db.get(Staff, named.id) is None
-    bad = make_user(db, "x.req@ward.tn", role=None, status="pending")
-    assert client.post(f"/users/{bad.id}/approve", headers=login(client, "admin@ward.tn"),
+    bad = make_user(db, "x.req@medora.tn", role=None, status="pending")
+    assert client.post(f"/users/{bad.id}/approve", headers=login(client, "admin@medora.tn"),
                        json={"role": "chemist"}).status_code == 422
 
 
 def test_an_approved_pharmacist_logs_in_and_connects(client, db):
-    make_user(db, "ph.ok@ward.tn", role="pharmacist")
-    h = login(client, "ph.ok@ward.tn")
+    make_user(db, "ph.ok@medora.tn", role="pharmacist")
+    h = login(client, "ph.ok@medora.tn")
     assert client.get("/me", headers=h).json()["role"] == "pharmacist"
     token = h["Authorization"].split()[1]
     with client.websocket_connect(f"/ws?token={token}") as ws:
@@ -2606,7 +2606,7 @@ git commit -m "feat(backend): pharmacist role in sign-up and admin-only approval
   - `formulary.split_med(med) -> tuple[str, str]`, `formulary.match_drug(drugs: list[Drug], med: str) -> str | None`, `formulary.backfill_drug_ids(db) -> int`;
   - in `seed`: `PHARMACIST_ID = "u-0008"`, `DEMO_CARE_PLAN: str`, `_pharmacy(db, now) -> None` (idempotent);
   - `scripts.pharmacy_smoke.run_phase_a(c, password: str, patient_id: str = "p-0001") -> dict`, where `c` is any client with `.get/.post(url, headers=, json=, params=)`;
-  - the seed account `pharmacist@ward.tn` / "Pharm. Salma" / `u-0008`.
+  - the seed account `pharmacist@medora.tn` / "Pharm. Salma" / `u-0008`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2624,7 +2624,7 @@ from app.services.pharmacy.formulary import backfill_drug_ids, match_drug
 def test_seed_pharmacist_and_prescriptions(db):
     seed(db)
     ph = db.get(User, "u-0008")
-    assert (ph.email, ph.name, ph.role, ph.status) == ("pharmacist@ward.tn", "Pharm. Salma", "pharmacist", "active")
+    assert (ph.email, ph.name, ph.role, ph.status) == ("pharmacist@medora.tn", "Pharm. Salma", "pharmacist", "active")
     assert db.get(Staff, "u-0008") is None
     rx = db.get(Prescription, "rx-0001")
     assert [i["drug_id"] for i in rx.items] == ["d-0032", "d-0001"]
@@ -2668,7 +2668,7 @@ def test_backfill_fills_only_missing_keys(db):
 def test_seed_pharmacist_sees_the_critical_demo_first(client):
     from tests.helpers import login
 
-    rows = client.get("/pharmacy/worklist", headers=login(client, "pharmacist@ward.tn")).json()
+    rows = client.get("/pharmacy/worklist", headers=login(client, "pharmacist@medora.tn")).json()
     assert rows[0]["prescription"]["care_plan"] == DEMO_CARE_PLAN and rows[0]["max_severity"] == "critical"
 ```
 
@@ -2731,7 +2731,7 @@ def backfill_drug_ids(db: Session) -> int:
 - [ ] **Step 4: Seed**
 
 In `backend/app/seed.py`:
-- Add `("u-0008", "pharmacist@ward.tn", "Pharm. Salma", "pharmacist", None, None),` to `STAFF`.
+- Add `("u-0008", "pharmacist@medora.tn", "Pharm. Salma", "pharmacist", None, None),` to `STAFF`.
 - Add the constants `PHARMACIST_ID = "u-0008"` and `STAFF_ROW_ROLES = ("doctor", "nurse")` (only these have a ward or supervisor).
 - In `_upsert_missing_staff` and in the fresh path, replace both `if role != "admin"` conditions with `if role in STAFF_ROW_ROLES`.
 - Change `reserve_upto(db, "u", 7)` and the `("u", 7)` tuple to 8.
@@ -2814,8 +2814,8 @@ def tunis_day(offset_days: int = 0) -> str:
 def run_phase_a(c, password: str, patient_id: str = "p-0001") -> dict:
     """Steps 1-5: live allergy warning, send with a reason, red on the worklist, change requested, resubmit with
     azithromycin, validate, doses on the nurse round."""
-    doc, ph = _login(c, "doctor@ward.tn", password), _login(c, "pharmacist@ward.tn", password)
-    nurse = _login(c, "nurse@ward.tn", password)
+    doc, ph = _login(c, "doctor@medora.tn", password), _login(c, "pharmacist@medora.tn", password)
+    nurse = _login(c, "nurse@medora.tn", password)
     checks = _ok(c.post("/prescriptions/check", headers=doc, json={"patient_id": patient_id, "items": [AMOX]}))
     _check(any(x["code"] == "allergy" and x["severity"] == "critical" for x in checks["checks"]), "allergy warning")
     body = {"patient_id": patient_id, "items": [AMOX], "care_plan": ""}
@@ -2883,7 +2883,7 @@ git commit -m "feat(backend): pharmacy seed (pharmacist, mapped prescriptions, c
 2. Conventions:
    - the JWT `role` list becomes `doctor|nurse|admin|patient|pharmacist`;
    - append to the IDs line: `` `d-0001` drug (formulary; shares the counter with doses but has 4 digits), `pr-0001` prescription review, `lot-0001` stock lot, `sm-0001` stock movement, `disp-0001` dispensation, `dl-000001` dispensation line ``.
-3. The seed accounts line: add `` `pharmacist@ward.tn` ``.
+3. The seed accounts line: add `` `pharmacist@medora.tn` ``.
 4. In "Accounts and access":
    - `POST /auth/register`: the role list becomes `patient`/`nurse`/`doctor`/`pharmacist`. Add: "`role: "pharmacist"` with a `requested_doctor_id` is 422."
    - `POST /users/{id}/approve`: the role list becomes "patient, nurse, doctor, pharmacist or admin". Add: "**Only the admin approves a pharmacist**; a pharmacist has no ward and no team."
@@ -3109,7 +3109,7 @@ Seed: `backend/app/data/pharmacy/formulary.v1.json` (51 synthetic drugs; illustr
    - `| Dispensations (Phase B) | — | R/receive ward | — | — | RW |`
 
    Column order: Doctor, Nurse, Admin, Patient, Pharmacist. In the existing `Prescriptions` row, the doctor stays `RW own`.
-7. Seed data list: add `` - 1 pharmacist (`u-0008`, `pharmacist@ward.tn`, "Pharm. Salma") ``, `- 51 formulary drugs (d-0001…d-0051)`, and `` - the seed prescription mapped to drugs and validated by the pharmacist, plus 1 pending demo prescription (amoxicillin for penicillin-allergic `p-0001`, with an override reason: a critical allergy check) ``.
+7. Seed data list: add `` - 1 pharmacist (`u-0008`, `pharmacist@medora.tn`, "Pharm. Salma") ``, `- 51 formulary drugs (d-0001…d-0051)`, and `` - the seed prescription mapped to drugs and validated by the pharmacist, plus 1 pending demo prescription (amoxicillin for penicillin-allergic `p-0001`, with an override reason: a critical allergy check) ``.
 8. Changelog: `- **1.7** (2026-10-10): hospital pharmacy. `drugs`, `prescription_reviews` and the new `prescriptions` columns (migration 0007); Phase B tables `stock_lots`, `stock_movements`, `dispensations`, `dispensation_lines` (migration 0008, planned); role `pharmacist`. Owner: Hedi.`
 
 - [ ] **Step 3: n8n-webhooks.md**
@@ -3553,9 +3553,9 @@ def test_summary_has_stock_alerts(client, db):
 
 
 def test_stock_roles(client, db):
-    for email in ("doctor@ward.tn", "nurse@ward.tn", "patient@ward.tn"):
+    for email in ("doctor@medora.tn", "nurse@medora.tn", "patient@medora.tn"):
         assert client.get("/pharmacy/stock", headers=login(client, email)).status_code == 403
-    admin = login(client, "admin@ward.tn")
+    admin = login(client, "admin@medora.tn")
     assert client.get("/pharmacy/stock", headers=admin).status_code == 200
     assert client.get("/pharmacy/stock/reorder", headers=admin).status_code == 200
     body = {"drug_id": "d-0001", "lot_number": "X", "expiry_date": _day(10), "quantity": 1}
@@ -3857,7 +3857,7 @@ from app.models import Dispensation, DispensationLine, MedDose, Prescription, St
 from app.services import schedule
 from tests.helpers import login, make_drug, make_lot, pharmacist
 
-DOC = "doctor@ward.tn"
+DOC = "doctor@medora.tn"
 
 
 def _urgent(client, patient_id, drug=None, units=1, times=("22:00",)):
@@ -4001,7 +4001,7 @@ def test_nurse_lists_and_receives_her_ward_delivery(client, db):
     rx = _urgent(client, "p-0001", drug)
     day, hhmm, dose_id = _round(db, rx["id"])
     disp = _dispense(client, ph, day, hhmm, [{"dose_id": dose_id}]).json()
-    nurse, other = login(client, "nurse@ward.tn"), login(client, "nurse2@ward.tn")
+    nurse, other = login(client, "nurse@medora.tn"), login(client, "nurse2@medora.tn")
     assert disp["id"] in {d["id"] for d in client.get("/dispensations", headers=nurse, params={"date": day}).json()}
     assert client.get("/dispensations", headers=other, params={"date": day, "ward": "Cardiology"}).status_code == 403
     assert client.post(f"/dispensations/{disp['id']}/receive", headers=other).status_code == 403
@@ -4017,7 +4017,7 @@ def test_dose_pharmacy_field(client, db):
     make_lot(db, drug, "OLD", 40, 10)
     rx = _urgent(client, "p-0001", drug)
     day, hhmm, dose_id = _round(db, rx["id"])
-    nurse = login(client, "nurse@ward.tn")
+    nurse = login(client, "nurse@medora.tn")
 
     def status():
         rows = client.get("/patients/p-0001/doses", headers=nurse, params={"date": day}).json()
@@ -4057,10 +4057,10 @@ def test_rebuild_keeps_ids_of_matching_future_doses(db, seeded):
 
 def test_dispensing_roles(client, db):
     assert client.get("/pharmacy/dispensing", headers=login(client, DOC), params={"round": "20:00"}).status_code == 403
-    assert client.post("/pharmacy/dispensations", headers=login(client, "nurse@ward.tn"),
+    assert client.post("/pharmacy/dispensations", headers=login(client, "nurse@medora.tn"),
                        json={"ward": "Cardiology", "date": "2026-10-10", "round_time": "20:00",
                              "lines": [{"dose_id": "d-000001"}]}).status_code == 403
-    assert client.get("/dispensations", headers=login(client, "patient@ward.tn")).status_code == 403
+    assert client.get("/dispensations", headers=login(client, "patient@medora.tn")).status_code == 403
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -4554,7 +4554,7 @@ Add to `backend/scripts/pharmacy_smoke.py`:
 def run_phase_b(c, password: str, ward: str = "Cardiology", round_time: str = "20:00") -> dict:
     """Step 6: the pharmacist prepares the round, the nurse confirms receipt, the stock goes down, and a
     low-stock alert shows on the pharmacy dashboard."""
-    ph, nurse = _login(c, "pharmacist@ward.tn", password), _login(c, "nurse@ward.tn", password)
+    ph, nurse = _login(c, "pharmacist@medora.tn", password), _login(c, "nurse@medora.tn", password)
     day = tunis_day()
     before = _ok(c.get("/pharmacy/summary", headers=ph))
     view = _ok(c.get("/pharmacy/dispensing", headers=ph, params={"date": day, "round": round_time, "ward": ward}))

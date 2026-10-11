@@ -21,8 +21,8 @@ def _token(client, email):
 # --- who disabled / rejected -------------------------------------------------------------------------------
 
 def test_doctor_cannot_enable_an_account_an_admin_disabled(client, db):
-    team = make_user(db, "team.t@ward.tn", role="nurse", supervisor_id="u-0001")
-    doc, admin = login(client, "doctor@ward.tn"), login(client, "admin@ward.tn")
+    team = make_user(db, "team.t@medora.tn", role="nurse", supervisor_id="u-0001")
+    doc, admin = login(client, "doctor@medora.tn"), login(client, "admin@medora.tn")
     assert client.post(f"/users/{team.id}/disable", headers=admin).json()["status"] == "disabled"
     r = client.post(f"/users/{team.id}/enable", headers=doc)
     assert r.status_code == 403 and db.get(User, team.id).status == "disabled"
@@ -30,8 +30,8 @@ def test_doctor_cannot_enable_an_account_an_admin_disabled(client, db):
 
 
 def test_doctor_can_enable_what_he_disabled_himself(client, db):
-    team = make_user(db, "team.t@ward.tn", role="nurse", supervisor_id="u-0001")
-    doc = login(client, "doctor@ward.tn")
+    team = make_user(db, "team.t@medora.tn", role="nurse", supervisor_id="u-0001")
+    doc = login(client, "doctor@medora.tn")
     client.post(f"/users/{team.id}/disable", headers=doc)
     assert db.get(User, team.id).status_changed_by == "u-0001"
     assert client.post(f"/users/{team.id}/enable", headers=doc).json()["status"] == "active"
@@ -39,14 +39,14 @@ def test_doctor_can_enable_what_he_disabled_himself(client, db):
 
 
 def test_a_disabled_account_of_unknown_origin_is_admin_only(client, db):
-    team = make_user(db, "team.t@ward.tn", role="nurse", supervisor_id="u-0001", status="disabled")  # as before 0005
-    assert client.post(f"/users/{team.id}/enable", headers=login(client, "doctor@ward.tn")).status_code == 403
-    assert client.post(f"/users/{team.id}/enable", headers=login(client, "admin@ward.tn")).status_code == 200
+    team = make_user(db, "team.t@medora.tn", role="nurse", supervisor_id="u-0001", status="disabled")  # as before 0005
+    assert client.post(f"/users/{team.id}/enable", headers=login(client, "doctor@medora.tn")).status_code == 403
+    assert client.post(f"/users/{team.id}/enable", headers=login(client, "admin@medora.tn")).status_code == 200
 
 
 def test_doctor_cannot_approve_a_request_an_admin_rejected(client, db):
-    a = make_user(db, "a.t@ward.tn", role=None, status="pending", requested_doctor_id="u-0001")
-    doc, admin = login(client, "doctor@ward.tn"), login(client, "admin@ward.tn")
+    a = make_user(db, "a.t@medora.tn", role=None, status="pending", requested_doctor_id="u-0001")
+    doc, admin = login(client, "doctor@medora.tn"), login(client, "admin@medora.tn")
     assert client.post(f"/users/{a.id}/reject", headers=admin).json()["status"] == "rejected"
     r = client.post(f"/users/{a.id}/approve", headers=doc, json={"role": "nurse"})
     assert r.status_code == 403 and db.get(User, a.id).status == "rejected"
@@ -54,8 +54,8 @@ def test_doctor_cannot_approve_a_request_an_admin_rejected(client, db):
 
 
 def test_doctor_can_approve_a_request_he_rejected_himself(client, db):
-    a = make_user(db, "a.t@ward.tn", role=None, status="pending", requested_doctor_id="u-0001")
-    doc = login(client, "doctor@ward.tn")
+    a = make_user(db, "a.t@medora.tn", role=None, status="pending", requested_doctor_id="u-0001")
+    doc = login(client, "doctor@medora.tn")
     assert client.post(f"/users/{a.id}/reject", headers=doc).json()["status"] == "rejected"
     assert client.post(f"/users/{a.id}/approve", headers=doc, json={"role": "nurse"}).status_code == 200
     assert db.get(User, a.id).status_changed_by is None
@@ -64,8 +64,8 @@ def test_doctor_can_approve_a_request_he_rejected_himself(client, db):
 # --- open sockets and every recipient ----------------------------------------------------------------------
 
 def test_disable_closes_the_open_websocket(client, db):
-    admin = login(client, "admin@ward.tn")
-    token = _token(client, "nurse@ward.tn")
+    admin = login(client, "admin@medora.tn")
+    token = _token(client, "nurse@medora.tn")
     with client.websocket_connect(f"/ws?token={token}") as ws:
         ws.send_json({"type": "ping"})
         assert ws.receive_json() == {"type": "pong"}
@@ -76,8 +76,8 @@ def test_disable_closes_the_open_websocket(client, db):
 
 
 def test_disable_leaves_other_users_sockets_open(client):
-    admin = login(client, "admin@ward.tn")
-    token = _token(client, "doctor@ward.tn")
+    admin = login(client, "admin@medora.tn")
+    token = _token(client, "doctor@medora.tn")
     with client.websocket_connect(f"/ws?token={token}") as ws:
         assert client.post("/users/u-0002/disable", headers=admin).status_code == 200
         ws.send_json({"type": "ping"})
@@ -85,7 +85,7 @@ def test_disable_leaves_other_users_sockets_open(client):
 
 
 def test_a_disabled_user_cannot_open_a_websocket(client, db):
-    token = _token(client, "nurse@ward.tn")  # a token issued while active
+    token = _token(client, "nurse@medora.tn")  # a token issued while active
     db.get(User, "u-0002").status = "disabled"
     db.flush()
     with pytest.raises(WebSocketDisconnect) as e:
@@ -120,7 +120,7 @@ def test_results_ready_event_skips_a_disabled_doctor(db, seeded):
     db.get(Staff, "u-0001").telegram_chat_id = "D1"
     p = db.get(Patient, "p-0001")
     ev = E.results_ready_event(db, "a-0001", p, "u-0001")
-    assert (ev["doctor_chat_id"], ev["doctor_email"]) == ("D1", "doctor@ward.tn")
+    assert (ev["doctor_chat_id"], ev["doctor_email"]) == ("D1", "doctor@medora.tn")
     db.get(User, "u-0001").status = "disabled"
     db.flush()
     ev = E.results_ready_event(db, "a-0001", p, "u-0001")
@@ -139,7 +139,7 @@ def test_daily_digest_skips_a_disabled_doctor(client, db):
 
 
 def test_confirm_with_an_inactive_doctor_is_422(client, db):
-    admin = login(client, "admin@ward.tn")
+    admin = login(client, "admin@medora.tn")
     body = {"slot_at": SLOT, "doctor_id": "u-0001"}
     db.get(User, "u-0001").status = "disabled"
     db.flush()

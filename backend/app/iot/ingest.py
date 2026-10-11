@@ -15,7 +15,7 @@ from app.ai.early_warning import score_news2
 from app.models import Admission, Device, IngestedMessage, Patient, PatientAccess, Staff, Vital
 from app.schemas import iso
 
-log = logging.getLogger("ward.ingest")
+log = logging.getLogger("medora.ingest")
 
 KINDS = {"vitals", "events", "status"}
 VITAL_SOURCES = {"device", "simulator", "manual"}

@@ -4,7 +4,7 @@ import { DevicesView } from "@/components/admin/DevicesView";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("admin.bedsDevices")} · Ward` };
+  return { title: `${t("admin.bedsDevices")} · Medora` };
 }
 
 export default function AdminDevicesPage() {

@@ -5,7 +5,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 
-log = logging.getLogger("ward.ws")
+log = logging.getLogger("medora.ws")
 PHARMACIST_FRAMES = {"prescription_status"}
 
 

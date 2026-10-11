@@ -1,4 +1,4 @@
-"""Ward device simulator (owner: Hedi). Speaks docs/contracts/mqtt-topics.md v1.0.
+"""Medora device simulator (owner: Hedi). Speaks docs/contracts/mqtt-topics.md v1.0.
 
 Scaffold: publishes retained online status (with last-will) and normal vitals every few seconds.
 Events, schedule subscription and scenarios are added per plans/HEDI.md.

@@ -6,7 +6,7 @@ from app.models import Dispensation, DispensationLine, MedDose, Prescription, St
 from app.services import schedule
 from tests.helpers import login, make_drug, make_lot, pharmacist
 
-DOC = "doctor@ward.tn"
+DOC = "doctor@medora.tn"
 
 
 def _urgent(client, patient_id, drug=None, units=1, times=("22:00",)):
@@ -150,7 +150,7 @@ def test_nurse_lists_and_receives_her_ward_delivery(client, db):
     rx = _urgent(client, "p-0001", drug)
     day, hhmm, dose_id = _round(db, rx["id"])
     disp = _dispense(client, ph, day, hhmm, [{"dose_id": dose_id}]).json()
-    nurse, other = login(client, "nurse@ward.tn"), login(client, "nurse2@ward.tn")
+    nurse, other = login(client, "nurse@medora.tn"), login(client, "nurse2@medora.tn")
     assert disp["id"] in {d["id"] for d in client.get("/dispensations", headers=nurse, params={"date": day}).json()}
     assert client.get("/dispensations", headers=other, params={"date": day, "ward": "Cardiology"}).status_code == 403
     assert client.post(f"/dispensations/{disp['id']}/receive", headers=other).status_code == 403
@@ -166,7 +166,7 @@ def test_dose_pharmacy_field(client, db):
     make_lot(db, drug, "OLD", 40, 10)
     rx = _urgent(client, "p-0001", drug)
     day, hhmm, dose_id = _round(db, rx["id"])
-    nurse = login(client, "nurse@ward.tn")
+    nurse = login(client, "nurse@medora.tn")
 
     def status():
         rows = client.get("/patients/p-0001/doses", headers=nurse, params={"date": day}).json()
@@ -206,10 +206,10 @@ def test_rebuild_keeps_ids_of_matching_future_doses(db, seeded):
 
 def test_dispensing_roles(client, db):
     assert client.get("/pharmacy/dispensing", headers=login(client, DOC), params={"round": "20:00"}).status_code == 403
-    assert client.post("/pharmacy/dispensations", headers=login(client, "nurse@ward.tn"),
+    assert client.post("/pharmacy/dispensations", headers=login(client, "nurse@medora.tn"),
                        json={"ward": "Cardiology", "date": "2026-10-10", "round_time": "20:00",
                              "lines": [{"dose_id": "d-000001"}]}).status_code == 403
-    assert client.get("/dispensations", headers=login(client, "patient@ward.tn")).status_code == 403
+    assert client.get("/dispensations", headers=login(client, "patient@medora.tn")).status_code == 403
 
 
 def test_inactive_prescription_dose_is_not_dispensable(client, db):

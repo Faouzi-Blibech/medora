@@ -1,4 +1,4 @@
-# Ward reverse proxy (compose profile "internet"). TLS + security headers; /api/* → FastAPI, the rest → Next.js.
+# Medora reverse proxy (compose profile "internet"). TLS + security headers; /api/* → FastAPI, the rest → Next.js.
 {
 	# Browsers send no SNI for a bare IP (LAN test) and Docker NAT hides the dest IP, so fall back to the site cert.
 	default_sni {$WARD_DOMAIN:localhost}

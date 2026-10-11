@@ -218,8 +218,8 @@ export const PENDING: PendingUser[] = [
 
 /** Dr Trabelsi's team (consistent with STAFF: Ines active, Sami disabled). */
 export const TEAM: UserAdmin[] = [
-  { id: "u-0002", name: "Nurse Ines", email: "i.mejri@hr-ward.tn", role: "nurse", status: "active", ward: "Cardiology", supervisor_id: "u-0001" },
-  { id: "u-0004", name: "Nurse Sami", email: "s.dridi@hr-ward.tn", role: "nurse", status: "disabled", ward: "Cardiology", supervisor_id: "u-0001" },
+  { id: "u-0002", name: "Nurse Ines", email: "i.mejri@hr-medora.tn", role: "nurse", status: "active", ward: "Cardiology", supervisor_id: "u-0001" },
+  { id: "u-0004", name: "Nurse Sami", email: "s.dridi@hr-medora.tn", role: "nurse", status: "disabled", ward: "Cardiology", supervisor_id: "u-0001" },
 ];
 
 export const GRANTS: Record<string, PatientAccessGrant[]> = {
@@ -1039,7 +1039,7 @@ export function AuthFrame({ title, lead, children }: { title: string; lead?: str
         <header className={styles.brand}>
           <div className={styles.wordmark}>
             <span className={styles.mark} />
-            <span className={styles.name}>Ward</span>
+            <span className={styles.name}>Medora</span>
           </div>
           <span className={styles.tag}>{t("common.prototypeTag")}</span>
           <LanguageSwitcher tone="light" />
@@ -1301,7 +1301,7 @@ import { getT } from "@/i18n/server";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("auth.registerTitle")} · Ward` };
+  return { title: `${t("auth.registerTitle")} · Medora` };
 }
 
 export default function RegisterPage() {
@@ -1586,7 +1586,7 @@ export function CodeDialog({ subject, code, expiresAt, onClose }: CodeDialogProp
       </div>
 
       <div data-print-sheet>
-        <span className={styles.sheetBrand}>Ward</span>
+        <span className={styles.sheetBrand}>Medora</span>
         <span dir="auto">{subject}</span>
         <span dir="ltr" className={styles.sheetCode}>
           {code}
@@ -2033,7 +2033,7 @@ import { getT } from "@/i18n/server";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("accounts.pendingTitle")} · Ward` };
+  return { title: `${t("accounts.pendingTitle")} · Medora` };
 }
 
 export default function AdminPendingPage() {
@@ -2127,7 +2127,7 @@ In `StaffView.tsx`:
 6. Before `{toast ? ...}` add `{code ? <CodeDialog subject={t("accounts.codeFor", { name: code.name })} code={code.code} expiresAt={code.expires_at} onClose={() => setCode(null)} /> : null}`.
 
 - [ ] **5.6 Verify.** `npm run typecheck && npm run build`; expected success with `/admin/pending`.
-  Manual (mock): `/admin/pending` lists Amel, Karim, Salma and a "Rejected requests" group with Test Person; approve Karim as Doctor + Pulmonology → toast "Karim Zouari approved.", row gone, and `/admin/staff` (client navigation, same tab) shows him Active with role Doctor; reject Salma → moves to rejected; approve the rejected Test Person → works. Staff page: Status column; Nurse Sami shows Disabled with "Enable"; click Disable on Nurse Ines → "Disabled"; own row (Mme Gharbi) has no Disable button; "Reset code" opens the dialog with an `XXXXX-XXXXX` code, "Copy" turns into "Copied" (paste elsewhere to confirm), "Print" opens the print preview showing only the sheet (Ward, name, code, validity, instruction) in light mode, refreshing the page with the dialog open prompts "Leave site?" and the code is gone after reload. In Arabic the code stays `XXXXX-XXXXX` left-to-right and centered.
+  Manual (mock): `/admin/pending` lists Amel, Karim, Salma and a "Rejected requests" group with Test Person; approve Karim as Doctor + Pulmonology → toast "Karim Zouari approved.", row gone, and `/admin/staff` (client navigation, same tab) shows him Active with role Doctor; reject Salma → moves to rejected; approve the rejected Test Person → works. Staff page: Status column; Nurse Sami shows Disabled with "Enable"; click Disable on Nurse Ines → "Disabled"; own row (Mme Gharbi) has no Disable button; "Reset code" opens the dialog with an `XXXXX-XXXXX` code, "Copy" turns into "Copied" (paste elsewhere to confirm), "Print" opens the print preview showing only the sheet (Medora, name, code, validity, instruction) in light mode, refreshing the page with the dialog open prompts "Leave site?" and the code is gone after reload. In Arabic the code stays `XXXXX-XXXXX` left-to-right and centered.
 - [ ] **5.7 Commit.** `git add web && git commit -m "feat(web): admin pending accounts, staff status, disable/enable and reset codes"`
 
 ---
@@ -2316,7 +2316,7 @@ import { getT } from "@/i18n/server";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("accounts.teamTitle")} · Ward` };
+  return { title: `${t("accounts.teamTitle")} · Medora` };
 }
 
 export default function DoctorTeamPage() {
@@ -2731,7 +2731,7 @@ import { getT } from "@/i18n/server";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("accounts.lookupTitle")} · Ward` };
+  return { title: `${t("accounts.lookupTitle")} · Medora` };
 }
 
 export default function AdminPatientsPage() {

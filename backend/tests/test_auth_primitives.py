@@ -47,8 +47,8 @@ def test_common_password(monkeypatch):
 
 
 def test_email_and_name_are_not_passwords():
-    assert passwords.password_problem("amira.bensalah", email="amira.bensalah@ward.tn")
-    assert passwords.password_problem("amira.bensalah@ward.tn", email="amira.bensalah@ward.tn")
+    assert passwords.password_problem("amira.bensalah", email="amira.bensalah@medora.tn")
+    assert passwords.password_problem("amira.bensalah@medora.tn", email="amira.bensalah@medora.tn")
     assert passwords.password_problem("Amira Ben Salah", name="Amira Ben Salah")
     assert passwords.password_problem("correct-horse-battery", email="a@b.tn", name="A") is None
 

@@ -5,7 +5,7 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useT } from "@/i18n/I18nProvider";
 import styles from "@/app/page.module.css";
 
-/** The public-page chrome: the ink brand panel (what Ward is) beside the form panel (title, lead, form). */
+/** The public-page chrome: the ink brand panel (what Medora is) beside the form panel (title, lead, form). */
 export function AuthFrame({ title, lead, children }: { title: string; lead?: string; children: ReactNode }) {
   const { t } = useT();
   return (
@@ -14,7 +14,7 @@ export function AuthFrame({ title, lead, children }: { title: string; lead?: str
         <div className={styles.brandTop}>
           <div className={styles.wordmark}>
             <span className={styles.mark} />
-            <span className={styles.name}>Ward</span>
+            <span className={styles.name}>Medora</span>
           </div>
           <span className={styles.tag}>{t("common.prototypeTag")}</span>
         </div>

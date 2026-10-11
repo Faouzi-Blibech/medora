@@ -1,4 +1,4 @@
-# Ward — Foundation Design (HackCure @ ESEN)
+# Medora — Foundation Design (HackCure @ ESEN)
 
 > **Amendment (2026-10-05, later the same day): reduced hardware.** The bedside unit is now ESP32 + SSD1306 OLED +
 > SG90 servo + DS1307 RTC, developed in Wokwi and built last. It has no vital-sign sensors, RFID, touch screen,
@@ -25,7 +25,7 @@ demo by Day 3 midday. Success means:
 
 | Topic | Decision |
 |---|---|
-| Name | **Ward** (وَرد): "rose" in Arabic and "hospital ward" in English |
+| Name | **Medora** (Arabic: ميدورا) |
 | Team | Faouzi (lead, presenter), Hedi and Wali (hardware) |
 | HW lanes | Hedi = HW-A (firmware + device UI, Patient owner), Wali = HW-B (wiring + mechanics + core backend + IoT, Nurse owner). They may swap; see `CLAUDE.md` ("Swapping lanes") |
 | Dispenser | **Option A (full)**: rotating carousel on a 28BYJ-48 stepper + IR pickup sensor. Go/no-go at the end of Day 2; the fallback is the "Taken" button with the same MQTT events |

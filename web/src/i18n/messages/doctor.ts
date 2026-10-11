@@ -4,9 +4,9 @@ import { messages } from "../define";
 export const doctor = messages({
   en: {
     // page titles
-    metaPatients: "My patients · Ward",
-    metaPatient: "Patient · Ward",
-    metaRequests: "Appointment requests · Ward",
+    metaPatients: "My patients · Medora",
+    metaPatient: "Patient · Medora",
+    metaRequests: "Appointment requests · Medora",
 
     // patient list
     listPausedBanner: "Showing values from {time}. NEWS2 and alerts will refresh when the connection returns.",
@@ -159,9 +159,9 @@ export const doctor = messages({
     requestsSub: "Ranked by the AI as a suggestion. You confirm each one.",
   },
   fr: {
-    metaPatients: "Mes patients · Ward",
-    metaPatient: "Patient · Ward",
-    metaRequests: "Demandes de rendez-vous · Ward",
+    metaPatients: "Mes patients · Medora",
+    metaPatient: "Patient · Medora",
+    metaRequests: "Demandes de rendez-vous · Medora",
 
     listPausedBanner: "Valeurs affichées de {time}. Le NEWS2 et les alertes se mettront à jour au retour de la connexion.",
     myPatients: "Mes patients",
@@ -309,9 +309,9 @@ export const doctor = messages({
     requestsSub: "Classées par l'IA à titre de suggestion. Vous confirmez chacune.",
   },
   ar: {
-    metaPatients: "مرضاي · Ward",
-    metaPatient: "المريض · Ward",
-    metaRequests: "طلبات المواعيد · Ward",
+    metaPatients: "مرضاي · Medora",
+    metaPatient: "المريض · Medora",
+    metaRequests: "طلبات المواعيد · Medora",
 
     listPausedBanner: "عرض القيم المسجّلة عند {time}. سيتم تحديث NEWS2 والتنبيهات عند عودة الاتصال.",
     myPatients: "مرضاي",

@@ -154,12 +154,12 @@ def test_existing_style_user_defaults_to_active(seeded):
 
 
 def test_pending_user_has_no_role_and_remembers_the_request(seeded):
-    u = make_user(seeded, "new@ward.tn", role=None, status="pending", requested_doctor_id="u-0001")
+    u = make_user(seeded, "new@medora.tn", role=None, status="pending", requested_doctor_id="u-0001")
     assert u.role is None and u.status == "pending" and u.requested_doctor_id == "u-0001"
 
 
 def test_staff_supervisor(seeded):
-    u = make_user(seeded, "team@ward.tn", role="nurse", supervisor_id="u-0001")
+    u = make_user(seeded, "team@medora.tn", role="nurse", supervisor_id="u-0001")
     assert seeded.get(Staff, u.id).supervisor_id == "u-0001"
 
 
@@ -420,8 +420,8 @@ def test_common_password(monkeypatch):
 
 
 def test_email_and_name_are_not_passwords():
-    assert passwords.password_problem("amira.bensalah", email="amira.bensalah@ward.tn")
-    assert passwords.password_problem("amira.bensalah@ward.tn", email="amira.bensalah@ward.tn")
+    assert passwords.password_problem("amira.bensalah", email="amira.bensalah@medora.tn")
+    assert passwords.password_problem("amira.bensalah@medora.tn", email="amira.bensalah@medora.tn")
     assert passwords.password_problem("Amira Ben Salah", name="Amira Ben Salah")
     assert passwords.password_problem("correct-horse-battery", email="a@b.tn", name="A") is None
 
@@ -712,44 +712,44 @@ def _post(client, email, pw):
 
 
 def test_unknown_email_and_wrong_password_look_the_same(client):
-    a, b = _post(client, "nobody@ward.tn", WRONG), _post(client, "doctor@ward.tn", WRONG)
+    a, b = _post(client, "nobody@medora.tn", WRONG), _post(client, "doctor@medora.tn", WRONG)
     assert a.status_code == b.status_code == 401 and a.json() == b.json()
 
 
 def test_pending_message_only_with_the_right_password(client, db):
-    make_user(db, "pending@ward.tn", role=None, status="pending")
-    assert _post(client, "pending@ward.tn", WRONG).status_code == 401
-    r = _post(client, "pending@ward.tn", "ward1234")
+    make_user(db, "pending@medora.tn", role=None, status="pending")
+    assert _post(client, "pending@medora.tn", WRONG).status_code == 401
+    r = _post(client, "pending@medora.tn", "ward1234")
     assert r.status_code == 403 and r.json()["code"] == "account_pending"
 
 
 @pytest.mark.parametrize("status,code", [("disabled", "account_disabled"), ("rejected", "account_rejected")])
 def test_inactive_accounts(client, db, status, code):
-    make_user(db, f"{status}@ward.tn", status=status)
-    r = _post(client, f"{status}@ward.tn", "ward1234")
+    make_user(db, f"{status}@medora.tn", status=status)
+    r = _post(client, f"{status}@medora.tn", "ward1234")
     assert r.status_code == 403 and r.json()["code"] == code
 
 
 def test_five_failures_lock_then_unlock(client, db):
     for _ in range(5):
-        assert _post(client, "nurse@ward.tn", WRONG).status_code == 401
-    r = _post(client, "nurse@ward.tn", "ward1234")
+        assert _post(client, "nurse@medora.tn", WRONG).status_code == 401
+    r = _post(client, "nurse@medora.tn", "ward1234")
     assert r.status_code == 423 and r.json()["code"] == "account_locked"
     db.get(User, "u-0002").locked_until = datetime.now(UTC) - timedelta(seconds=1)
     db.flush()
-    assert _post(client, "nurse@ward.tn", "ward1234").status_code == 200
+    assert _post(client, "nurse@medora.tn", "ward1234").status_code == 200
     assert db.get(User, "u-0002").failed_logins == 0
 
 
 def test_failures_and_lockout_are_audited(client, db):
     for _ in range(5):
-        _post(client, "nurse@ward.tn", WRONG)
+        _post(client, "nurse@medora.tn", WRONG)
     actions = db.scalars(select(AuditLog.action).where(AuditLog.resource_id == "u-0002")).all()
     assert actions.count("login_failed") == 5 and "lockout" in actions
 
 
 def test_disabled_user_token_dies_on_next_request(client, db):
-    h = login(client, "nurse@ward.tn")
+    h = login(client, "nurse@medora.tn")
     assert client.get("/me", headers=h).status_code == 200
     db.get(User, "u-0002").status = "disabled"
     db.flush()
@@ -757,15 +757,15 @@ def test_disabled_user_token_dies_on_next_request(client, db):
 
 
 def test_failed_login_rate_limit_per_ip(client):
-    codes = [_post(client, f"ghost{i}@ward.tn", WRONG).status_code for i in range(11)]
+    codes = [_post(client, f"ghost{i}@medora.tn", WRONG).status_code for i in range(11)]
     assert codes[:10] == [401] * 10 and codes[10] == 429
     # once blocked, even the right password is not checked (no oracle for a guesser)
-    assert _post(client, "doctor@ward.tn", "ward1234").status_code == 429
+    assert _post(client, "doctor@medora.tn", "ward1234").status_code == 429
 
 
 def test_successful_logins_do_not_count(client):
     for _ in range(15):  # a hospital behind one public IP
-        assert _post(client, "doctor@ward.tn", "ward1234").status_code == 200
+        assert _post(client, "doctor@medora.tn", "ward1234").status_code == 200
 ```
 
 - [ ] **Step 2: Run it to see it fail.** Expected: several failures (no 403/423/429; the disabled token still works).
@@ -863,7 +863,7 @@ GOOD = "correct-horse-battery"
 
 
 def _reg(client, **body):
-    base = {"name": "Amira Test", "email": "amira.t@ward.tn", "password": GOOD}
+    base = {"name": "Amira Test", "email": "amira.t@medora.tn", "password": GOOD}
     return client.post("/auth/register", json={**base, **body})
 
 
@@ -874,15 +874,15 @@ def _user(db, email):
 def test_register_creates_pending_account_without_role(client, db):
     r = _reg(client, note="nurse, Cardiology")
     assert r.status_code == 202 and r.json()["status"] == "received"
-    u = _user(db, "amira.t@ward.tn")
+    u = _user(db, "amira.t@medora.tn")
     assert u.status == "pending" and u.role is None and u.requested_note == "nurse, Cardiology"
-    assert client.post("/auth/login", json={"email": "amira.t@ward.tn", "password": GOOD}).json()["code"] == \
+    assert client.post("/auth/login", json={"email": "amira.t@medora.tn", "password": GOOD}).json()["code"] == \
         "account_pending"
 
 
 def test_email_is_normalised(client, db):
-    assert _reg(client, email="  Amira.T@Ward.TN ").status_code == 202
-    assert _user(db, "amira.t@ward.tn") is not None
+    assert _reg(client, email="  Amira.T@Medora.TN ").status_code == 202
+    assert _user(db, "amira.t@medora.tn") is not None
 
 
 def test_role_or_ward_in_body_is_refused(client):
@@ -891,9 +891,9 @@ def test_role_or_ward_in_body_is_refused(client):
 
 
 def test_existing_email_same_answer_no_duplicate(client, db):
-    r = _reg(client, email="doctor@ward.tn")
-    assert r.status_code == 202 and r.json() == _reg(client, email="other.t@ward.tn").json()
-    assert db.scalar(select(func.count()).select_from(User).where(User.email == "doctor@ward.tn")) == 1
+    r = _reg(client, email="doctor@medora.tn")
+    assert r.status_code == 202 and r.json() == _reg(client, email="other.t@medora.tn").json()
+    assert db.scalar(select(func.count()).select_from(User).where(User.email == "doctor@medora.tn")) == 1
 
 
 def test_weak_and_too_long_passwords(client):
@@ -903,20 +903,20 @@ def test_weak_and_too_long_passwords(client):
 
 
 def test_requested_doctor_recorded_only_if_active_doctor(client, db):
-    _reg(client, email="a1@ward.tn", requested_doctor_id="u-0001")
-    _reg(client, email="a2@ward.tn", requested_doctor_id="u-0002")  # a nurse, ignored
-    assert _user(db, "a1@ward.tn").requested_doctor_id == "u-0001"
-    assert _user(db, "a2@ward.tn").requested_doctor_id is None
+    _reg(client, email="a1@medora.tn", requested_doctor_id="u-0001")
+    _reg(client, email="a2@medora.tn", requested_doctor_id="u-0002")  # a nurse, ignored
+    assert _user(db, "a1@medora.tn").requested_doctor_id == "u-0001"
+    assert _user(db, "a2@medora.tn").requested_doctor_id is None
 
 
 def test_enrollment_code_creates_active_linked_patient(client, db):
     p, other = make_patient(db, attending="u-0001"), make_patient(db, attending="u-0001")
     code, row = codes.issue(db, "enrollment", issued_by="u-0004", patient_id=p.id)
-    assert _reg(client, email="pat.t@ward.tn", enrollment_code=code.lower()).status_code == 202
-    u = _user(db, "pat.t@ward.tn")
+    assert _reg(client, email="pat.t@medora.tn", enrollment_code=code.lower()).status_code == 202
+    u = _user(db, "pat.t@medora.tn")
     assert (u.status, u.role, u.patient_id) == ("active", "patient", p.id)
     assert db.get(AccessCode, row.id).used_by == u.id
-    h = {"Authorization": f"Bearer {client.post('/auth/login', json={'email': 'pat.t@ward.tn', 'password': GOOD}).json()['access_token']}"}
+    h = {"Authorization": f"Bearer {client.post('/auth/login', json={'email': 'pat.t@medora.tn', 'password': GOOD}).json()['access_token']}"}
     assert client.get(f"/patients/{p.id}", headers=h).status_code == 200
     assert client.get(f"/patients/{other.id}", headers=h).status_code == 403
 
@@ -924,47 +924,47 @@ def test_enrollment_code_creates_active_linked_patient(client, db):
 def test_code_single_use_wrong_and_expired(client, db):
     p = make_patient(db, attending="u-0001")
     code, _ = codes.issue(db, "enrollment", issued_by="u-0004", patient_id=p.id)
-    assert _reg(client, email="first.t@ward.tn", enrollment_code=code).status_code == 202
-    r = _reg(client, email="second.t@ward.tn", enrollment_code=code)
+    assert _reg(client, email="first.t@medora.tn", enrollment_code=code).status_code == 202
+    r = _reg(client, email="second.t@medora.tn", enrollment_code=code)
     assert r.status_code == 400 and r.json()["code"] == "invalid_code"
-    assert _reg(client, email="third.t@ward.tn", enrollment_code="AAAAA-BBBBB").json()["code"] == "invalid_code"
-    assert _user(db, "second.t@ward.tn") is None and _user(db, "third.t@ward.tn") is None
+    assert _reg(client, email="third.t@medora.tn", enrollment_code="AAAAA-BBBBB").json()["code"] == "invalid_code"
+    assert _user(db, "second.t@medora.tn") is None and _user(db, "third.t@medora.tn") is None
 
 
 def test_already_enrolled_keeps_the_code_unused(client, db):
-    code, row = codes.issue(db, "enrollment", issued_by="u-0004", patient_id="p-0001")  # patient@ward.tn owns p-0001
-    r = _reg(client, email="dup.t@ward.tn", enrollment_code=code)
+    code, row = codes.issue(db, "enrollment", issued_by="u-0004", patient_id="p-0001")  # patient@medora.tn owns p-0001
+    r = _reg(client, email="dup.t@medora.tn", enrollment_code=code)
     assert r.status_code == 409 and r.json()["code"] == "already_enrolled"
     assert db.get(AccessCode, row.id).used_at is None
 
 
 def test_register_rate_limit(client):
-    statuses = [_reg(client, email=f"rl{i}@ward.tn", password="short").status_code for i in range(6)]
+    statuses = [_reg(client, email=f"rl{i}@medora.tn", password="short").status_code for i in range(6)]
     assert statuses[:5] == [422] * 5 and statuses[5] == 429
 
 
 def test_reset_with_code(client, db):
     code, _ = codes.issue(db, "reset", issued_by="u-0004", user_id="u-0002")
-    r = client.post("/auth/reset", json={"email": "nurse@ward.tn", "code": code, "new_password": GOOD})
+    r = client.post("/auth/reset", json={"email": "nurse@medora.tn", "code": code, "new_password": GOOD})
     assert r.status_code == 204
-    assert client.post("/auth/login", json={"email": "nurse@ward.tn", "password": GOOD}).status_code == 200
-    again = client.post("/auth/reset", json={"email": "nurse@ward.tn", "code": code, "new_password": GOOD + "x"})
+    assert client.post("/auth/login", json={"email": "nurse@medora.tn", "password": GOOD}).status_code == 200
+    again = client.post("/auth/reset", json={"email": "nurse@medora.tn", "code": code, "new_password": GOOD + "x"})
     assert again.status_code == 400 and again.json()["code"] == "invalid_code"
 
 
 def test_reset_weak_password_does_not_burn_the_code(client, db):
     code, row = codes.issue(db, "reset", issued_by="u-0004", user_id="u-0002")
-    r = client.post("/auth/reset", json={"email": "nurse@ward.tn", "code": code, "new_password": "short"})
+    r = client.post("/auth/reset", json={"email": "nurse@medora.tn", "code": code, "new_password": "short"})
     assert r.status_code == 422 and db.get(AccessCode, row.id).used_at is None
 
 
 def test_change_password(client):
-    h = login(client, "nurse@ward.tn")
+    h = login(client, "nurse@medora.tn")
     bad = client.post("/auth/change-password", headers=h, json={"current_password": "nope-nope-1", "new_password": GOOD})
     assert bad.status_code == 401
     ok = client.post("/auth/change-password", headers=h, json={"current_password": "ward1234", "new_password": GOOD})
     assert ok.status_code == 204
-    assert client.post("/auth/login", json={"email": "nurse@ward.tn", "password": GOOD}).status_code == 200
+    assert client.post("/auth/login", json={"email": "nurse@medora.tn", "password": GOOD}).status_code == 200
 
 
 def test_doctor_directory_lists_active_doctors_names_only(client):
@@ -1135,32 +1135,32 @@ def _ids(r):
 
 
 def test_admin_sees_all_pending_doctor_only_his(client, db):
-    a = make_user(db, "a.t@ward.tn", role=None, status="pending", requested_doctor_id="u-0001")
-    b = make_user(db, "b.t@ward.tn", role=None, status="pending")
-    admin, doc = login(client, "admin@ward.tn"), login(client, "doctor@ward.tn")
+    a = make_user(db, "a.t@medora.tn", role=None, status="pending", requested_doctor_id="u-0001")
+    b = make_user(db, "b.t@medora.tn", role=None, status="pending")
+    admin, doc = login(client, "admin@medora.tn"), login(client, "doctor@medora.tn")
     assert {a.id, b.id} <= _ids(client.get("/users", headers=admin))
     assert _ids(client.get("/users", headers=doc)) == {a.id}
-    assert client.get("/users", headers=login(client, "nurse@ward.tn")).status_code == 403
+    assert client.get("/users", headers=login(client, "nurse@medora.tn")).status_code == 403
 
 
 def test_admin_approves_with_role_and_ward(client, db):
-    b = make_user(db, "b.t@ward.tn", role=None, status="pending")
-    r = client.post(f"/users/{b.id}/approve", headers=login(client, "admin@ward.tn"),
+    b = make_user(db, "b.t@medora.tn", role=None, status="pending")
+    r = client.post(f"/users/{b.id}/approve", headers=login(client, "admin@medora.tn"),
                     json={"role": "nurse", "ward": "Internal Medicine"})
     assert r.status_code == 200 and r.json()["status"] == "active" and r.json()["ward"] == "Internal Medicine"
-    h = login(client, "b.t@ward.tn")
+    h = login(client, "b.t@medora.tn")
     assert {p["ward"] for p in client.get("/patients", headers=h).json()} <= {"Internal Medicine"}
 
 
 def test_admin_approving_a_team_request_as_nurse_keeps_the_doctor(client, db):
-    a = make_user(db, "a.t@ward.tn", role=None, status="pending", requested_doctor_id="u-0001")
-    client.post(f"/users/{a.id}/approve", headers=login(client, "admin@ward.tn"), json={"role": "nurse"})
+    a = make_user(db, "a.t@medora.tn", role=None, status="pending", requested_doctor_id="u-0001")
+    client.post(f"/users/{a.id}/approve", headers=login(client, "admin@medora.tn"), json={"role": "nurse"})
     assert db.get(Staff, a.id).supervisor_id == "u-0001"
 
 
 def test_doctor_approves_his_request_into_his_team(client, db):
-    a = make_user(db, "a.t@ward.tn", role=None, status="pending", requested_doctor_id="u-0001")
-    r = client.post(f"/users/{a.id}/approve", headers=login(client, "doctor@ward.tn"),
+    a = make_user(db, "a.t@medora.tn", role=None, status="pending", requested_doctor_id="u-0001")
+    r = client.post(f"/users/{a.id}/approve", headers=login(client, "doctor@medora.tn"),
                     json={"role": "nurse", "ward": "Imaging"})
     assert r.status_code == 200
     out = r.json()
@@ -1168,34 +1168,34 @@ def test_doctor_approves_his_request_into_his_team(client, db):
 
 
 def test_doctor_limits(client, db):
-    a = make_user(db, "a.t@ward.tn", role=None, status="pending", requested_doctor_id="u-0001")
-    b = make_user(db, "b.t@ward.tn", role=None, status="pending")
-    doc = login(client, "doctor@ward.tn")
+    a = make_user(db, "a.t@medora.tn", role=None, status="pending", requested_doctor_id="u-0001")
+    b = make_user(db, "b.t@medora.tn", role=None, status="pending")
+    doc = login(client, "doctor@medora.tn")
     assert client.post(f"/users/{b.id}/approve", headers=doc, json={"role": "nurse"}).status_code == 403
     for role in ("doctor", "admin"):
         assert client.post(f"/users/{a.id}/approve", headers=doc, json={"role": role}).status_code == 403
 
 
 def test_approve_twice_is_409_and_bad_role_is_422(client, db):
-    b = make_user(db, "b.t@ward.tn", role=None, status="pending")
-    admin = login(client, "admin@ward.tn")
+    b = make_user(db, "b.t@medora.tn", role=None, status="pending")
+    admin = login(client, "admin@medora.tn")
     assert client.post(f"/users/{b.id}/approve", headers=admin, json={"role": "patient"}).status_code == 422
     assert client.post(f"/users/{b.id}/approve", headers=admin, json={"role": "nurse"}).status_code == 200
     assert client.post(f"/users/{b.id}/approve", headers=admin, json={"role": "nurse"}).status_code == 409
 
 
 def test_reject_then_approve_later(client, db):
-    b = make_user(db, "b.t@ward.tn", role=None, status="pending")
-    admin = login(client, "admin@ward.tn")
+    b = make_user(db, "b.t@medora.tn", role=None, status="pending")
+    admin = login(client, "admin@medora.tn")
     assert client.post(f"/users/{b.id}/reject", headers=admin).json()["status"] == "rejected"
-    assert client.post("/auth/login", json={"email": "b.t@ward.tn", "password": "ward1234"}).json()["code"] == \
+    assert client.post("/auth/login", json={"email": "b.t@medora.tn", "password": "ward1234"}).json()["code"] == \
         "account_rejected"
     assert client.post(f"/users/{b.id}/approve", headers=admin, json={"role": "nurse"}).status_code == 200
 
 
 def test_doctor_disables_only_his_team(client, db):
-    team = make_user(db, "team.t@ward.tn", role="nurse", supervisor_id="u-0001")
-    doc, admin = login(client, "doctor@ward.tn"), login(client, "admin@ward.tn")
+    team = make_user(db, "team.t@medora.tn", role="nurse", supervisor_id="u-0001")
+    doc, admin = login(client, "doctor@medora.tn"), login(client, "admin@medora.tn")
     assert client.post(f"/users/{team.id}/disable", headers=doc).json()["status"] == "disabled"
     assert client.post("/users/u-0002/disable", headers=doc).status_code == 403
     assert client.post(f"/users/{team.id}/enable", headers=doc).json()["status"] == "active"
@@ -1204,29 +1204,29 @@ def test_doctor_disables_only_his_team(client, db):
 
 
 def test_team_endpoint(client, db):
-    team = make_user(db, "team.t@ward.tn", role="nurse", supervisor_id="u-0001")
-    assert _ids(client.get("/doctors/me/team", headers=login(client, "doctor@ward.tn"))) == {team.id}
+    team = make_user(db, "team.t@medora.tn", role="nurse", supervisor_id="u-0001")
+    assert _ids(client.get("/doctors/me/team", headers=login(client, "doctor@medora.tn"))) == {team.id}
 
 
 def test_reset_code_flow(client, db):
-    r = client.post("/users/u-0002/reset-code", headers=login(client, "admin@ward.tn"))
+    r = client.post("/users/u-0002/reset-code", headers=login(client, "admin@medora.tn"))
     assert r.status_code == 200 and len(r.json()["code"]) == 11
-    assert client.post("/users/u-0002/reset-code", headers=login(client, "doctor@ward.tn")).status_code == 403
+    assert client.post("/users/u-0002/reset-code", headers=login(client, "doctor@medora.tn")).status_code == 403
 
 
 def test_reset_code_clears_lock(client, db):
     db.get(User, "u-0002").locked_until = datetime.now(UTC) + timedelta(minutes=10)
     db.flush()
-    code = client.post("/users/u-0002/reset-code", headers=login(client, "admin@ward.tn")).json()["code"]
-    assert client.post("/auth/reset", json={"email": "nurse@ward.tn", "code": code,
+    code = client.post("/users/u-0002/reset-code", headers=login(client, "admin@medora.tn")).json()["code"]
+    assert client.post("/auth/reset", json={"email": "nurse@medora.tn", "code": code,
                                             "new_password": "correct-horse-battery"}).status_code == 204
-    assert client.post("/auth/login", json={"email": "nurse@ward.tn",
+    assert client.post("/auth/login", json={"email": "nurse@medora.tn",
                                             "password": "correct-horse-battery"}).status_code == 200
 
 
 def test_admin_actions_are_audited(client, db):
-    b = make_user(db, "b.t@ward.tn", role=None, status="pending")
-    admin = login(client, "admin@ward.tn")
+    b = make_user(db, "b.t@medora.tn", role=None, status="pending")
+    admin = login(client, "admin@medora.tn")
     client.post(f"/users/{b.id}/approve", headers=admin, json={"role": "nurse"})
     client.post(f"/users/{b.id}/disable", headers=admin)
     rows = db.scalars(select(AuditLog).where(AuditLog.resource == "user", AuditLog.resource_id == b.id)).all()
@@ -1234,17 +1234,17 @@ def test_admin_actions_are_audited(client, db):
 
 
 def test_staff_list_has_status(client):
-    rows = client.get("/staff", headers=login(client, "admin@ward.tn")).json()
+    rows = client.get("/staff", headers=login(client, "admin@medora.tn")).json()
     assert all("status" in r for r in rows)
 
 
 def test_admin_sets_ward_on_an_active_team_nurse(client, db):
-    team = make_user(db, "team.t@ward.tn", role="nurse", supervisor_id="u-0001")
-    r = client.patch(f"/users/{team.id}", headers=login(client, "admin@ward.tn"), json={"ward": "Cardiology"})
+    team = make_user(db, "team.t@medora.tn", role="nurse", supervisor_id="u-0001")
+    r = client.patch(f"/users/{team.id}", headers=login(client, "admin@medora.tn"), json={"ward": "Cardiology"})
     assert r.status_code == 200 and (r.json()["ward"], r.json()["supervisor_id"]) == ("Cardiology", "u-0001")
-    assert client.patch(f"/users/{team.id}", headers=login(client, "doctor@ward.tn"),
+    assert client.patch(f"/users/{team.id}", headers=login(client, "doctor@medora.tn"),
                         json={"ward": None}).status_code == 403
-    assert client.patch("/users/u-0004", headers=login(client, "admin@ward.tn"),
+    assert client.patch("/users/u-0004", headers=login(client, "admin@medora.tn"),
                         json={"ward": "Cardiology"}).status_code == 409  # admins have no ward
 ```
 
@@ -1509,44 +1509,44 @@ def _register(client, email, code):
 
 def test_attending_doctor_issues_and_patient_enrolls(client, db):
     p = make_patient(db, attending="u-0001")
-    r = _issue(client, login(client, "doctor@ward.tn"), p.id)
+    r = _issue(client, login(client, "doctor@medora.tn"), p.id)
     assert r.status_code == 200 and "expires_at" in r.json()
-    assert _register(client, "pat1.t@ward.tn", r.json()["code"]).status_code == 202
+    assert _register(client, "pat1.t@medora.tn", r.json()["code"]).status_code == 202
 
 
 def test_other_doctor_nurse_and_patient_cannot_issue(client, db):
     p = make_patient(db, attending="u-0001")
-    make_user(db, "doc2.t@ward.tn", role="doctor", ward="Cardiology")
-    for email in ("doc2.t@ward.tn", "nurse@ward.tn", "patient@ward.tn"):
+    make_user(db, "doc2.t@medora.tn", role="doctor", ward="Cardiology")
+    for email in ("doc2.t@medora.tn", "nurse@medora.tn", "patient@medora.tn"):
         assert _issue(client, login(client, email), p.id).status_code == 403
 
 
 def test_admin_new_code_revokes_old(client, db):
     p = make_patient(db, attending="u-0001")
-    admin = login(client, "admin@ward.tn")
+    admin = login(client, "admin@medora.tn")
     first, second = _issue(client, admin, p.id).json()["code"], _issue(client, admin, p.id).json()["code"]
-    assert _register(client, "pat2.t@ward.tn", first).json()["code"] == "invalid_code"
-    assert _register(client, "pat3.t@ward.tn", second).status_code == 202
+    assert _register(client, "pat2.t@medora.tn", first).json()["code"] == "invalid_code"
+    assert _register(client, "pat3.t@medora.tn", second).status_code == 202
 
 
 def test_enrolled_patient_gets_409(client):
-    r = _issue(client, login(client, "admin@ward.tn"), "p-0001")
+    r = _issue(client, login(client, "admin@medora.tn"), "p-0001")
     assert r.status_code == 409 and r.json()["code"] == "already_enrolled"
 
 
 def test_unknown_patient_404(client):
-    assert _issue(client, login(client, "admin@ward.tn"), "p-9999").status_code == 404
+    assert _issue(client, login(client, "admin@medora.tn"), "p-9999").status_code == 404
 
 
 def test_patient_password_reset_code_from_attending_or_admin(client, db):
-    # patient@ward.tn owns p-0001, whose attending doctor is u-0001
-    r = client.post("/patients/p-0001/reset-code", headers=login(client, "doctor@ward.tn"))
+    # patient@medora.tn owns p-0001, whose attending doctor is u-0001
+    r = client.post("/patients/p-0001/reset-code", headers=login(client, "doctor@medora.tn"))
     assert r.status_code == 200
-    assert client.post("/auth/reset", json={"email": "patient@ward.tn", "code": r.json()["code"],
+    assert client.post("/auth/reset", json={"email": "patient@medora.tn", "code": r.json()["code"],
                                             "new_password": GOOD}).status_code == 204
-    assert client.post("/patients/p-0001/reset-code", headers=login(client, "nurse@ward.tn")).status_code == 403
+    assert client.post("/patients/p-0001/reset-code", headers=login(client, "nurse@medora.tn")).status_code == 403
     p = make_patient(db, attending="u-0001")  # no account yet
-    assert client.post(f"/patients/{p.id}/reset-code", headers=login(client, "admin@ward.tn")).status_code == 404
+    assert client.post(f"/patients/{p.id}/reset-code", headers=login(client, "admin@medora.tn")).status_code == 404
 ```
 
 - [ ] **Step 2: Run it to see it fail.** Expected: 404/405 on the route.
@@ -1648,8 +1648,8 @@ from tests.helpers import login, make_patient, make_user
 
 
 def _setup(db):
-    team = make_user(db, "team.t@ward.tn", role="nurse", supervisor_id="u-0001")
-    doc2 = make_user(db, "doc2.t@ward.tn", role="doctor", ward="Cardiology")
+    team = make_user(db, "team.t@medora.tn", role="nurse", supervisor_id="u-0001")
+    doc2 = make_user(db, "doc2.t@medora.tn", role="doctor", ward="Cardiology")
     mine = make_patient(db, attending="u-0001", ward="Cardiology")
     theirs = make_patient(db, attending=doc2.id, ward="Cardiology")
     return team, doc2, mine, theirs
@@ -1657,7 +1657,7 @@ def _setup(db):
 
 def test_team_nurse_sees_only_her_doctors_patients(client, db):
     _, _, mine, theirs = _setup(db)
-    h = login(client, "team.t@ward.tn")
+    h = login(client, "team.t@medora.tn")
     assert client.get(f"/patients/{mine.id}", headers=h).status_code == 200
     assert client.get(f"/patients/{theirs.id}", headers=h).status_code == 403
     ids = {r["id"] for r in client.get("/patients", headers=h).json()}
@@ -1668,20 +1668,20 @@ def test_team_nurse_gets_her_doctors_alerts_only(client, db):
     _, _, mine, theirs = _setup(db)
     a1 = AL.create_alert(db, mine.id, None, "trend", "medium", None, "test mine", None)
     a2 = AL.create_alert(db, theirs.id, None, "trend", "medium", None, "test theirs", None)
-    ids = {a["id"] for a in client.get("/alerts", headers=login(client, "team.t@ward.tn")).json()}
+    ids = {a["id"] for a in client.get("/alerts", headers=login(client, "team.t@medora.tn")).json()}
     assert a1.id in ids and a2.id not in ids
 
 
 def test_team_nurse_ward_screens_are_empty_not_errors(client, db):
     _setup(db)
-    h = login(client, "team.t@ward.tn")
+    h = login(client, "team.t@medora.tn")
     assert client.get("/exams", headers=h).json() == []
     r = client.get("/patients?ward=Nowhere", headers=h)
     assert r.status_code == 200 and r.json() == []
 
 
 def test_ward_nurse_unchanged(client):
-    rows = client.get("/patients", headers=login(client, "nurse@ward.tn")).json()
+    rows = client.get("/patients", headers=login(client, "nurse@medora.tn")).json()
     assert rows and {r["ward"] for r in rows} == {"Cardiology"}
 
 
@@ -1695,7 +1695,7 @@ def test_ws_routes_doctor_frames_to_his_team_nurse():
 
 def test_share_gives_access_until_revoked(client, db):
     _, doc2, _, _ = _setup(db)
-    h2, h1 = login(client, "doc2.t@ward.tn"), login(client, "doctor@ward.tn")
+    h2, h1 = login(client, "doc2.t@medora.tn"), login(client, "doctor@medora.tn")
     assert client.get("/patients/p-0001", headers=h2).status_code == 403
     r = client.post("/patients/p-0001/access", headers=h1, json={"doctor_id": doc2.id})
     assert r.status_code == 200 and r.json()["doctor_id"] == doc2.id
@@ -1712,20 +1712,20 @@ def test_expired_grant_gives_nothing(client, db):
     db.add(PatientAccess(id="pa-9001", patient_id="p-0001", user_id=doc2.id, granted_by="u-0001",
                          created_at=now - timedelta(days=31), expires_at=now - timedelta(days=1)))
     db.flush()
-    assert client.get("/patients/p-0001", headers=login(client, "doc2.t@ward.tn")).status_code == 403
+    assert client.get("/patients/p-0001", headers=login(client, "doc2.t@medora.tn")).status_code == 403
 
 
 def test_only_attending_or_admin_can_share(client, db):
     _, doc2, _, _ = _setup(db)
     body = {"doctor_id": doc2.id}
-    assert client.post("/patients/p-0001/access", headers=login(client, "doc2.t@ward.tn"), json=body).status_code == 403
-    assert client.post("/patients/p-0001/access", headers=login(client, "nurse@ward.tn"), json=body).status_code == 403
-    assert client.post("/patients/p-0001/access", headers=login(client, "admin@ward.tn"), json=body).status_code == 200
+    assert client.post("/patients/p-0001/access", headers=login(client, "doc2.t@medora.tn"), json=body).status_code == 403
+    assert client.post("/patients/p-0001/access", headers=login(client, "nurse@medora.tn"), json=body).status_code == 403
+    assert client.post("/patients/p-0001/access", headers=login(client, "admin@medora.tn"), json=body).status_code == 200
 
 
 def test_share_validation(client, db):
     _, doc2, _, _ = _setup(db)
-    h1 = login(client, "doctor@ward.tn")
+    h1 = login(client, "doctor@medora.tn")
     far = (datetime.now(UTC) + timedelta(days=400)).isoformat()
     past = (datetime.now(UTC) - timedelta(days=1)).isoformat()
     for body in ({"doctor_id": doc2.id, "expires_at": far}, {"doctor_id": doc2.id, "expires_at": past},

@@ -11,7 +11,7 @@ from app.services.pharmacy.formulary import match_drug
 def test_seed_pharmacist_and_prescriptions(db):
     seed(db)
     ph = db.get(User, "u-0008")
-    assert (ph.email, ph.name, ph.role, ph.status) == ("pharmacist@ward.tn", "Pharm. Salma", "pharmacist", "active")
+    assert (ph.email, ph.name, ph.role, ph.status) == ("pharmacist@medora.tn", "Pharm. Salma", "pharmacist", "active")
     assert db.get(Staff, "u-0008") is None
     rx = db.get(Prescription, "rx-0001")
     assert [i["drug_id"] for i in rx.items] == ["d-0032", "d-0001"]
@@ -60,5 +60,5 @@ def test_backfill_fills_only_missing_keys(db):
 def test_seed_pharmacist_sees_the_critical_demo_first(client):
     from tests.helpers import login
 
-    rows = client.get("/pharmacy/worklist", headers=login(client, "pharmacist@ward.tn")).json()
+    rows = client.get("/pharmacy/worklist", headers=login(client, "pharmacist@medora.tn")).json()
     assert rows[0]["prescription"]["care_plan"] == DEMO_CARE_PLAN and rows[0]["max_severity"] == "critical"

@@ -3,22 +3,22 @@ import type { Device, Me, Patient, StaffMember } from "@/lib/types";
 import { at, secondsAgo, SUN, TODAY } from "./time";
 
 export const USERS = {
-  doctor: { id: "u-0001", name: "Dr Trabelsi", email: "m.trabelsi@hr-ward.tn", role: "doctor", patient_id: null },
-  nurse: { id: "u-0002", name: "Nurse Ines", email: "i.mejri@hr-ward.tn", role: "nurse", patient_id: null },
-  admin: { id: "u-0003", name: "Mme Gharbi", email: "n.gharbi@hr-ward.tn", role: "admin", patient_id: null },
-  patient: { id: "u-0007", name: "Amira Ben Salah", email: "patient@ward.tn", role: "patient", patient_id: "p-0001" },
-  pharmacist: { id: "u-0008", name: "Pharm. Salma", email: "pharmacist@ward.tn", role: "pharmacist", patient_id: null },
+  doctor: { id: "u-0001", name: "Dr Trabelsi", email: "m.trabelsi@hr-medora.tn", role: "doctor", patient_id: null },
+  nurse: { id: "u-0002", name: "Nurse Ines", email: "i.mejri@hr-medora.tn", role: "nurse", patient_id: null },
+  admin: { id: "u-0003", name: "Mme Gharbi", email: "n.gharbi@hr-medora.tn", role: "admin", patient_id: null },
+  patient: { id: "u-0007", name: "Amira Ben Salah", email: "patient@medora.tn", role: "patient", patient_id: "p-0001" },
+  pharmacist: { id: "u-0008", name: "Pharm. Salma", email: "pharmacist@medora.tn", role: "pharmacist", patient_id: null },
 } satisfies Record<Me["role"], Me>;
 
 /** Admin "Staff" screen (Ward Admin.dc.html). */
 const STAFF_ROWS: Omit<StaffMember, "status">[] = [
-  { id: "u-0001", name: "Dr Trabelsi", email: "m.trabelsi@hr-ward.tn", role: "doctor", ward: "Cardiology", scope: "Cardiology · Ward C", last_login_at: at(TODAY, "09:10") },
-  { id: "u-0002", name: "Nurse Ines", email: "i.mejri@hr-ward.tn", role: "nurse", ward: "Cardiology", scope: "Ward C · day", last_login_at: at(TODAY, "07:02") },
-  { id: "u-0004", name: "Nurse Sami", email: "s.dridi@hr-ward.tn", role: "nurse", ward: "Cardiology", scope: "Ward C · night", last_login_at: at(TODAY, "06:58") },
-  { id: "u-0010", name: "Dr Ben Romdhane", email: "a.benromdhane@hr-ward.tn", role: "doctor", ward: "Pediatrics", scope: "Pediatrics", last_login_at: at(SUN, "18:40") },
-  { id: "u-0011", name: "Dr Karoui", email: "h.karoui@hr-ward.tn", role: "doctor", ward: "Pulmonology", scope: "Pulmonology", last_login_at: at("2026-10-02", "14:21") },
-  { id: "u-0003", name: "Mme Gharbi", email: "n.gharbi@hr-ward.tn", role: "admin", ward: null, scope: "Administration", last_login_at: at(TODAY, "08:45") },
-  { id: "u-0008", name: "Pharm. Salma", email: "pharmacist@ward.tn", role: "pharmacist", ward: null, scope: "Pharmacy", last_login_at: at(TODAY, "07:40") },
+  { id: "u-0001", name: "Dr Trabelsi", email: "m.trabelsi@hr-medora.tn", role: "doctor", ward: "Cardiology", scope: "Cardiology · Ward C", last_login_at: at(TODAY, "09:10") },
+  { id: "u-0002", name: "Nurse Ines", email: "i.mejri@hr-medora.tn", role: "nurse", ward: "Cardiology", scope: "Ward C · day", last_login_at: at(TODAY, "07:02") },
+  { id: "u-0004", name: "Nurse Sami", email: "s.dridi@hr-medora.tn", role: "nurse", ward: "Cardiology", scope: "Ward C · night", last_login_at: at(TODAY, "06:58") },
+  { id: "u-0010", name: "Dr Ben Romdhane", email: "a.benromdhane@hr-medora.tn", role: "doctor", ward: "Pediatrics", scope: "Pediatrics", last_login_at: at(SUN, "18:40") },
+  { id: "u-0011", name: "Dr Karoui", email: "h.karoui@hr-medora.tn", role: "doctor", ward: "Pulmonology", scope: "Pulmonology", last_login_at: at("2026-10-02", "14:21") },
+  { id: "u-0003", name: "Mme Gharbi", email: "n.gharbi@hr-medora.tn", role: "admin", ward: null, scope: "Administration", last_login_at: at(TODAY, "08:45") },
+  { id: "u-0008", name: "Pharm. Salma", email: "pharmacist@medora.tn", role: "pharmacist", ward: null, scope: "Pharmacy", last_login_at: at(TODAY, "07:40") },
 ];
 const DISABLED_DEMO = new Set(["u-0004"]);
 export const STAFF: StaffMember[] = STAFF_ROWS.map((s) => ({ ...s, status: DISABLED_DEMO.has(s.id) ? "disabled" : "active" }));

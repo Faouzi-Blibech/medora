@@ -544,7 +544,7 @@ def test_to_out_by_role(db, seeded):
     _, res = make_result(db)
     r = R.enqueue(db, res, "Chest X-ray")
     r.ai_suggested = READY[1]
-    nurse = make_user(db, "img2@ward.tn", role="nurse", ward="Imaging")
+    nurse = make_user(db, "img2@medora.tn", role="nurse", ward="Imaging")
     assert set(R.to_out(db, r, nurse)) == {"id", "exam_result_id", "status"}
     doctor = db.get(__import__("app.models", fromlist=["User"]).User, "u-0001")
     full = R.to_out(db, r, doctor)
@@ -573,7 +573,7 @@ from app.models import ExamResult, RadiographReading, User
 from app.services import storage
 from app.services.time import iso  # use whatever iso() helper app/services/exams.py imports
 
-log = logging.getLogger("ward.radiology")
+log = logging.getLogger("medora.radiology")
 
 
 def is_radiograph(code: str, content_type: str) -> bool:

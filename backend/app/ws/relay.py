@@ -11,7 +11,7 @@ from app.iot import mqtt_auth
 from app.iot.publisher import WS_TOPIC
 from app.ws.hub import hub
 
-log = logging.getLogger("ward.relay")
+log = logging.getLogger("medora.relay")
 
 
 def start():

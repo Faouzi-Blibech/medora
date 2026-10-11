@@ -32,24 +32,24 @@ def doc_b(client, db):
     """A second cardiology doctor who is NOT p-0001's attending doctor (u-0001 is)."""
     from app.config import get_settings
 
-    db.add(User(id="u-0990", email="doctorb-acl@ward.tn", name="Dr Bouzid", role="doctor",
+    db.add(User(id="u-0990", email="doctorb-acl@medora.tn", name="Dr Bouzid", role="doctor",
                 password_hash=hash_password(get_settings().seed_password)))
     db.flush()
     db.add(Staff(user_id="u-0990", ward="Cardiology"))
     db.flush()
-    r = client.post("/auth/login", json={"email": "doctorb-acl@ward.tn", "password": get_settings().seed_password})
+    r = client.post("/auth/login", json={"email": "doctorb-acl@medora.tn", "password": get_settings().seed_password})
     assert r.status_code == 200, r.text
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
 
 @pytest.fixture()
 def doc_a(client):
-    return login(client, "doctor@ward.tn")
+    return login(client, "doctor@medora.tn")
 
 
 @pytest.fixture()
 def admin(client):
-    return login(client, "admin@ward.tn")
+    return login(client, "admin@medora.tn")
 
 
 def _request(client, admin, **over) -> dict:
@@ -93,7 +93,7 @@ def test_booked_doctor_sees_their_confirmed_appointment(client, admin, db, doc_b
     r = client.post(f"/appointments/{a['id']}/confirm", headers=admin, json={"slot_at": SLOT, "doctor_id": "u-0990"})
     assert r.status_code == 200
     assert a["id"] in {x["id"] for x in client.get("/appointments", headers=doc_b).json()}
-    assert a["id"] not in {x["id"] for x in client.get("/appointments", headers=login(client, "doctor@ward.tn")).json()}
+    assert a["id"] not in {x["id"] for x in client.get("/appointments", headers=login(client, "doctor@medora.tn")).json()}
 
 
 def test_admin_list_unchanged(client, admin):
@@ -146,7 +146,7 @@ def _done_exam(client, admin, doc_a, stored):
     ecg = client.get(f"/appointments/{a['id']}/exams", headers=doc_a).json()[0]
     assert client.post(f"/appointments/{a['id']}/exams/order", headers=doc_a,
                        json={"exam_ids": [ecg["id"]]}).status_code == 200
-    up = client.post(f"/exams/{ecg['id']}/results", headers=login(client, "nurse@ward.tn"),
+    up = client.post(f"/exams/{ecg['id']}/results", headers=login(client, "nurse@medora.tn"),
                      files={"file": PDF}, data={"report_text": "sinus rhythm"})
     assert up.status_code == 200, up.text
     return a, ecg["id"], up.json()["results"][0]["id"]
@@ -168,7 +168,7 @@ def test_orderer_and_booked_doctor_see_results_even_when_not_attending(client, a
     a = _request(client, admin, patient_id="p-0007")  # nobody's patient
     ecg = client.get(f"/appointments/{a['id']}/exams", headers=doc_b).json()[0]["id"]
     client.post(f"/appointments/{a['id']}/exams/order", headers=doc_b, json={"exam_ids": [ecg]})
-    up = client.post(f"/exams/{ecg}/results", headers=login(client, "nurse@ward.tn"), files={"file": PDF})
+    up = client.post(f"/exams/{ecg}/results", headers=login(client, "nurse@medora.tn"), files={"file": PDF})
     rid = up.json()["results"][0]["id"]
     assert client.get(f"/exam-results/{rid}/file", headers=doc_b).status_code == 200  # orderer
     assert client.get(f"/exam-results/{rid}/file", headers=doc_a).status_code == 403  # pool doctor
@@ -197,14 +197,14 @@ def _cmd(client, h, body, device="bsu-001"):
 
 def test_nurse_other_ward_and_doctor_b_cannot_command(client, doc_b, published):
     sent = len(published)
-    assert _cmd(client, login(client, "nurse2@ward.tn"), {"type": "alert", "text": "hi"}).status_code == 403
+    assert _cmd(client, login(client, "nurse2@medora.tn"), {"type": "alert", "text": "hi"}).status_code == 403
     assert _cmd(client, doc_b, {"type": "alert", "text": "hi"}).status_code == 403
     assert len(published) == sent
 
 
 def test_ward_nurse_and_attending_doctor_can_command_and_it_is_audited(client, db, doc_a, published):
     before = _audits(db, resource="device_command", patient_id="p-0001")
-    assert _cmd(client, login(client, "nurse@ward.tn"), {"type": "alert", "text": "hi"}).status_code == 200
+    assert _cmd(client, login(client, "nurse@medora.tn"), {"type": "alert", "text": "hi"}).status_code == 200
     assert _cmd(client, doc_a, {"type": "rotate_home"}).status_code == 200
     assert _audits(db, resource="device_command", patient_id="p-0001") == before + 2
     assert published[-1][0] == "hospital/device/bsu-001/command"
@@ -213,9 +213,9 @@ def test_ward_nurse_and_attending_doctor_can_command_and_it_is_audited(client, d
 def test_command_to_unassigned_device_is_forbidden(client, db):
     db.add(Device(id="bsu-009", fw_version="0.1.0", online=False))
     db.flush()
-    assert _cmd(client, login(client, "nurse@ward.tn"), {"type": "alert", "text": "hi"}, "bsu-009").status_code == 403
-    assert _cmd(client, login(client, "doctor@ward.tn"), {"type": "alert", "text": "hi"}, "bsu-009").status_code == 403
-    assert _cmd(client, login(client, "nurse@ward.tn"), {"type": "alert"}, "bsu-404").status_code == 404
+    assert _cmd(client, login(client, "nurse@medora.tn"), {"type": "alert", "text": "hi"}, "bsu-009").status_code == 403
+    assert _cmd(client, login(client, "doctor@medora.tn"), {"type": "alert", "text": "hi"}, "bsu-009").status_code == 403
+    assert _cmd(client, login(client, "nurse@medora.tn"), {"type": "alert"}, "bsu-404").status_code == 404
 
 
 def test_admin_command_but_not_dispense(client, admin, published):
@@ -237,7 +237,7 @@ def _foreign_dose(db) -> str:
 
 def test_dose_from_another_patient_is_422(client, db, published):
     dose = _foreign_dose(db)
-    nurse = login(client, "nurse@ward.tn")
+    nurse = login(client, "nurse@medora.tn")
     sent = len(published)
     r = _cmd(client, nurse, {"type": "dispense_now", "dose_id": dose})
     assert r.status_code == 422 and r.json()["code"] == "invalid"

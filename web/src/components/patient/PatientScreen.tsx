@@ -1,6 +1,6 @@
 "use client";
 
-// One patient screen inside the phone frame: status bar, the Ward brand row, the body
+// One patient screen inside the phone frame: status bar, the Medora brand row, the body
 // (passed as children; each screen sets its own padding) and, on the tabbed screens, the tab bar.
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
@@ -21,7 +21,7 @@ export interface PatientScreenProps {
   time?: string;
   /** Status bar signal and battery icons (the "Confirmed" screen has none). */
   icons?: boolean;
-  /** The "Ward · Prototype · simulated data" row. */
+  /** The "Medora · Prototype · simulated data" row. */
   brand?: boolean;
   /** Show the tab bar with this tab active. */
   nav?: PatientTab;
@@ -58,7 +58,7 @@ export function Brand() {
     <div className={styles.brand}>
       <span className={styles.brandMark} />
       <Link href="/patient" className={styles.brandName}>
-        Ward
+        Medora
       </Link>
       <span className={styles.flex} />
       <span className={styles.protoTag}>{t("patient.protoTag")}</span>

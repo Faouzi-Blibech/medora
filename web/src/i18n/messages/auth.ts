@@ -70,7 +70,7 @@ export const auth = messages({
     settingsReduceMotion: "Reduce motion",
     settingsReduceMotionHint: "Turns off animations and transitions on this device.",
     settingsSession: "Session",
-    settingsSessionHint: "Log out of Ward on this device.",
+    settingsSessionHint: "Log out of Medora on this device.",
   },
   fr: {
     pitchTitle: "Un seul dossier partagé pour tout le service.",
@@ -140,7 +140,7 @@ export const auth = messages({
     settingsReduceMotion: "Réduire les animations",
     settingsReduceMotionHint: "Désactive les animations et les transitions sur cet appareil.",
     settingsSession: "Session",
-    settingsSessionHint: "Se déconnecter de Ward sur cet appareil.",
+    settingsSessionHint: "Se déconnecter de Medora sur cet appareil.",
   },
   ar: {
     pitchTitle: "ملف واحد مشترك للقسم بأكمله.",
@@ -210,6 +210,6 @@ export const auth = messages({
     settingsReduceMotion: "تقليل الحركة",
     settingsReduceMotionHint: "يوقف الرسوم المتحركة والانتقالات على هذا الجهاز.",
     settingsSession: "الجلسة",
-    settingsSessionHint: "تسجيل الخروج من Ward على هذا الجهاز.",
+    settingsSessionHint: "تسجيل الخروج من Medora على هذا الجهاز.",
   },
 });

@@ -11,7 +11,7 @@ from app.services.pharmacy.workflow import age_on
 from app.ws.hub import Client, wants
 from tests.helpers import login, pharmacist
 
-DOC = "doctor@ward.tn"
+DOC = "doctor@medora.tn"
 RX_OK = {"patient_id": "p-0001", "care_plan": "",
          "items": [{"med": "Omeprazole 20 mg", "drug_id": "d-0041", "times": ["20:00"], "slot": 3, "days": 3}]}
 RX_MAJOR = {"patient_id": "p-0002", "care_plan": "",
@@ -62,7 +62,7 @@ def test_validate_without_checks_is_one_click(client, db, published, emitted):
     review = db.scalars(select(PrescriptionReview).where(PrescriptionReview.prescription_id == rx["id"])).one()
     assert (review.decision, review.checks_snapshot) == ("validated", [])
     assert ("prescription.review", {"prescription_id": rx["id"], "patient_id": "p-0001", "decision": "validated",
-                                    "comment": None, "doctor_email": "doctor@ward.tn",
+                                    "comment": None, "doctor_email": "doctor@medora.tn",
                                     "doctor_chat_id": None}) in emitted
     assert {"prescription_id": rx["id"], "patient_id": "p-0001", "status": "validated",
             "urgent": False} in _frames(published)
@@ -281,12 +281,12 @@ def test_nurse_cannot_give_a_leftover_dose_of_a_cancelled_prescription(client, d
                    scheduled_at=schedule.now_utc() - timedelta(hours=1), time_of_day="08:00", meds=["Z"], slot=None,
                    status="scheduled"))
     db.flush()
-    r = client.post("/doses/d-rej001/given", headers=login(client, "nurse@ward.tn"))
+    r = client.post("/doses/d-rej001/given", headers=login(client, "nurse@medora.tn"))
     assert r.status_code == 409 and r.json()["code"] == "bad_status"
     assert db.get(MedDose, "d-rej001").status == "scheduled"
 
 
-@pytest.mark.parametrize("email", ["doctor@ward.tn", "nurse@ward.tn", "admin@ward.tn", "patient@ward.tn"])
+@pytest.mark.parametrize("email", ["doctor@medora.tn", "nurse@medora.tn", "admin@medora.tn", "patient@medora.tn"])
 def test_only_pharmacists_use_pharmacy_routes(client, db, email):
     rx = _rx(client, RX_OK)
     h = login(client, email)
@@ -310,7 +310,7 @@ def test_pharmacist_cannot_prescribe_or_read_records(client, db):
 
 
 def _command(client, dose_id):
-    return client.post("/devices/bsu-001/command", headers=login(client, "nurse@ward.tn"),
+    return client.post("/devices/bsu-001/command", headers=login(client, "nurse@medora.tn"),
                        json={"type": "dispense_now", "dose_id": dose_id})
 
 

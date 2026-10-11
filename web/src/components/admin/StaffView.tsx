@@ -49,7 +49,7 @@ const ROLE_HELP: Partial<Record<StaffRole, Key>> = {
   nurse: "admin.roleHelpNurse",
   pharmacist: "pharmacy.roleHelpPharmacist",
 };
-const DESIGN_DRAFT = { name: "Nour Hammami", email: "n.hammami@hr-ward.tn", role: "nurse" as StaffRole, scope: WARDS[0].value };
+const DESIGN_DRAFT = { name: "Nour Hammami", email: "n.hammami@hr-medora.tn", role: "nurse" as StaffRole, scope: WARDS[0].value };
 const EMPTY_DRAFT = { name: "", email: "", role: "nurse" as StaffRole, scope: WARDS[0].value };
 
 const lastLogin = (iso: string | null, t: TFn, lang: Lang) => (iso ? `${dayLabel(iso, now(), lang)} ${tunisTime(iso)}` : t("admin.staffInvited"));

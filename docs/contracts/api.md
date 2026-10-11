@@ -21,7 +21,7 @@
 | `POST /auth/login` | public | `{"email","password"}` → `{"access_token","token_type":"bearer","user":{"id","name","role","patient_id"}}` |
 | `GET /me` | any | → `{"id","name","email","role","patient_id"}` |
 
-Seed accounts (password `ward1234` for all): `doctor@ward.tn`, `nurse@ward.tn`, `admin@ward.tn`, `patient@ward.tn` (linked to `p-0001`), `pharmacist@ward.tn`.
+Seed accounts (password `ward1234` for all): `doctor@medora.tn`, `nurse@medora.tn`, `admin@medora.tn`, `patient@medora.tn` (linked to `p-0001`), `pharmacist@medora.tn`.
 
 ## Accounts and access
 
@@ -29,7 +29,7 @@ Added in 1.9 (spec `docs/superpowers/specs/2026-10-10-accounts-and-access-design
 
 | Method and path | Who | Notes |
 |---|---|---|
-| `GET /hospital` | anyone | `{"name": "Ward Hospital"}`: this install's hospital (one install per hospital), from the setting `HOSPITAL_NAME`. Rate-limited like the directory (30/min per IP). Feeds the hospital select on the sign-up form. |
+| `GET /hospital` | anyone | `{"name": "Medora Hospital"}`: this install's hospital (one install per hospital), from the setting `HOSPITAL_NAME`. Rate-limited like the directory (30/min per IP). Feeds the hospital select on the sign-up form. |
 | `POST /auth/register` | anyone | `{name, email, password, role, requested_doctor_id?, note?}` with `role` in `patient`/`nurse`/`doctor`/`pharmacist` (required; anything else, including `admin`, is 422). `role: "doctor"` with a `requested_doctor_id` is 422. `role: "pharmacist"` with a `requested_doctor_id` is 422. Unknown extra fields (`ward`, `enrollment_code`...) are 422. An unknown or inactive `requested_doctor_id` is stored as null. → 202 `RECEIVED` (always the same answer). The account is `pending`; `role` is stored as `requested_role`, and the real role is set at approval. |
 | `POST /auth/reset` | anyone | `{email, code, new_password}` → 204, or generic 400 `invalid_code` |
 | `POST /auth/login` | anyone | `email` at most 254 and `password` at most 200 characters (422 above). Adds 403 `account_pending` / `account_disabled` / `account_rejected` and 423 `account_locked`, only after the password is correct |
@@ -591,6 +591,6 @@ Still proposed: `GET /offers/{id}`, `POST /offers/{id}/accept` and `GET /patient
 
 - **1.2** (2026-10-05): `GET /ai/summary/{patient_id}` also returns `human_confirmed_by`, so the doctor view can show "needs review" / "reviewed" (AI-output convention). Both sides: Faouzi.
 
-- **1.1** (2026-10-05): integrations callbacks aligned with n8n-webhooks v1.2 (`backfill-accept` responses, `daily-digest` list shape with doctor email, new `follow-up`); the `n8n@ward.tn` service account is no longer needed.
+- **1.1** (2026-10-05): integrations callbacks aligned with n8n-webhooks v1.2 (`backfill-accept` responses, `daily-digest` list shape with doctor email, new `follow-up`); the `n8n@medora.tn` service account is no longer needed.
 
 - **1.0** (2026-10-05): initial freeze. Adds `PATCH /appointments/{id}` (urgency override), `/appointments/{id}/reply`, `/ai/summary/{id}/review`, `/me`, `/patients/{id}/prescriptions`, `/patients/{id}/notes`, discharge, digitize-approve, device command and `/integrations/n8n/*` to the brief's drafts.

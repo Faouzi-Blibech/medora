@@ -8,8 +8,8 @@ from app.seed import seed
 def test_seed_matches_contract(db):
     seed(db)
     users = {u.email: u for u in db.scalars(select(User))}
-    assert users["doctor@ward.tn"].id == "u-0001" and users["doctor@ward.tn"].role == "doctor"
-    assert users["patient@ward.tn"].patient_id == "p-0001"
+    assert users["doctor@medora.tn"].id == "u-0001" and users["doctor@medora.tn"].role == "doctor"
+    assert users["patient@medora.tn"].patient_id == "p-0001"
     assert db.get(Staff, "u-0002").rfid_uid == "04A1B2C3"
     assert db.query(Patient).count() == 12
     cardio = db.scalars(select(Patient).where(Patient.ward == "Cardiology")).all()
@@ -62,7 +62,7 @@ def test_seed_password_comes_from_settings(db, monkeypatch):
 
     monkeypatch.setattr(get_settings(), "seed_password", "not-the-default")
     seed(db)
-    doctor = db.query(User).filter_by(email="doctor@ward.tn").one()
+    doctor = db.query(User).filter_by(email="doctor@medora.tn").one()
     assert verify_password("not-the-default", doctor.password_hash)
 
 
@@ -78,8 +78,8 @@ def test_seed_vitals_normal_and_varied(db):
 def test_seed_department_nurses(seeded):
     from app.models import Staff, User
 
-    assert seeded.get(User, "u-0006").email == "imaging@ward.tn" and seeded.get(Staff, "u-0006").ward == "Imaging"
-    assert seeded.get(User, "u-0007").email == "lab@ward.tn" and seeded.get(Staff, "u-0007").ward == "Laboratory"
+    assert seeded.get(User, "u-0006").email == "imaging@medora.tn" and seeded.get(Staff, "u-0006").ward == "Imaging"
+    assert seeded.get(User, "u-0007").email == "lab@medora.tn" and seeded.get(Staff, "u-0007").ward == "Laboratory"
 
 
 def test_seed_adds_missing_staff_on_an_already_seeded_db(db):
@@ -91,8 +91,8 @@ def test_seed_adds_missing_staff_on_an_already_seeded_db(db):
         db.delete(db.get(User, uid))
     db.flush()
     assert seed(db) is False
-    assert db.get(User, "u-0006").email == "imaging@ward.tn" and db.get(Staff, "u-0006").ward == "Imaging"
-    assert db.get(User, "u-0007").email == "lab@ward.tn" and db.get(Staff, "u-0007").ward == "Laboratory"
+    assert db.get(User, "u-0006").email == "imaging@medora.tn" and db.get(Staff, "u-0006").ward == "Imaging"
+    assert db.get(User, "u-0007").email == "lab@medora.tn" and db.get(Staff, "u-0007").ward == "Laboratory"
 
 
 def test_seed_suggests_exams_for_seeded_requests(db):
@@ -107,7 +107,7 @@ def test_seed_second_patient_account(db):
     from app.models import MedDose
 
     seed(db)
-    u = db.query(User).filter_by(email="patient2@ward.tn").one()
+    u = db.query(User).filter_by(email="patient2@medora.tn").one()
     assert (u.id, u.role, u.patient_id) == ("u-0009", "patient", "p-0005")
     adm = db.scalars(select(Admission).where(Admission.patient_id == "p-0005",
                                              Admission.discharged_at.is_(None))).one()
@@ -120,9 +120,19 @@ def test_seed_second_patient_account(db):
 
 def test_seed_adds_second_patient_on_an_already_seeded_db(db):
     seed(db)
-    u = db.query(User).filter_by(email="patient2@ward.tn").one()
+    u = db.query(User).filter_by(email="patient2@medora.tn").one()
     db.delete(u)
     db.flush()
     assert seed(db) is False
-    assert db.query(User).filter_by(email="patient2@ward.tn").one().patient_id == "p-0005"
+    assert db.query(User).filter_by(email="patient2@medora.tn").one().patient_id == "p-0005"
     assert db.query(Prescription).filter_by(patient_id="p-0005", active=True).count() == 1
+
+
+def test_seed_renames_legacy_ward_tn_emails(db):
+    seed(db)
+    for u in db.scalars(select(User).where(User.email.like("%@medora.tn"))):
+        u.email = u.email.replace("@medora.tn", "@ward.tn")
+    db.flush()
+    assert seed(db) is False
+    emails = {u.email for u in db.scalars(select(User))}
+    assert "doctor@medora.tn" in emails and not any(e.endswith("@ward.tn") for e in emails)

@@ -4,7 +4,7 @@ import { HealthCalendar } from "@/components/calendar/HealthCalendar";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("calendar.title")} · Ward` };
+  return { title: `${t("calendar.title")} · Medora` };
 }
 
 export default function AdminCalendarPage() {

@@ -166,7 +166,7 @@
         160
       ],
       "parameters": {
-        "jsCode": "const out = [];\nfor (const item of $input.all()) {\n  const d = item.json;\n  for (const r of d.recipients || []) {\n    if (!r.email) continue;\n    out.push({ json: { email: r.email, subject: `Ward · ${d.title}`, text: `Bonjour ${r.first_name || ''},\n\n${d.text}` } });\n  }\n}\nreturn out;"
+        "jsCode": "const out = [];\nfor (const item of $input.all()) {\n  const d = item.json;\n  for (const r of d.recipients || []) {\n    if (!r.email) continue;\n    out.push({ json: { email: r.email, subject: `Medora · ${d.title}`, text: `Bonjour ${r.first_name || ''},\n\n${d.text}` } });\n  }\n}\nreturn out;"
       }
     },
     {

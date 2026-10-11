@@ -18,7 +18,7 @@ from app.models import ExamResult, RadiographReading, User
 from app.schemas import iso
 from app.services import storage
 
-log = logging.getLogger("ward.radiology")
+log = logging.getLogger("medora.radiology")
 
 
 def is_radiograph(code: str, content_type: str) -> bool:

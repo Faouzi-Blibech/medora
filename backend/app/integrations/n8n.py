@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 
-log = logging.getLogger("ward.n8n")
+log = logging.getLogger("medora.n8n")
 
 
 def _post(event: str, data: dict) -> None:

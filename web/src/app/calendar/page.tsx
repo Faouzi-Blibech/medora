@@ -4,7 +4,7 @@ import { FullCalendarPage } from "@/components/calendar/FullCalendarPage";
 
 export async function generateMetadata() {
   const { t } = await getT();
-  return { title: `${t("calendar.title")} · Ward` };
+  return { title: `${t("calendar.title")} · Medora` };
 }
 
 export default function Page() {
