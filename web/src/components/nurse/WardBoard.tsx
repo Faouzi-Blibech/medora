@@ -4,6 +4,7 @@
 // first), the alerts panel (a drawer on tablet), the red call banner (desktop) and the
 // critical-alert toast (tablet).
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LiveBanner } from "@/components/LiveBanner";
 import { ErrorCard } from "@/components/shared/ErrorCard";
@@ -46,12 +47,17 @@ export function WardBoard() {
   const [muted, setMuted] = useState<string | null>(null);
   const muteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const router = useRouter();
   const load = useCallback(() => {
     setFailed(false);
     getWard()
-      .then((list) => setBeds(boardOrder(list)))
+      .then((list) => {
+        // A department nurse (Laboratory, Imaging) has no beds: their first page is the exam worklist.
+        if (!USE_MOCKS && !list.some((b) => b.patient)) router.replace("/nurse/exams");
+        else setBeds(boardOrder(list));
+      })
       .catch(() => setFailed(true));
-  }, []);
+  }, [router]);
 
   useEffect(load, [load]);
   useEffect(() => () => {
