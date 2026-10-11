@@ -1,0 +1,255 @@
+/* Admin / Pilot impact: cards grouped by theme, same tile language as the dashboard KPIs. */
+.head {
+  flex-wrap: wrap;
+}
+
+.meta {
+  font-size: 14px;
+  color: var(--faint);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.segment {
+  display: flex;
+  padding: 4px;
+  background: var(--segment);
+  border-radius: 10px;
+  gap: 4px;
+}
+
+.segBtn {
+  min-height: 36px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  font: 600 14px/1 var(--sans);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.segOn {
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: var(--shadow-segment);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.h3 {
+  margin: 0;
+  font: 600 22px/1.2 var(--serif);
+  color: var(--ink);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 20px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.cardOff {
+  background: var(--canvas);
+  border-style: dashed;
+  border-color: var(--line-strong);
+}
+
+.label {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.valueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--ink);
+}
+
+.value {
+  font: 600 42px/1 var(--serif);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.unit {
+  font-size: 17px;
+  color: var(--muted);
+}
+
+.empty,
+.off {
+  font: 600 20px/1.2 var(--serif);
+  color: var(--faint);
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+}
+
+.off {
+  color: var(--muted);
+}
+
+.trend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.good {
+  color: var(--news-normal-fg);
+  background: var(--news-normal-bg);
+}
+
+.bad {
+  color: var(--news-crit-fg);
+  background: var(--news-crit-bg);
+}
+
+.flat {
+  color: var(--text);
+  background: var(--chip);
+}
+
+.was {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--line-soft);
+  gap: 2px;
+}
+
+.seg {
+  flex-basis: 0;
+  min-width: 2px;
+}
+
+.parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.part {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.part b {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+.seg_low,
+.seg_reviewed {
+  background: var(--news-normal-edge);
+}
+
+.seg_medium {
+  background: var(--news-low-edge);
+}
+
+.seg_high {
+  background: var(--news-high-edge);
+}
+
+.seg_critical {
+  background: var(--news-crit-edge);
+}
+
+.seg_manual,
+.seg_pending {
+  background: var(--faint);
+}
+
+.seg_simulator {
+  background: var(--teal-bright);
+}
+
+.seg_device {
+  background: var(--teal);
+}
+
+.def {
+  margin: auto 0 0;
+  padding-top: 4px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.context {
+  color: var(--faint);
+}
+
+.skel {
+  height: 90px;
+  border-radius: 8px;
+}
+
+.honesty {
+  margin: 8px 0 0;
+  padding: 14px 18px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--warn-ink);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  border-radius: 10px;
+}
+
+@media (max-width: 760px) {
+  .controls {
+    flex-wrap: wrap;
+  }
+}
