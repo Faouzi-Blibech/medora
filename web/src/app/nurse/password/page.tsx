@@ -1,5 +1,5 @@
-import { ChangePasswordPage } from "@/components/auth/ChangePasswordPage";
+import { redirect } from "next/navigation";
 
 export default function PasswordPage() {
-  return <ChangePasswordPage />;
+  redirect("/nurse/settings");
 }

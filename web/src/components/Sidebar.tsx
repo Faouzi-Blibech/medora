@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { useT } from "@/i18n/I18nProvider";
 import type { Key } from "@/i18n/messages";
 import { LanguageSwitcher } from "./LanguageSwitcher";
-import { LogoutButton } from "./LogoutButton";
 import { getHealthEvents } from "@/lib/api";
 import { addDays, badgeCount, todayIso, weatherEvents } from "@/lib/healthCalendar";
 import { loadHealthWatch } from "@/components/calendar/useHealthEvents";
@@ -47,7 +46,7 @@ export const NAV: Record<StaffRole, NavItem[]> = {
     { key: "assistant", label: "shared.navAssistant", href: "/doctor/assistant" },
     { key: "team", label: "accounts.navTeam", href: "/doctor/team" },
     { key: "calendar", label: "calendar.nav", href: "/doctor/calendar", hot: false },
-    { key: "password", label: "auth.navPassword", href: "/doctor/password" },
+    { key: "settings", label: "auth.navSettings", href: "/doctor/settings" },
   ],
   nurse: [
     { key: "board", label: "shared.navWardBoard", href: "/nurse", count: NAV_COUNTS.nurse.board },
@@ -57,7 +56,7 @@ export const NAV: Record<StaffRole, NavItem[]> = {
     { key: "patients", label: "shared.navPatients", href: "/nurse/patients", count: NAV_COUNTS.nurse.patients },
     { key: "assistant", label: "shared.navAssistant", href: "/nurse/assistant" },
     { key: "calendar", label: "calendar.nav", href: "/nurse/calendar", hot: false },
-    { key: "password", label: "auth.navPassword", href: "/nurse/password" },
+    { key: "settings", label: "auth.navSettings", href: "/nurse/settings" },
   ],
   admin: [
     { key: "dashboard", label: "shared.navDashboard", href: "/admin", count: NAV_COUNTS.admin.dashboard },
@@ -67,7 +66,7 @@ export const NAV: Record<StaffRole, NavItem[]> = {
     { key: "pending", label: "accounts.navPending", href: "/admin/pending" },
     { key: "patients", label: "accounts.navPatientAccess", href: "/admin/patients" },
     { key: "calendar", label: "calendar.nav", href: "/admin/calendar", hot: false },
-    { key: "password", label: "auth.navPassword", href: "/admin/password" },
+    { key: "settings", label: "auth.navSettings", href: "/admin/settings" },
   ],
 };
 
@@ -170,14 +169,13 @@ export function Sidebar({ role, active, live = true, counts }: SidebarProps) {
           </span>
         )}
         <LanguageSwitcher tone="dark" compact />
-        <LogoutButton className={styles.logout} />
-        <div className={styles.user}>
+        <Link href={`/${role}/settings`} className={styles.user} title={t("auth.navSettings")}>
           <span className={styles.avatar}>{u.ini}</span>
           <div className={styles.who}>
             <span className={styles.userName}>{u.name}</span>
             <span className={styles.userSub}>{u.sub}</span>
           </div>
-        </div>
+        </Link>
       </div>
     </div>
   );
