@@ -20,7 +20,7 @@ from app.services import storage
 ASSETS = Path(__file__).parent / "ai" / "assets" / "radiographs"
 DEMO = [
     {"n": 1, "patient": "p-0001", "code": "chest_xray", "label": "Chest X-ray", "file": "chest_pa_normal.jpg"},
-    {"n": 2, "patient": "p-0002", "code": "chest_xray", "label": "Chest X-ray", "file": "chest_lobar_pneumonia.jpg"},
+    {"n": 2, "patient": "p-0002", "code": "chest_xray", "label": "Chest X-ray", "file": "chest_pleural_effusion.jpg"},
     {"n": 3, "patient": "p-0003", "code": "xray", "label": "X-ray — right foot", "file": "foot_dp_normal.jpg"},
     {"n": 4, "patient": "p-0004", "code": "xray_outside", "label": "Outside X-ray — wrist", "file": "wrist_barton_fracture.jpg"},
     {"n": 5, "patient": "p-0005", "code": "xray", "label": "X-ray — hip", "file": "hip_prosthesis_ap.jpg"},

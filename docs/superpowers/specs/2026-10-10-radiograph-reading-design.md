@@ -26,7 +26,7 @@ A doctor must review it." The pitch never claims diagnostic accuracy.
 | Live update | Web polls the reading every 4 s while `queued`/`running` (the web app has no WebSocket client in real mode yet). The worker still publishes a `radiograph_reading` WS frame for later clients |
 | Language | Draft written in `RADIOLOGY_REPORT_LANG` (default `fr`; `en` supported) |
 | Who sees what | Doctor with result access: full draft, edit, confirm. Nurse with result access: status only. Patient and admin: nothing new |
-| Demo images | 6 CC0 teaching radiographs by Mikael Häggström (Wikimedia Commons), attached to synthetic patients p-0001…p-0006 by an idempotent seed step, credited in `CREDITS.md` |
+| Demo images | 6 teaching radiographs from Wikimedia Commons (5 CC0 by Mikael Häggström, 1 CC BY-SA by Sara Nabih), attached to synthetic patients p-0001…p-0006 by an idempotent seed step, credited in `CREDITS.md`. See "Model evaluation (2026-10-11)" |
 
 ## Data (data-model → 1.8, migration `0008_radiograph_readings`)
 
@@ -111,6 +111,28 @@ unreadable bytes → `failed`; EXIF removed and size capped; payload has the ima
 claim / recover / tick; permissions (doctor vs nurse vs patient/admin); confirm copies the text; outside upload;
 enqueue only for radiograph codes and image types; seed idempotent with fake storage. Manual smoke: real
 `qwen3-vl:4b` on the 6 demo images (time per image recorded). Web: typecheck, build, browser check in mock mode.
+
+## Model evaluation (2026-10-11)
+
+We ran the 6 demo images through the real pipeline (`python -m app.ai.radiology <image> <hint>`) on the demo laptop.
+
+| Image (truth) | qwen3-vl:8b-instruct | medgemma:4b |
+|---|---|---|
+| Normal chest | normal | normal, plus 5 "low" conditions |
+| Lobar pneumonia | **normal (miss)** | pneumonia listed "medium", but the impression said "no abnormality" |
+| Normal foot | normal | normal |
+| Wrist fracture (Barton, 319x612 px) | **normal (miss)** | **no fracture (miss)** |
+| Hip prosthesis | prosthesis, well placed | prosthesis (high) |
+| Cervical spine | no fracture | described lungs and the heart on a neck X-ray (wrong region) |
+
+- Adding a clinical indication to the request ("fever, cough, rule out pneumonia") did not help either model.
+- **Decision 1:** keep the default model as is. MedGemma 4B was not better overall, and it hallucinated another body region.
+- **Decision 2: a draft with no finding never reads "normal".** `guard_normal` in `app/ai/radiology.py` applies when the model gives no condition with medium or high likelihood and no urgent flag. The impression then becomes "Aucune anomalie détectée par l'IA. Cela n'exclut pas une anomalie : lecture médicale requise." A small model that sees nothing has not shown that the image is normal.
+- **Decision 3: the demo chest abnormality is a clear unilateral pleural effusion** (`chest_pleural_effusion.jpg`), replacing the lobar-pneumonia image.
+  - qwen3-vl reads it as a right-sided opacity, with pneumonia and pleural effusion both "medium".
+  - We tested 6 Commons chest images and kept the one the model reads for real. Nothing is hardcoded.
+  - The wrist fracture stays in the demo as the "the doctor reads the image and corrects the AI draft" case. None of the 5 displaced-fracture images we tried was detected.
+- **Honest framing:** these are 6 teaching images, not an evaluation. The AI drafts the report structure; it is not a detector. Subtle findings are exactly where the doctor's reading matters.
 
 ## Out of scope
 
